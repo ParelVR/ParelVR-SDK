@@ -65,6 +65,7 @@ namespace ParelVR.SDK.Core.ControlPanel
         private TextField _totpField;
         private Button _totpCancelButton;
         private string _pendingTotpToken;
+        private Label _loginServerLabel;
 
         // ---- Settings tab ---------------------------------------------------------------------
         private enum SettingsSection { ProjectType, Preferences }
@@ -360,6 +361,10 @@ namespace ParelVR.SDK.Core.ControlPanel
 
             if (_submitButton != null) _submitButton.clicked += OnLoginSubmit;
             if (_totpCancelButton != null) _totpCancelButton.clicked += CancelTotp;
+            LinkTo(_loginScreen.Q<Label>("login-link-website"), "https://parelvr.parelllc.com/Home");
+            LinkTo(_loginScreen.Q<Label>("login-link-docs"), "https://docs-parelvr.parelllc.com/");
+            LinkTo(_loginScreen.Q<Label>("login-link-support"), "https://support-parelvr.parelllc.com/");
+            _loginServerLabel = _loginScreen.Q<Label>("login-server");
             if (_identifierField != null) _identifierField.RegisterCallback<KeyDownEvent>(OnLoginFieldKeyDown);
             if (_passwordField != null) _passwordField.RegisterCallback<KeyDownEvent>(OnLoginFieldKeyDown);
             if (_totpField != null) _totpField.RegisterCallback<KeyDownEvent>(OnLoginFieldKeyDown);
@@ -376,6 +381,7 @@ namespace ParelVR.SDK.Core.ControlPanel
             _accountCard.style.display = loggedIn ? DisplayStyle.Flex : DisplayStyle.None;
             if (!loggedIn)
             {
+                if (_loginServerLabel != null) _loginServerLabel.text = "Server: " + ParelEnvironment.Current + "\n" + ParelEnvironment.BaseUrl;
                 CancelTotp();
                 return;
             }
@@ -407,6 +413,13 @@ namespace ParelVR.SDK.Core.ControlPanel
             website.style.marginLeft = 6;
             buttons.Add(website);
             card.Add(buttons);
+        }
+
+        private static void LinkTo(Label link, string url)
+        {
+            if (link == null) return;
+            link.pickingMode = PickingMode.Position;
+            link.RegisterCallback<ClickEvent>(_ => Application.OpenURL(url));
         }
 
         private static void AddAccountRow(VisualElement card, string label, string value)

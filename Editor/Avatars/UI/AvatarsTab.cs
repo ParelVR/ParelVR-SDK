@@ -1508,10 +1508,10 @@ namespace ParelVR.SDK.Avatars.UI
             frame.style.height = height;
             frame.style.flexShrink = 0;
             frame.style.backgroundColor = FrameColor;
-            frame.style.borderTopLeftRadius = 6;
-            frame.style.borderTopRightRadius = 6;
-            frame.style.borderBottomLeftRadius = 6;
-            frame.style.borderBottomRightRadius = 6;
+            frame.style.borderTopLeftRadius = 0;
+            frame.style.borderTopRightRadius = 0;
+            frame.style.borderBottomLeftRadius = 0;
+            frame.style.borderBottomRightRadius = 0;
             frame.style.overflow = Overflow.Hidden;
 
             // The note sits underneath the image, so it shows only while there's no picture.

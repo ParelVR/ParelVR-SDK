@@ -1,39 +1,61 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
   <ui:VisualElement name="login-wrap" class="bk-login-wrap">
-    <ui:VisualElement name="login-card" class="bk-login-card">
-      <ui:VisualElement class="bk-brandline">
+    <ui:VisualElement name="login-card" class="bk-login-panel">
+
+      <!-- Left: what you are signing in to -->
+      <ui:VisualElement class="bk-login-brand">
         <ui:Image name="login-logo" />
-        <ui:Label text="PARELVR SDK" />
+        <ui:Label text="ParelVR SDK" class="bk-login-brand-name" />
+        <ui:Label text="Build and publish avatars, worlds and Volt world scripts for ParelVR." class="bk-login-brand-text" />
+        <ui:VisualElement class="bk-login-points">
+          <ui:Label text="Builder: validate, build and publish from one page" class="bk-login-point" />
+          <ui:Label text="Content Manager: everything you have uploaded" class="bk-login-point" />
+          <ui:Label text="Volt: compile, test and debug world scripts" class="bk-login-point" />
+        </ui:VisualElement>
+        <ui:VisualElement class="bk-spacer" />
+        <ui:Label name="login-server" text="" class="bk-login-server" />
       </ui:VisualElement>
-      <ui:Label name="login-title" text="Sign in to ParelVR SDK" class="bk-login-title" />
-      <ui:Label name="login-sub" text="Use your ParelVR account -- the same one you play with." class="bk-login-sub" />
 
-      <ui:VisualElement name="login-error" class="bk-error-banner">
-        <ui:Label name="login-error-text" text="" />
-      </ui:VisualElement>
+      <!-- Right: the form -->
+      <ui:VisualElement class="bk-login-form">
+        <ui:Label name="login-title" text="Sign in" class="bk-login-title" />
+        <ui:Label name="login-sub" text="Use your ParelVR account, the same one you play with." class="bk-login-sub" />
 
-      <ui:VisualElement name="login-form">
-        <ui:VisualElement class="bk-field">
-          <ui:Label text="Username or email" class="bk-label" />
-          <ui:TextField name="login-identifier" class="bk-input" />
+        <ui:VisualElement name="login-error" class="bk-error-banner">
+          <ui:Label name="login-error-text" text="" />
         </ui:VisualElement>
 
-        <ui:VisualElement class="bk-field">
-          <ui:Label text="Password" class="bk-label" />
-          <ui:TextField name="login-password" password="true" class="bk-input" />
+        <ui:VisualElement name="login-form">
+          <ui:VisualElement class="bk-field">
+            <ui:Label text="Username or email" class="bk-label" />
+            <ui:TextField name="login-identifier" class="bk-input" />
+          </ui:VisualElement>
+
+          <ui:VisualElement class="bk-field">
+            <ui:Label text="Password" class="bk-label" />
+            <ui:TextField name="login-password" password="true" class="bk-input" />
+          </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="totp-form" style="display: none;">
+          <ui:VisualElement class="bk-field">
+            <ui:Label text="Authenticator code (6 digits)" class="bk-label" />
+            <ui:TextField name="login-totp" class="bk-input" />
+          </ui:VisualElement>
+          <ui:Button name="totp-cancel" text="Back" class="bk-btn" style="margin-left: 0; margin-right: 0;" />
+        </ui:VisualElement>
+
+        <ui:Button name="login-submit" text="Sign In" class="bk-btn bk-btn-primary bk-login-submit" />
+        <ui:Label name="login-status" text="" class="bk-hint" style="margin-top: 8px;" />
+
+        <ui:VisualElement class="bk-spacer" />
+        <ui:VisualElement class="bk-login-links">
+          <ui:Label name="login-link-website" text="ParelVR website" class="bk-link" />
+          <ui:Label name="login-link-docs" text="Documentation" class="bk-link" />
+          <ui:Label name="login-link-support" text="Support" class="bk-link" />
         </ui:VisualElement>
       </ui:VisualElement>
 
-      <ui:VisualElement name="totp-form" style="display: none;">
-        <ui:VisualElement class="bk-field">
-          <ui:Label text="Authenticator Code (6 digits)" class="bk-label" />
-          <ui:TextField name="login-totp" class="bk-input" />
-        </ui:VisualElement>
-        <ui:Button name="totp-cancel" text="Cancel" class="bk-btn" style="width: 100%; margin-top: 6px;" />
-      </ui:VisualElement>
-
-      <ui:Button name="login-submit" text="Sign In" class="bk-btn bk-btn-primary" style="width: 100%; margin-top: 6px;" />
-      <ui:Label name="login-status" text="" class="bk-hint" style="-unity-text-align: middle-center; margin-top: 10px;" />
     </ui:VisualElement>
   </ui:VisualElement>
 </ui:UXML>
