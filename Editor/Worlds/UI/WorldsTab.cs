@@ -269,11 +269,9 @@ namespace ParelVR.SDK.Worlds.UI
             {
                 var pill = new VisualElement();
                 pill.style.flexDirection = FlexDirection.Row;
-                pill.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
-                pill.style.borderTopLeftRadius = 4;
-                pill.style.borderTopRightRadius = 4;
-                pill.style.borderBottomLeftRadius = 4;
-                pill.style.borderBottomRightRadius = 4;
+                pill.style.alignItems = Align.Center;
+                pill.AddToClassList("bk-pill");
+                pill.AddToClassList("bk-pill-neutral");
                 pill.style.paddingLeft = 8;
                 pill.style.paddingRight = 4;
                 pill.style.paddingTop = 2;
@@ -282,7 +280,6 @@ namespace ParelVR.SDK.Worlds.UI
                 pill.style.marginBottom = 4;
 
                 var label = new Label(tag);
-                label.style.color = Color.white;
                 label.style.fontSize = 11;
                 pill.Add(label);
 

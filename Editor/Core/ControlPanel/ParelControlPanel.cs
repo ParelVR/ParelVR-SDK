@@ -381,13 +381,14 @@ namespace ParelVR.SDK.Core.ControlPanel
             }
 
             _accountCard.Clear();
-            var heading = new Label("Account");
-            heading.AddToClassList("bk-heading");
-            _accountCard.Add(heading);
-
             var card = new VisualElement();
             card.AddToClassList("bk-card");
+            card.style.maxWidth = 760;
             _accountCard.Add(card);
+
+            var heading = new Label("Account");
+            heading.AddToClassList("bk-card-title");
+            card.Add(heading);
 
             AddAccountRow(card, "Signed in as", string.IsNullOrEmpty(ParelSession.DisplayName) ? ParelSession.Username : ParelSession.DisplayName);
             if (!string.IsNullOrEmpty(ParelSession.Username)) AddAccountRow(card, "Username", ParelSession.Username);
@@ -503,28 +504,10 @@ namespace ParelVR.SDK.Core.ControlPanel
 
         private void BuildSettingsTab(VisualElement container)
         {
-            var layout = new VisualElement();
-            layout.AddToClassList("bk-row");
-            layout.style.alignItems = Align.FlexStart;
-            layout.style.flexGrow = 1;
-            container.Add(layout);
-
-            var sidebar = new VisualElement();
-            sidebar.AddToClassList("bk-settings-sidebar");
-            layout.Add(sidebar);
-            _navProjectType = new Label("Project Type");
-            _navProjectType.AddToClassList("bk-nav-item");
-            _navProjectType.RegisterCallback<ClickEvent>(_ => SelectSettingsSection(SettingsSection.ProjectType));
-            sidebar.Add(_navProjectType);
-            _navPreferences = new Label("Preferences");
-            _navPreferences.AddToClassList("bk-nav-item");
-            _navPreferences.RegisterCallback<ClickEvent>(_ => SelectSettingsSection(SettingsSection.Preferences));
-            sidebar.Add(_navPreferences);
-
+            // One column of titled cards, every setting visible at once.
             _settingsContent = new VisualElement();
-            _settingsContent.style.flexGrow = 1;
-            _settingsContent.style.paddingLeft = 16;
-            layout.Add(_settingsContent);
+            _settingsContent.AddToClassList("bk-settings-column");
+            container.Add(_settingsContent);
         }
 
         private void SelectSettingsSection(SettingsSection section)
@@ -536,24 +519,20 @@ namespace ParelVR.SDK.Core.ControlPanel
         private void RenderSettingsSection()
         {
             if (_settingsContent == null) return;
-            if (_navProjectType != null) _navProjectType.EnableInClassList("bk-nav-item-active", _settingsSection == SettingsSection.ProjectType);
-            if (_navPreferences != null) _navPreferences.EnableInClassList("bk-nav-item-active", _settingsSection == SettingsSection.Preferences);
-
-            if (_settingsSection == SettingsSection.ProjectType) BuildProjectTypeContent();
-            else BuildPreferencesContent();
+            _settingsContent.Clear();
+            BuildProjectTypeContent();
+            BuildPreferencesContent();
         }
 
         private void BuildPreferencesContent()
         {
-            _settingsContent.Clear();
-
-            var heading = new Label("Preferences");
-            heading.AddToClassList("bk-heading");
-            _settingsContent.Add(heading);
-
             var card = new VisualElement();
             card.AddToClassList("bk-card");
             _settingsContent.Add(card);
+
+            var heading = new Label("Preferences");
+            heading.AddToClassList("bk-card-title");
+            card.Add(heading);
 
             var row = new VisualElement();
             row.AddToClassList("bk-row");
@@ -701,22 +680,26 @@ namespace ParelVR.SDK.Core.ControlPanel
 
         private void BuildProjectTypeContent()
         {
-            _settingsContent.Clear();
+            var card = new VisualElement();
+            card.AddToClassList("bk-card");
+            _settingsContent.Add(card);
 
             var heading = new Label("Project Type");
-            heading.AddToClassList("bk-heading");
-            _settingsContent.Add(heading);
+            heading.AddToClassList("bk-card-title");
+            card.Add(heading);
 
             var sub = new Label("Choose what this Unity project is being developed for. ParelVR SDK only enables the tools for the selected type.");
-            sub.AddToClassList("bk-subheading");
-            _settingsContent.Add(sub);
+            sub.AddToClassList("bk-hint");
+            sub.style.marginTop = 0;
+            sub.style.marginBottom = 10;
+            card.Add(sub);
 
-            _settingsContent.Add(BuildModeOption(
+            card.Add(BuildModeOption(
                 ParelProjectType.World,
                 "World Project",
                 "SDK will enable World development tools and disable Avatar development systems."));
 
-            _settingsContent.Add(BuildModeOption(
+            card.Add(BuildModeOption(
                 ParelProjectType.Avatar,
                 "Avatar Project",
                 "SDK will enable Avatar development tools and disable World development systems."));

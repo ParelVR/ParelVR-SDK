@@ -1,75 +1,95 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <ui:VisualElement class="bk-body" style="flex-grow: 1;">
-        <ui:Label text="World Publishing" class="bk-heading"/>
-        <ui:VisualElement name="setup-container" class="bk-card" style="display: none; margin-top: 16px;">
-            <ui:Label text="No World Descriptor Found" class="bk-label" style="-unity-font-style: bold;"/>
-            <ui:Label text="Your scene needs a ParelWorldDescriptor component to be published as a world. Click below to add one automatically." class="bk-hint" style="white-space: normal; margin-top: 4px; margin-bottom: 12px;"/>
-            <ui:Button name="btn-setup-scene" text="Setup Scene for World Publishing" class="bk-btn bk-btn-primary"/>
+    <ui:VisualElement style="flex-grow: 1;">
+        <!-- The scene is not a world yet -->
+        <ui:VisualElement name="setup-container" class="bk-card" style="display: none;">
+            <ui:Label text="Set Up This Scene" class="bk-card-title"/>
+            <ui:Label text="Your scene needs a World Descriptor and a Spawn Point to be published as a world. Click below to add them automatically." class="bk-hint" style="margin-top: 0; margin-bottom: 12px;"/>
+            <ui:Button name="btn-setup-scene" text="Set Up Scene for World Publishing" class="bk-btn bk-btn-primary" style="align-self: flex-start;"/>
         </ui:VisualElement>
+
         <ui:VisualElement name="publish-container" style="display: none; flex-grow: 1;">
-            <ui:VisualElement class="bk-card" style="margin-top: 16px;">
-                <ui:Label name="publish-title" text="Publish New World" class="bk-label" style="-unity-font-style: bold; font-size: 14px;"/>
-                <ui:Label name="blueprint-id-label" text="Blueprint ID: None" class="bk-hint" style="margin-top: 4px; margin-bottom: 12px;"/>
+            <!-- World Info -->
+            <ui:VisualElement class="bk-card">
+                <ui:Label text="World Info" class="bk-card-title"/>
+                <ui:Label name="publish-title" text="Publish New World" class="bk-label" style="font-size: 13px; margin-bottom: 0;"/>
+                <ui:Label name="blueprint-id-label" text="Blueprint ID: None" class="bk-hint" style="margin-top: 2px; margin-bottom: 10px;"/>
+
                 <ui:Label text="World Name *" class="bk-label"/>
                 <ui:TextField name="world-name" class="bk-input"/>
-                <ui:Label text="Description" class="bk-label" style="margin-top: 8px;"/>
+
+                <ui:Label text="Description" class="bk-label" style="margin-top: 10px;"/>
                 <ui:TextField name="world-desc" multiline="true" class="bk-input" style="height: 60px;"/>
-                <!-- Capacities -->
-                <ui:VisualElement style="flex-direction: row; margin-top: 12px;">
-                    <ui:VisualElement style="flex-grow: 1; margin-right: 8px;">
+
+                <ui:VisualElement style="flex-direction: row; margin-top: 10px;">
+                    <ui:VisualElement style="flex-grow: 1; flex-basis: 0; margin-right: 8px;">
                         <ui:Label text="Recommended Capacity" class="bk-label"/>
                         <ui:IntegerField name="world-rec-cap" class="bk-input"/>
                     </ui:VisualElement>
-                    <ui:VisualElement style="flex-grow: 1;">
+                    <ui:VisualElement style="flex-grow: 1; flex-basis: 0;">
                         <ui:Label text="Maximum Capacity" class="bk-label"/>
                         <ui:IntegerField name="world-max-cap" class="bk-input"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <!-- Debugging -->
-                <ui:VisualElement style="flex-direction: row; margin-top: 12px; align-items: center;">
-                    <ui:Toggle name="world-allow-debug"/>
-                    <ui:Label text="Allow Debugging" class="bk-label" style="margin-left: 4px;"/>
-                </ui:VisualElement>
-                <!-- Tags -->
-                <ui:Label text="Tags" class="bk-label" style="margin-top: 12px;"/>
+
+                <ui:Label text="Tags" class="bk-label" style="margin-top: 10px;"/>
                 <ui:VisualElement style="flex-direction: row;">
-                    <ui:TextField name="world-tag-input" class="bk-input" style="flex-grow: 1; margin-right: 8px;"/>
+                    <ui:TextField name="world-tag-input" class="bk-input" style="flex-grow: 1; margin-right: 6px;"/>
                     <ui:Button name="btn-add-tag" text="Add Tag" class="bk-btn"/>
                 </ui:VisualElement>
-                <ui:VisualElement name="tags-container" style="flex-direction: row; flex-wrap: wrap; margin-top: 4px;"/>
-                <!-- Content Warnings -->
-                <ui:Foldout name="world-warnings-foldout" text="Content Warnings" style="margin-top: 12px; -unity-font-style: bold;">
-                    <ui:VisualElement style="margin-left: 16px; margin-top: 4px;">
-                        <ui:Toggle name="warning-sexual" text="Sexually Suggestive"/>
-                        <ui:Toggle name="warning-adult" text="Adult Languages and Themes"/>
-                        <ui:Toggle name="warning-violence" text="Graphic Violence"/>
-                        <ui:Toggle name="warning-gore" text="Excessive Gore"/>
-                        <ui:Toggle name="warning-horror" text="Extreme Horror"/>
-                    </ui:VisualElement>
+                <ui:VisualElement name="tags-container" style="flex-direction: row; flex-wrap: wrap; margin-top: 6px;"/>
+
+                <ui:Foldout name="world-warnings-foldout" text="Content Warnings" value="false" style="margin-top: 8px;">
+                    <ui:Toggle name="warning-sexual" text="Sexually Suggestive"/>
+                    <ui:Toggle name="warning-adult" text="Adult Languages and Themes"/>
+                    <ui:Toggle name="warning-violence" text="Graphic Violence"/>
+                    <ui:Toggle name="warning-gore" text="Excessive Gore"/>
+                    <ui:Toggle name="warning-horror" text="Extreme Horror"/>
                 </ui:Foldout>
-                <ui:Label text="Thumbnail" class="bk-label" style="margin-top: 12px;"/>
-                <ui:VisualElement style="flex-direction: row; margin-top: 4px;">
-                    <ui:VisualElement style="width: 160px; height: 120px; background-color: rgb(34, 34, 34); border-width: 1px; border-color: rgb(85, 85, 85);">
-                        <ui:Image name="thumbnail-preview" style="flex-grow: 1;"/>
-                        <ui:VisualElement style="flex-direction: row; position: absolute; bottom: 0; left: 0; right: 0;">
-                            <ui:Button name="btn-capture-thumbnail" text="Capture" class="bk-btn" style="flex-grow: 1; height: 24px; font-size: 10px; margin: 0; opacity: 0.9;"/>
-                            <ui:Button name="btn-select-image" text="Select" class="bk-btn" style="flex-grow: 1; height: 24px; font-size: 10px; margin: 0; opacity: 0.9; border-left-width: 1px;"/>
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                    <ui:Label text="Capture a photo of your current Scene View or select an image from your computer." class="bk-hint" style="flex-shrink: 1; white-space: normal; margin-left: 12px; margin-top: 4px;"/>
+
+                <ui:VisualElement style="flex-direction: row; margin-top: 8px; align-items: center;">
+                    <ui:Toggle name="world-allow-debug"/>
+                    <ui:Label text="Allow Debugging" style="margin-left: 4px;"/>
                 </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="bk-card" style="margin-top: 16px;">
-                <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 36px; font-size: 14px;"/>
+
+            <!-- Thumbnail -->
+            <ui:VisualElement class="bk-card">
+                <ui:Label text="Thumbnail" class="bk-card-title"/>
+                <ui:VisualElement style="flex-direction: row;">
+                    <ui:VisualElement style="width: 224px; flex-shrink: 0;">
+                        <ui:VisualElement class="bk-thumb-frame" style="width: 224px; height: 168px;">
+                            <ui:Image name="thumbnail-preview" style="flex-grow: 1;"/>
+                        </ui:VisualElement>
+                        <ui:VisualElement style="flex-direction: row; margin-top: 6px;">
+                            <ui:Button name="btn-capture-thumbnail" text="Scene View" class="bk-btn" style="flex-grow: 1; margin-left: 0;"/>
+                            <ui:Button name="btn-select-image" text="File..." class="bk-btn" style="flex-grow: 1;"/>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Label text="Scene View captures what your Scene View camera is looking at. File picks an image from your computer. The thumbnail is uploaded with your next publish." class="bk-hint" style="flex-shrink: 1; margin-left: 14px; margin-top: 0;"/>
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement name="validation-errors-container" class="bk-card" style="display: none; margin-top: 16px;">
-                <ui:Label text="Validation Failed. Please fix these issues before building:" class="bk-label" style="color: rgb(229, 115, 115);"/>
-                <ui:ScrollView name="validation-errors-list" style="max-height: 150px; margin-top: 8px;"/>
+
+            <!-- Validations -->
+            <ui:VisualElement class="bk-card">
+                <ui:Label text="Validations" class="bk-card-title"/>
+                <ui:Label text="The scene is checked when you build. Anything that has to be fixed first is listed here." class="bk-hint" style="margin-top: 0;"/>
+                <ui:VisualElement name="validation-errors-container" style="display: none; margin-top: 8px;">
+                    <ui:Label text="Fix these before building:" class="bk-label bk-text-bad"/>
+                    <ui:ScrollView name="validation-errors-list" style="max-height: 180px; margin-top: 4px;"/>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Build -->
+            <ui:VisualElement class="bk-card">
+                <ui:Label text="Build" class="bk-card-title"/>
+                <ui:Label text="Builds the world for Windows, with its Volt scripts, and uploads it to ParelVR." class="bk-hint" style="margin-top: 0; margin-bottom: 10px;"/>
+                <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 34px; font-size: 13px;"/>
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:VisualElement name="progress-container" class="bk-card" style="display: none; margin-top: 16px;">
-            <ui:Label text="Publishing..." class="bk-label" style="-unity-font-style: bold;"/>
-            <ui:Label name="progress-status" text="Starting..." class="bk-hint" style="margin-top: 8px;"/>
+
+        <ui:VisualElement name="progress-container" class="bk-card" style="display: none;">
+            <ui:Label text="Publishing" class="bk-card-title"/>
+            <ui:Label name="progress-status" text="Starting..." class="bk-hint" style="margin-top: 0;"/>
             <ui:ProgressBar name="progress-bar" value="0" high-value="100" style="margin-top: 8px;"/>
         </ui:VisualElement>
     </ui:VisualElement>

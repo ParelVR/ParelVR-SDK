@@ -17,10 +17,11 @@
     --bk-ink-faint: #555555;
     --bk-line: #A3A3A3;
     --bk-line-strong: #8C8C8C;
-    --bk-accent: #1F6FD6;
-    --bk-accent-hover: #185BB2;
-    --bk-accent-ink: #0F3F82;
-    --bk-accent-wash: #C4D8F2;
+    --bk-accent: #7C5CD6;
+    --bk-accent-hover: #6A4BC4;
+    --bk-accent-ink: #3F2A85;
+    --bk-accent-wash: #DCD3F3;
+    --bk-on-accent: #FFFFFF;
     --bk-good: #1F7A4D;
     --bk-good-wash: #CFE6D8;
     --bk-warn: #8A5D06;
@@ -40,10 +41,11 @@
     --bk-ink-faint: #8C8C8C;
     --bk-line: #1A1A1A;
     --bk-line-strong: #4A4A4A;
-    --bk-accent: #2F7FE0;
-    --bk-accent-hover: #4A93EC;
-    --bk-accent-ink: #D5E6FF;
-    --bk-accent-wash: #22364F;
+    --bk-accent: #B39DFF;
+    --bk-accent-hover: #C8B8FF;
+    --bk-accent-ink: #E3DAFF;
+    --bk-accent-wash: #3B3550;
+    --bk-on-accent: #1B1430;
     --bk-good: #5CC48E;
     --bk-good-wash: #1C3327;
     --bk-warn: #E3B04B;
@@ -128,6 +130,45 @@
     border-radius: 3px;
     padding: 14px;
     margin-bottom: 12px;
+}
+
+/* The title bar of a card: every section of a page is a card with one of these across its top. */
+.bk-card-title,
+.bk-card-titlebar {
+    margin: -14px -14px 12px -14px;
+    padding: 6px 12px;
+    background-color: var(--bk-header);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--bk-line);
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--bk-ink);
+}
+
+.bk-card-titlebar {
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 6px 3px 12px;
+}
+
+.bk-card-titlebar > .bk-label {
+    margin-bottom: 0;
+    color: var(--bk-ink);
+}
+
+.bk-card-titlebar .bk-btn {
+    padding: 2px 10px;
+    -unity-font-style: normal;
+}
+
+.bk-thumb-frame {
+    background-color: var(--bk-field);
+    border-width: 1px;
+    border-color: var(--bk-line-strong);
+    border-radius: 2px;
+    overflow: hidden;
 }
 
 /* A compact card for the rows of a list (a credit role, a product, a tier). */
@@ -250,7 +291,7 @@
 .bk-btn-primary {
     background-color: var(--bk-accent);
     border-color: var(--bk-accent);
-    color: rgb(255, 255, 255);
+    color: var(--bk-on-accent);
 }
 
 .bk-btn-primary:hover {
@@ -502,6 +543,10 @@
 }
 
 /* ── Settings screen ───────────────────────────────────────────── */
+
+.bk-settings-column {
+    max-width: 760px;
+}
 
 .bk-settings-sidebar {
     width: 170px;

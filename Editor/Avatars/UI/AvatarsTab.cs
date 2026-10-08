@@ -256,7 +256,7 @@ namespace ParelVR.SDK.Avatars.UI
         {
             // ---- No avatar in the scene yet ------------------------------------------------------
             _setupCard = Card(page);
-            _setupCard.Add(Bold("No avatar in the scene"));
+            _setupCard.Add(Title("No Avatar in the Scene"));
             _setupCard.Add(Hint("Drag your avatar model into the scene (its Rig set to Humanoid), select it in the Hierarchy and click below. ParelVR adds a Parel Avatar Descriptor and fills in the view point, lip sync and blinking for you."));
             Button setup = new Button(SetUpSelectedObject) { text = "Set Up Selected Object as Avatar" };
             setup.AddToClassList("bk-btn");
@@ -325,7 +325,7 @@ namespace ParelVR.SDK.Avatars.UI
 
             // ---- Details --------------------------------------------------------------------------
             VisualElement details = Card(_builderBody);
-            details.Add(Bold("Details"));
+            details.Add(Title("Avatar Info"));
             details.Add(FieldLabel("Name *"));
             _nameField = new TextField { maxLength = 64 };
             _nameField.AddToClassList("bk-input");
@@ -385,6 +385,7 @@ namespace ParelVR.SDK.Avatars.UI
             // ---- Validations ------------------------------------------------------------------------
             VisualElement validation = Card(_builderBody);
             VisualElement validationHeader = Row();
+            validationHeader.AddToClassList("bk-card-titlebar");
             validationHeader.Add(Bold("Validations"));
             validationHeader.Add(Spacer());
             _fixAllButton = SmallButton("Auto Fix All", FixAll);
@@ -399,7 +400,7 @@ namespace ParelVR.SDK.Avatars.UI
 
             // ---- Build ------------------------------------------------------------------------------
             VisualElement build = Card(_builderBody);
-            build.Add(Bold("Build"));
+            build.Add(Title("Build"));
             bool androidAvailable = ParelAvatarBuilder.CanBuildFor(BuildTarget.Android);
             _androidToggle = new Toggle("Also publish an Android (Quest) build")
             {
@@ -1607,6 +1608,14 @@ namespace ParelVR.SDK.Avatars.UI
         {
             var label = new Label(text);
             label.AddToClassList("bk-label");
+            return label;
+        }
+
+        /// <summary>The title bar across the top of a card.</summary>
+        private static Label Title(string text)
+        {
+            var label = new Label(text);
+            label.AddToClassList("bk-card-title");
             return label;
         }
 
