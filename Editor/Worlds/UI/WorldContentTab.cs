@@ -162,6 +162,7 @@ namespace ParelVR.SDK.Worlds.UI
             actions.Add(ActionButton("Import World", () => _ = ImportAsync(world)));
             actions.Add(ActionButton("Copy ID", () => EditorGUIUtility.systemCopyBuffer = world.id));
             if (!inScene && descriptor != null) actions.Add(ActionButton("Use in This Scene", () => Attach(world, descriptor)));
+            if (inScene) actions.Add(ActionButton("Detach From Scene", () => Detach(world, descriptor)));
             Button delete = ActionButton("Delete", () => _ = DeleteAsync(world));
             delete.AddToClassList("bk-btn-danger");
             actions.Add(delete);
@@ -177,6 +178,20 @@ namespace ParelVR.SDK.Worlds.UI
                     "This scene already publishes to another world (" + descriptor.blueprintId + "). Point it at \"" + world.name + "\" instead?", "Use This World", "Cancel")) return;
             Undo.RecordObject(descriptor, "Set World Blueprint ID");
             descriptor.blueprintId = world.id;
+            EditorUtility.SetDirty(descriptor);
+            EditorSceneManager.MarkSceneDirty(descriptor.gameObject.scene);
+            Render();
+        }
+
+        /// <summary>Cuts the open scene loose from this world; the uploaded world itself is not changed.</summary>
+        private void Detach(WorldRecord world, ParelWorldDescriptor descriptor)
+        {
+            if (descriptor == null) return;
+            if (!EditorUtility.DisplayDialog("Detach Blueprint ID",
+                    "This scene will no longer be linked to \"" + world.name + "\". The uploaded world is not deleted or changed; " +
+                    "the next Build & Publish from this scene creates a new world.", "Detach", "Cancel")) return;
+            Undo.RecordObject(descriptor, "Detach Blueprint ID");
+            descriptor.blueprintId = string.Empty;
             EditorUtility.SetDirty(descriptor);
             EditorSceneManager.MarkSceneDirty(descriptor.gameObject.scene);
             Render();

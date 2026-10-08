@@ -33,6 +33,7 @@ namespace ParelVR.SDK.Worlds.UI
         private VisualElement _publishContainer;
         private Label _publishTitle;
         private Label _blueprintIdLabel;
+        private Button _btnDetachBlueprint;
         private TextField _worldName;
         private TextField _worldDesc;
         /// <summary>Every ParelVR lobby holds the same number of players; creators cannot change it.</summary>
@@ -93,6 +94,8 @@ namespace ParelVR.SDK.Worlds.UI
             _publishContainer = tree.Q<VisualElement>("publish-container");
             _publishTitle = tree.Q<Label>("publish-title");
             _blueprintIdLabel = tree.Q<Label>("blueprint-id-label");
+            _btnDetachBlueprint = tree.Q<Button>("btn-detach-blueprint");
+            if (_btnDetachBlueprint != null) _btnDetachBlueprint.clicked += DetachBlueprint;
             _worldName = tree.Q<TextField>("world-name");
             _worldDesc = tree.Q<TextField>("world-desc");
             
@@ -216,6 +219,8 @@ namespace ParelVR.SDK.Worlds.UI
                 // (e.g. switching scenes or first setup)
                 bool isNewDescriptor = (_currentDescriptor != newDescriptor);
                 _currentDescriptor = newDescriptor;
+                if (_btnDetachBlueprint != null)
+                    _btnDetachBlueprint.style.display = string.IsNullOrEmpty(newDescriptor.blueprintId) ? DisplayStyle.None : DisplayStyle.Flex;
                 ShowBuild(true);
                 if (isNewDescriptor)
                 {
@@ -261,6 +266,26 @@ namespace ParelVR.SDK.Worlds.UI
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Cuts the scene loose from the world it publishes to. The uploaded world is left as it is; the next
+        /// publish from this scene makes a new one. What is typed in the form stays.
+        /// </summary>
+        private void DetachBlueprint()
+        {
+            if (_currentDescriptor == null || string.IsNullOrEmpty(_currentDescriptor.blueprintId)) return;
+            if (!EditorUtility.DisplayDialog("Detach Blueprint ID",
+                    "This scene will no longer be linked to the world " + _currentDescriptor.blueprintId + ".\n\n" +
+                    "The uploaded world is not deleted or changed. The next Build & Publish from this scene creates a new world. " +
+                    "You can link the scene back from the Content Manager with Use in This Scene.",
+                    "Detach", "Cancel")) return;
+
+            Undo.RecordObject(_currentDescriptor, "Detach Blueprint ID");
+            _currentDescriptor.blueprintId = string.Empty;
+            EditorUtility.SetDirty(_currentDescriptor);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(_currentDescriptor.gameObject.scene);
+            RefreshState();
         }
 
         private void ShowBuild(bool show)

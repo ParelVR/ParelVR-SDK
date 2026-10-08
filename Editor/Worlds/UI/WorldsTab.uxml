@@ -13,7 +13,8 @@
                 <ui:VisualElement class="bk-prop">
                     <ui:Label name="publish-title" text="Publish New World" class="bk-prop-label" style="-unity-font-style: bold;"/>
                     <ui:VisualElement class="bk-prop-value">
-                        <ui:Label name="blueprint-id-label" text="Blueprint ID: None" class="bk-hint" style="margin-top: 4px;"/>
+                        <ui:Label name="blueprint-id-label" text="Blueprint ID: None" class="bk-hint" style="margin-top: 4px; flex-grow: 1; flex-shrink: 1;"/>
+                        <ui:Button name="btn-detach-blueprint" text="Detach Blueprint ID" class="bk-btn" style="display: none; margin-right: 0;"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
 

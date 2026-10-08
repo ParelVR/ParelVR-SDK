@@ -90,6 +90,7 @@ namespace ParelVR.SDK.Avatars.UI
         private Image _thumbImage;
         private Label _publishTitle;
         private Label _blueprintLabel;
+        private Button _detachButton;
         private VisualElement _statPills;
         private Label _statLine;
         private TextField _nameField;
@@ -314,6 +315,11 @@ namespace ParelVR.SDK.Avatars.UI
             summary.Add(_publishTitle);
             _blueprintLabel = Hint(string.Empty);
             summary.Add(_blueprintLabel);
+            _detachButton = SmallButton("Detach Blueprint ID", DetachBlueprint, false, 0);
+            _detachButton.style.alignSelf = Align.FlexStart;
+            _detachButton.style.marginTop = 4;
+            _detachButton.style.display = DisplayStyle.None;
+            summary.Add(_detachButton);
             _statPills = Row();
             _statPills.style.flexWrap = Wrap.Wrap;
             _statPills.style.marginTop = 10;
@@ -638,11 +644,32 @@ namespace ParelVR.SDK.Avatars.UI
             }
         }
 
+        /// <summary>
+        /// Cuts the avatar loose from the one it publishes to. The uploaded avatar is left as it is; the next
+        /// publish makes a new one. What is typed in the form stays.
+        /// </summary>
+        private void DetachBlueprint()
+        {
+            if (_current == null || string.IsNullOrEmpty(_current.BlueprintId)) return;
+            if (!EditorUtility.DisplayDialog("Detach Blueprint ID",
+                    "This avatar will no longer be linked to " + _current.BlueprintId + ".\n\n" +
+                    "The uploaded avatar is not deleted or changed. The next Build & Publish creates a new avatar. " +
+                    "You can link it back from the Content Manager with Attach to Selected Avatar.",
+                    "Detach", "Cancel")) return;
+
+            ParelBlueprint.Detach(_current);
+            _recordRequest++; // an answer still on its way belongs to the avatar that was detached
+            _existingRecord = null;
+            _blueprintMissing = false;
+            UpdateHeader();
+        }
+
         private void UpdateHeader()
         {
             if (_current == null) return;
             string avatarId = _current.BlueprintId;
             bool isNew = string.IsNullOrEmpty(avatarId);
+            if (_detachButton != null) _detachButton.style.display = isNew ? DisplayStyle.None : DisplayStyle.Flex;
 
             if (isNew)
             {
