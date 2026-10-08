@@ -1,0 +1,31 @@
+{
+  "name": "com.parelvrsdk.pvr",
+  "version": "1.0.0",
+  "displayName": "ParelVR SDK",
+  "description": "Everything for making ParelVR content: avatars, worlds and VoltCS world scripts with their compiler, editor tools and in-editor simulator.",
+  "unity": "6000.0",
+  "author": {
+    "name": "Parel LLC",
+    "url": "https://parelllc.com"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "keywords": [
+    "parelvr",
+    "vr",
+    "sdk",
+    "worlds",
+    "avatars",
+    "volt",
+    "voltcs"
+  ],
+  "dependencies": {
+    "com.unity.ugui": "2.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Starter Scripts",
+      "description": "Short VoltCS scripts to copy from.",
+      "path": "Samples~/StarterScripts"
+    }
+  ]
+}

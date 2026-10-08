@@ -1,0 +1,2106 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ParelVR.Volt.Api</name>
+    </assembly>
+    <members>
+        <member name="T:ParelVR.Volt.Audio.VoltAudioClip">
+            <summary>A sound that is part of the world. Scripts cannot load sound from files or the web.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioClip.Length">
+            <summary>Length of the sound in seconds.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Audio.VoltAudioMixer">
+            <summary>A mixer that is part of the world.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioMixer.SetFloat(System.String,System.Single)">
+            <summary>Sets an exposed parameter of the mixer. Returns false when there is no such parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioMixer.GetFloat(System.String,System.Single@)">
+            <summary>Reads an exposed parameter of the mixer.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioMixer.ClearFloat(System.String)">
+            <summary>Gives an exposed parameter back to the mixer's snapshots.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Audio.VoltAudioSource">
+            <summary>Something in the world that plays sound.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Clip">
+            <summary>The sound Play starts.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Volume">
+            <summary>Loudness, 0 to 1.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Pitch">
+            <summary>Playback speed and pitch, 1 is normal.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Loop">
+            <summary>Whether the sound starts over when it ends.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Mute">
+            <summary>Whether the source is silenced.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Spatial">
+            <summary>How much the sound comes from its position: 0 is the same everywhere, 1 is fully positional.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.MinDistance">
+            <summary>Distance within which the sound is at full volume.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.MaxDistance">
+            <summary>Distance beyond which the sound is no longer heard or stops getting quieter.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Priority">
+            <summary>Which sources win when too many play at once: 0 is most important, 256 least.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.Time">
+            <summary>Position in the sound in seconds.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Audio.VoltAudioSource.IsPlaying">
+            <summary>True while the source is playing.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioSource.Play">
+            <summary>Starts the source's sound from the beginning.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioSource.Pause">
+            <summary>Pauses the sound; Play continues from the same place.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioSource.UnPause">
+            <summary>Continues a paused sound.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioSource.Stop">
+            <summary>Stops the sound.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Audio.VoltAudioSource.PlayOneShot(ParelVR.Volt.Audio.VoltAudioClip,System.Single)">
+            <summary>Plays a sound once on top of whatever the source is playing.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Animation.VoltAnimatorState">
+            <summary>What an animator layer is doing.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Animation.VoltAnimatorState.NormalizedTime">
+            <summary>How far the state has played: the whole part counts loops, the fraction is the position in the clip.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Animation.VoltAnimatorState.Length">
+            <summary>Length of the state in seconds.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Animation.VoltAnimatorState.Loop">
+            <summary>True when the state loops.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimatorState.IsName(System.String)">
+            <summary>True when the state has the given name.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimatorState.IsTag(System.String)">
+            <summary>True when the state has the given tag.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Animation.VoltAnimator">
+            <summary>An animator on a world object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Animation.VoltAnimator.Enabled">
+            <summary>Whether the animator runs.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Animation.VoltAnimator.Speed">
+            <summary>Playback speed, 1 is normal.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.SetBool(System.String,System.Boolean)">
+            <summary>Sets a bool parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.SetFloat(System.String,System.Single)">
+            <summary>Sets a float parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.SetInteger(System.String,System.Int32)">
+            <summary>Sets an int parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.SetTrigger(System.String)">
+            <summary>Fires a trigger parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.ResetTrigger(System.String)">
+            <summary>Clears a trigger parameter that has not been used yet.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)">
+            <summary>Reads a bool parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.GetFloat(System.String)">
+            <summary>Reads a float parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.GetInteger(System.String)">
+            <summary>Reads an int parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.Play(System.String,System.Int32)">
+            <summary>Jumps to a state on a layer.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)">
+            <summary>Blends to a state on a layer over a number of seconds.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.SetLayerWeight(System.Int32,System.Single)">
+            <summary>Sets how much a layer contributes, 0 to 1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.GetLayerWeight(System.Int32)">
+            <summary>Reads how much a layer contributes.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.GetStateInfo(System.Int32)">
+            <summary>What a layer is playing right now.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Animation.VoltAnimator.IsInTransition(System.Int32)">
+            <summary>True while a layer is blending between two states.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Particles.VoltParticleSystem">
+            <summary>A particle system on a world object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Particles.VoltParticleSystem.IsPlaying">
+            <summary>True while the system is running.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Particles.VoltParticleSystem.IsEmitting">
+            <summary>True while the system is emitting new particles.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Particles.VoltParticleSystem.ParticleCount">
+            <summary>Number of particles alive right now.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Particles.VoltParticleSystem.Play">
+            <summary>Starts the system and its children.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Particles.VoltParticleSystem.Pause">
+            <summary>Freezes the system and its children.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Particles.VoltParticleSystem.Stop">
+            <summary>Stops emitting; particles that are alive finish their life.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Particles.VoltParticleSystem.Clear">
+            <summary>Removes every particle at once.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Particles.VoltParticleSystem.Emit(System.Int32)">
+            <summary>Emits a number of particles now. At most 1000 per call.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Cameras.VoltCamera">
+            <summary>
+            A camera that belongs to the world, for mirrors, screens and security monitors. Scripts never get the
+            camera a player sees through, and a world camera cannot render to a player's display.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.Enabled">
+            <summary>Whether the camera renders.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.FieldOfView">
+            <summary>Vertical field of view in degrees.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.NearClip">
+            <summary>Nearest distance the camera draws.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.FarClip">
+            <summary>Farthest distance the camera draws.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.Position">
+            <summary>Position of the camera in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.Rotation">
+            <summary>Rotation of the camera in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Cameras.VoltCamera.LookAt(UnityEngine.Vector3)">
+            <summary>Turns the camera to look at a position.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Cameras.VoltCamera.WorldToViewportPoint(UnityEngine.Vector3)">
+            <summary>Where a world position appears in the camera's picture: x and y from 0 to 1, z the distance.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltHostKind">
+            <summary>Which layer implements an API. Mirrors the runtime's own enumeration value for value.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Contract.VoltHostKind.Core">
+            <summary>Implemented inside the VM core; needs no engine.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Contract.VoltHostKind.Unity">
+            <summary>Implemented against the Unity engine; identical in the client and in the editor.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Contract.VoltHostKind.Platform">
+            <summary>Implemented by the ParelVR client; simulated in the editor.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltApiVersionAttribute">
+            <summary>Version of the API contract. A module records the version it was compiled against.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltApiTypeAttribute">
+            <summary>Marks a type as part of the script API and says where its members are implemented.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Contract.VoltApiTypeAttribute.HostType">
+            <summary>Full name of the CLR type that represents an instance at run time. Empty for static classes and enums.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltHostAttribute">
+            <summary>Overrides, for one member, the layer that implements it.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltMapAttribute">
+            <summary>Binds a member straight to the member of the same shape on the host type, with no hand-written code in between.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Contract.VoltMapAttribute.Member">
+            <summary>Name of the host member. For a static binding, the full type name followed by a dot and the member name.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltRequiresAttribute">
+            <summary>Capability a member needs. On a type, the default for its members.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltEventIdAttribute">
+            <summary>Declares an event the runtime raises on a behaviour. The id is part of the bytecode format and never changes.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltIntrinsicAttribute">
+            <summary>A member the compiler lowers itself instead of emitting an API call.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltNoScriptAttribute">
+            <summary>A member that exists for authoring in the editor and cannot be used from a script.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltSinceAttribute">
+            <summary>API minor version that introduced a member. Members without it belong to minor 0.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltTargetTypeAttribute">
+            <summary>Unity type a reference wrapper stands for, so the inspector can offer the right object picker.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Contract.VoltTargetTypeAttribute.TypeNames">
+            <summary>Assembly-independent full names; the first one that resolves is used, the rest are also accepted.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltApiUnavailableException">
+            <summary>Thrown when an API member is called outside the Volt VM. Creator scripts only ever run inside it.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Contract.VoltCompilerServices">
+            <summary>
+            Helpers the VoltCS compiler calls for language features that need the runtime. Scripts never name these;
+            the compiler emits them, and they are part of the API contract like everything else a module can call.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Contract.VoltCompilerServices.EnumName``1(System.Int32)">
+            <summary>The name of an enum value, or its number when the value has no name.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Contract.VoltCompilerServices.BoxEnum``1(System.Int32)">
+            <summary>An enum value passed as an object: it keeps its number and remembers which enum it belongs to.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltCapability">
+            <summary>
+            What an API touches and who may call it. A world is granted resource capabilities when it is validated,
+            and the authority capabilities are checked on every call.
+            </summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Public">
+            <summary>Pure or read-only; always available.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Local">
+            <summary>Changes only the local client or the local player.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Owner">
+            <summary>The caller must own the object the call acts on.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Master">
+            <summary>The caller must be the instance master.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Server">
+            <summary>Reserved for server-authoritative logic; not callable from a world script.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.World">
+            <summary>Changes objects of the world scene.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Network">
+            <summary>Sends data to other players.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Storage">
+            <summary>Reads or writes persistent storage.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Web">
+            <summary>Talks to a web address.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Economy">
+            <summary>Reads purchases or asks the player to buy something.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Players">
+            <summary>Acts on players: teleport, movement settings, respawn.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Input">
+            <summary>Reads player input.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltCapability.Video">
+            <summary>Plays video from a web address.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltSyncMode">
+            <summary>How the synced fields of a behaviour are sent to other players.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltSyncMode.None">
+            <summary>The behaviour has no networked state.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltSyncMode.Manual">
+            <summary>State is sent when the owner calls RequestSerialization. The default for a behaviour with synced fields.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltSyncMode.Continuous">
+            <summary>State is sent several times a second while it changes. For values that change all the time.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltSyncInterpolation">
+            <summary>How a remote copy moves to a newly received value.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltSyncInterpolation.None">
+            <summary>The value changes at once.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltSyncInterpolation.Smooth">
+            <summary>The value eases toward the new one. Only for numbers, vectors, rotations and colours.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltSyncedAttribute">
+            <summary>
+            Marks a field as networked state. Only the owner of the object can change it for everyone; other players
+            receive the owner's value and then get OnDeserialization.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltSyncAttribute">
+            <summary>Chooses how a behaviour's synced fields are sent. Without it, a behaviour with synced fields uses Manual.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltNetworkEventAttribute">
+            <summary>
+            Allows a method to be run on other players' clients with SendNetworkEvent. A method without this
+            attribute can never be called over the network.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltEventAttribute">
+            <summary>Lets a method that is not public be called by name: SendCustomEvent, UI events and animation events.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltExposeAttribute">
+            <summary>Lets other behaviours read and write a field by name with GetVariable and SetVariable.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltSerializeAttribute">
+            <summary>Stores a non-public field with the scene and shows it in the inspector, like SerializeField.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltLocalAttribute">
+            <summary>
+            On a method: it only ever runs for the local player and is rejected if it arrives over the network.
+            On a field: the value belongs to each client and is never synced.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltOwnerAttribute">
+            <summary>
+            The method only runs on the client that owns the object. A call made anywhere else returns at once, and a
+            network event marked with it is accepted only when the owner sent it.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltServerAttribute">
+            <summary>
+            The method only runs on the instance authority, which is the instance master. A call made anywhere else
+            returns at once, and a network event marked with it is accepted only when the master sent it.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltEditorOnlyAttribute">
+            <summary>Leaves a field or method out of the compiled program. It exists for editor tooling only.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltBehaviour">
+            <summary>
+            Base class of every world script. A class that derives from it is compiled by the VoltCS compiler into
+            Volt bytecode and run by VoltVM inside ParelVR; Unity never runs its code. Override the On... methods to
+            receive events, and mark fields with VoltSynced to share them with other players.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.transform">
+            <summary>The transform of the object this behaviour is attached to.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.gameObject">
+            <summary>The object this behaviour is attached to.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.enabled">
+            <summary>Whether this behaviour receives events. A disabled behaviour still keeps its state.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.name">
+            <summary>The name of the object this behaviour is attached to.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.GetComponent``1">
+            <summary>Finds a component, or another behaviour, on the same object. Returns null when there is none.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.GetComponentInChildren``1">
+            <summary>Finds a component, or another behaviour, on this object or any of its children.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.GetComponentInParent``1">
+            <summary>Finds a component, or another behaviour, on this object or any of its parents.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.StartCoroutine(System.Collections.IEnumerator)">
+            <summary>Starts a coroutine. It runs until its first yield before this call returns.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.StopCoroutine(ParelVR.Volt.VoltCoroutine)">
+            <summary>Stops a coroutine this behaviour started.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.StopAllCoroutines">
+            <summary>Stops every coroutine this behaviour started.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendCustomEvent(System.String)">
+            <summary>Calls a public or VoltEvent method of this behaviour by name. Does nothing when there is no such method.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendCustomEventDelayedSeconds(System.String,System.Single)">
+            <summary>Calls a method by name after a delay in seconds.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendCustomEventDelayedFrames(System.String,System.Int32)">
+            <summary>Calls a method by name after a number of frames.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.GetVariable(System.String)">
+            <summary>Reads a public or VoltExpose field of this behaviour by name. Returns null when there is no such field.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SetVariable(System.String,System.Object)">
+            <summary>Writes a public or VoltExpose field of this behaviour by name. Returns false when the field is missing or the value has the wrong type.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendNetworkEvent(ParelVR.Volt.Networking.VoltNetworkTarget,System.String,System.Object[])">
+            <summary>
+            Runs a VoltNetworkEvent method of this behaviour on other players' clients. The method name must be a
+            constant (use nameof); the compiler turns it into a numeric id. Up to eight arguments of syncable types.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendNetworkEvent(ParelVR.Volt.Players.VoltPlayer,System.String,System.Object[])">
+            <summary>Runs a VoltNetworkEvent method of this behaviour on one player's client.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendNetworkEventById(ParelVR.Volt.Networking.VoltNetworkTarget,System.Int32,System.Object[])">
+            <summary>What SendNetworkEvent compiles to: the event is named by its id.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SendNetworkEventToPlayerById(ParelVR.Volt.Players.VoltPlayer,System.Int32,System.Object[])">
+            <summary>What SendNetworkEvent to one player compiles to: the event is named by its id.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.RequestSerialization">
+            <summary>Asks for this behaviour's synced fields to be sent to everyone. Only the owner's request has an effect.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.IsOwner">
+            <summary>True when the local player owns this object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltBehaviour.Owner">
+            <summary>The player who owns this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.TakeOwnership">
+            <summary>Makes the local player the owner of this object. OnOwnershipRequest of the current owner can refuse.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.SetOwner(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Hands this object to another player. Only the current owner or the instance master can do this.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnStart">
+            <summary>Called once, before the first OnUpdate, when the behaviour first becomes active.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnUpdate">
+            <summary>Called every frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnLateUpdate">
+            <summary>Called every frame after every OnUpdate.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnFixedUpdate">
+            <summary>Called on every physics step.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnEnabled">
+            <summary>Called when the behaviour becomes active.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnDisabled">
+            <summary>Called when the behaviour stops being active.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnDestroyed">
+            <summary>Called when the object is destroyed or the world unloads.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnInteract">
+            <summary>The local player used this object. Needs a VoltInteractable or a collider on the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPickup">
+            <summary>The local player picked this object up. Needs a VoltPickup on the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnDrop">
+            <summary>The local player let go of this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPickupUseDown">
+            <summary>The local player pressed Use while holding this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPickupUseUp">
+            <summary>The local player released Use while holding this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerJoined(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player joined the instance. Also called once for every player already present when the world loads.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerLeft(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player left the instance.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerRespawned(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player was moved back to a spawn point.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnStationEntered(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player sat down in the VoltStation on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnStationExited(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player left the VoltStation on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnOwnershipTransferred(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Ownership of this object moved to another player.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnOwnershipRequest(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Someone asks for ownership. Runs on the current owner; return false to refuse.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPreSerialization">
+            <summary>Called on the owner just before the synced fields are sent.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnDeserialization">
+            <summary>Called after synced fields were received from the owner.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPostSerialization(System.Boolean,System.Int32)">
+            <summary>Called on the owner after the synced fields were sent, with the result and the size in bytes.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnMasterChanged(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>The instance master changed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnEnterTrigger(ParelVR.Volt.Objects.VoltCollider)">
+            <summary>A collider entered a trigger collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnExitTrigger(ParelVR.Volt.Objects.VoltCollider)">
+            <summary>A collider left a trigger collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnStayTrigger(ParelVR.Volt.Objects.VoltCollider)">
+            <summary>A collider is inside a trigger collider on this object. Called on every physics step.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnEnterCollision(ParelVR.Volt.Physics.VoltCollision)">
+            <summary>Something hit a collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnExitCollision(ParelVR.Volt.Physics.VoltCollision)">
+            <summary>Something stopped touching a collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerEnterTrigger(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player entered a trigger collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerExitTrigger(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player left a trigger collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerStayTrigger(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player is inside a trigger collider on this object. Called on every physics step.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerEnterCollision(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player bumped into a collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerExitCollision(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>A player stopped touching a collider on this object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnWebResponse(ParelVR.Volt.Web.VoltWebRequest)">
+            <summary>A web request this behaviour started has finished.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnStorageResult(ParelVR.Volt.Storage.VoltStorageRequest)">
+            <summary>A storage request this behaviour started has finished.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnVideoReady(ParelVR.Volt.Video.VoltVideoPlayer)">
+            <summary>A video is loaded and ready to play.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnVideoStarted(ParelVR.Volt.Video.VoltVideoPlayer)">
+            <summary>A video started playing.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnVideoPaused(ParelVR.Volt.Video.VoltVideoPlayer)">
+            <summary>A video was paused.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnVideoEnded(ParelVR.Volt.Video.VoltVideoPlayer)">
+            <summary>A video reached its end.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnVideoError(ParelVR.Volt.Video.VoltVideoPlayer,System.String)">
+            <summary>A video could not be loaded or played.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnInputAction(ParelVR.Volt.Input.VoltInputAction,System.Boolean)">
+            <summary>The local player pressed or released an input action.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPurchaseCompleted(System.String,System.Boolean)">
+            <summary>A purchase the local player started in this world went through or failed.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltList`1">
+            <summary>
+            A resizable list. Every list counts toward the world's script memory, and a list cannot grow beyond one
+            million items.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.#ctor">
+            <summary>Creates an empty list.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltList`1.Count">
+            <summary>Number of items.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltList`1.Item(System.Int32)">
+            <summary>The item at an index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Add(`0)">
+            <summary>Adds an item at the end.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.AddRange(`0[])">
+            <summary>Adds every item of an array at the end.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Insert(System.Int32,`0)">
+            <summary>Puts an item at an index and moves the rest up.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Remove(`0)">
+            <summary>Removes the first item equal to a value. Returns false when there is none.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.RemoveAt(System.Int32)">
+            <summary>Removes the item at an index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Clear">
+            <summary>Removes every item.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Contains(`0)">
+            <summary>True when the list holds an item equal to a value.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.IndexOf(`0)">
+            <summary>Index of the first item equal to a value, or -1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Reverse">
+            <summary>Reverses the order of the items.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.Sort">
+            <summary>Sorts numbers and strings from smallest to largest. Other items keep their order.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltList`1.ToArray">
+            <summary>A new array with the items of the list.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltDictionary`2">
+            <summary>
+            A table that finds a value by its key. Keys can be numbers, strings, bools, characters and enums.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.#ctor">
+            <summary>Creates an empty dictionary.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDictionary`2.Count">
+            <summary>Number of entries.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDictionary`2.Item(`0)">
+            <summary>The value of a key. Reading a key that is not present stops the script with an error; use TryGetValue when unsure.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.Add(`0,`1)">
+            <summary>Adds an entry. The key must not be present yet.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.TryGetValue(`0,`1@)">
+            <summary>Reads a value if its key is present.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.ContainsKey(`0)">
+            <summary>True when a key is present.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.Remove(`0)">
+            <summary>Removes an entry. Returns false when the key was not present.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.Clear">
+            <summary>Removes every entry.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.GetKeys">
+            <summary>A new array with every key, in the order the entries were added.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDictionary`2.GetValues">
+            <summary>A new array with every value, in the order the entries were added.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltDataType">
+            <summary>What a data token holds.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltDataToken">
+            <summary>One value of structured data: nothing, a bool, a number, text, a list or an object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Type">
+            <summary>What the token holds.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.IsNull">
+            <summary>True when the token holds nothing.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Boolean">
+            <summary>The bool, or false when the token is not a bool.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Number">
+            <summary>The number, or 0 when the token is not a number.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Int">
+            <summary>The number as an int, or 0.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Float">
+            <summary>The number as a float, or 0.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.String">
+            <summary>The text, or an empty string when the token is not text.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.List">
+            <summary>The list, or null when the token is not a list.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Object">
+            <summary>The object, or null when the token is not an object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataToken.Null">
+            <summary>A token that holds nothing.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltDataList">
+            <summary>A list of data tokens.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDataList.#ctor">
+            <summary>Creates an empty list.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataList.Count">
+            <summary>Number of tokens.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltDataList.Item(System.Int32)">
+            <summary>The token at an index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDataList.Add(ParelVR.Volt.Data.VoltDataToken)">
+            <summary>Adds a token at the end.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDataList.RemoveAt(System.Int32)">
+            <summary>Removes the token at an index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltDataList.Clear">
+            <summary>Removes every token.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltData">
+            <summary>
+            Structured data with named values, the shape of a JSON object. Use it for web requests, storage and
+            anything that needs more than a flat list of fields.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.#ctor">
+            <summary>Creates an empty object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltData.Count">
+            <summary>Number of named values.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Data.VoltData.Item(System.String)">
+            <summary>The value of a name. A token that holds nothing when the name is not present.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.ContainsKey(System.String)">
+            <summary>True when a name is present.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.Remove(System.String)">
+            <summary>Removes a named value.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.Clear">
+            <summary>Removes every named value.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.GetKeys">
+            <summary>Every name, in the order the values were added.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.GetString(System.String,System.String)">
+            <summary>Text value of a name, or a fallback.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.GetInt(System.String,System.Int32)">
+            <summary>Number value of a name as an int, or a fallback.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.GetFloat(System.String,System.Single)">
+            <summary>Number value of a name as a float, or a fallback.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltData.GetBool(System.String,System.Boolean)">
+            <summary>Bool value of a name, or a fallback.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Data.VoltJson">
+            <summary>Converts between structured data and JSON text. Input is limited to one megabyte and 32 levels of nesting.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltJson.TryParse(System.String,ParelVR.Volt.Data.VoltDataToken@)">
+            <summary>Reads JSON text. Returns false when the text is not valid JSON or is too large.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltJson.Serialize(ParelVR.Volt.Data.VoltDataToken)">
+            <summary>Writes a token as JSON text.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Data.VoltJson.SerializeIndented(ParelVR.Volt.Data.VoltDataToken)">
+            <summary>Writes a token as JSON text with line breaks and indentation.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Networking.VoltNetworkTarget">
+            <summary>Who receives a network event.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.All">
+            <summary>Everyone in the instance, the sender included.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Others">
+            <summary>Everyone except the sender.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Owner">
+            <summary>The player who owns the object.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Master">
+            <summary>The instance master.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Authority">
+            <summary>The player with authority over the object: its owner, or the master when it has none.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Local">
+            <summary>Only this client; nothing is sent.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Networking.VoltNetworking">
+            <summary>The state of the connection to other players, and ownership of world objects.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.IsConnected">
+            <summary>True while the client is connected to the instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.IsMaster">
+            <summary>True when the local player is the instance master.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.Master">
+            <summary>The instance master.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.LocalPlayer">
+            <summary>The player on this client.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.Ping">
+            <summary>Round trip time to the instance server in milliseconds.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.ServerTimeMs">
+            <summary>A clock in milliseconds that is the same for every player in the instance. Use it to time shared events.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.IsStateReady">
+            <summary>True once this client has received the current state of every synced object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltNetworking.IsOwner(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>True when the local player owns the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltNetworking.IsOwner(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>True when the player owns the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltNetworking.GetOwner(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>The player who owns the object. The master for an object nobody has claimed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltNetworking.SetOwner(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>Gives the object to a player. Only its owner or the master can do this, and the owner can refuse a request.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Networking.VoltObjectSync">
+            <summary>
+            Keeps the position and rotation of an object the same for every player. The owner's copy decides; the
+            others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges.
+            </summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltObjectSync.syncScale">
+            <summary>Sync the object's scale as well as its position and rotation.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltObjectSync.allowOwnershipTransfer">
+            <summary>Let any player become the owner by picking the object up or touching it.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltObjectSync.Owner">
+            <summary>The player whose copy of the object decides where it is.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltObjectSync.IsOwner">
+            <summary>True when the local player owns the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectSync.Respawn">
+            <summary>Puts the object back where it was when the world loaded, for everyone. Owner only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectSync.TeleportTo(UnityEngine.Vector3,UnityEngine.Quaternion)">
+            <summary>Moves the object at once for everyone, without easing. Owner only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectSync.SetGravity(System.Boolean)">
+            <summary>Turns gravity on or off for everyone. Owner only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectSync.SetKinematic(System.Boolean)">
+            <summary>Makes the body kinematic or dynamic for everyone. Owner only.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltObject">
+            <summary>
+            Base of the references a script can hold to things in the world scene. A reference only ever points at
+            an object that belongs to the world; anything else reads as null.
+            </summary>
+        </member>
+        <member name="F:ParelVR.Volt.Objects.VoltObject.EditorTarget">
+            <summary>The scene object picked in the inspector. Used by the editor and the world builder only.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltObject.Name">
+            <summary>The name of the object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltObject.IsValid">
+            <summary>False once the object has been destroyed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltObject.op_Implicit(ParelVR.Volt.Objects.VoltObject)~System.Boolean">
+            <summary>True while the object exists, so a reference can be tested with if (reference).</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltGameObject">
+            <summary>An object in the world scene.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.Transform">
+            <summary>The object's transform.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.ActiveSelf">
+            <summary>Whether the object itself is switched on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.ActiveInHierarchy">
+            <summary>Whether the object and all of its parents are switched on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.Layer">
+            <summary>The layer the object is on, 0 to 31.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.Tag">
+            <summary>The object's tag.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltGameObject.Reference">
+            <summary>The stable id of the object in this world, or 0 when it was created while the world was running.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.SetActive(System.Boolean)">
+            <summary>Switches the object on or off.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.CompareTag(System.String)">
+            <summary>True when the object has the given tag.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.GetComponent``1">
+            <summary>Finds a component, or a behaviour, on this object. Returns null when there is none.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.GetComponentInChildren``1">
+            <summary>Finds a component, or a behaviour, on this object or any of its children.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.GetComponentInParent``1">
+            <summary>Finds a component, or a behaviour, on this object or any of its parents.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltGameObject.GetComponentsInChildren``1">
+            <summary>Every component of a type on this object and its children.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltComponent">
+            <summary>Base of the references to components.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltComponent.GameObject">
+            <summary>The object the component is on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltComponent.Transform">
+            <summary>The transform of the object the component is on.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltComponent.GetComponent``1">
+            <summary>Finds another component, or a behaviour, on the same object.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltTransform">
+            <summary>Position, rotation and scale of an object, and its place in the hierarchy.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Position">
+            <summary>Position in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.LocalPosition">
+            <summary>Position relative to the parent.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Rotation">
+            <summary>Rotation in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.LocalRotation">
+            <summary>Rotation relative to the parent.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.EulerAngles">
+            <summary>Rotation in world space as Euler angles in degrees.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.LocalEulerAngles">
+            <summary>Rotation relative to the parent as Euler angles in degrees.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.LocalScale">
+            <summary>Scale relative to the parent.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.LossyScale">
+            <summary>Scale in world space. Read-only.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Forward">
+            <summary>The blue axis of the object in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Right">
+            <summary>The red axis of the object in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Up">
+            <summary>The green axis of the object in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.Parent">
+            <summary>The parent transform, or null at the top of the hierarchy or when the parent is outside the world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltTransform.ChildCount">
+            <summary>Number of direct children.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.SetParent(ParelVR.Volt.Objects.VoltTransform,System.Boolean)">
+            <summary>Puts the object under another transform. Pass null to move it to the top of the world's hierarchy.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.GetChild(System.Int32)">
+            <summary>The child at an index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.Find(System.String)">
+            <summary>Finds a child by name or by a path such as "Arm/Hand".</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.SetPositionAndRotation(UnityEngine.Vector3,UnityEngine.Quaternion)">
+            <summary>Sets position and rotation in one call.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.Translate(UnityEngine.Vector3)">
+            <summary>Moves the object by an offset in its own space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.Rotate(UnityEngine.Vector3)">
+            <summary>Turns the object by Euler angles in degrees, in its own space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.RotateAround(UnityEngine.Vector3,UnityEngine.Vector3,System.Single)">
+            <summary>Turns the object around an axis through a point in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.LookAt(UnityEngine.Vector3)">
+            <summary>Turns the object so its forward axis points at a position.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.TransformPoint(UnityEngine.Vector3)">
+            <summary>Converts a position from the object's space to world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.InverseTransformPoint(UnityEngine.Vector3)">
+            <summary>Converts a position from world space to the object's space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.TransformDirection(UnityEngine.Vector3)">
+            <summary>Converts a direction from the object's space to world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.InverseTransformDirection(UnityEngine.Vector3)">
+            <summary>Converts a direction from world space to the object's space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltTransform.IsChildOf(ParelVR.Volt.Objects.VoltTransform)">
+            <summary>True when this transform is somewhere below another one.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltCollider">
+            <summary>A collider of any shape.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltCollider.Enabled">
+            <summary>Whether the collider takes part in physics.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltCollider.IsTrigger">
+            <summary>Whether the collider is a trigger: it reports overlaps instead of blocking.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltCollider.Rigidbody">
+            <summary>The rigidbody the collider belongs to, if any.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltCollider.BoundsCenter">
+            <summary>Centre of the collider's bounding box in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltCollider.BoundsSize">
+            <summary>Size of the collider's bounding box in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltCollider.ClosestPoint(UnityEngine.Vector3)">
+            <summary>The point on the collider closest to a position.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltForceMode">
+            <summary>How a force is applied to a rigidbody.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Objects.VoltForceMode.Force">
+            <summary>A continuous force that takes mass into account.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Objects.VoltForceMode.Impulse">
+            <summary>An instant push that takes mass into account.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Objects.VoltForceMode.VelocityChange">
+            <summary>An instant change of velocity that ignores mass.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Objects.VoltForceMode.Acceleration">
+            <summary>A continuous acceleration that ignores mass.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltRigidbody">
+            <summary>A physics body.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.Velocity">
+            <summary>Velocity in metres per second.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.AngularVelocity">
+            <summary>Angular velocity in radians per second.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.Mass">
+            <summary>Mass in kilograms.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.UseGravity">
+            <summary>Whether gravity acts on the body.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.IsKinematic">
+            <summary>A kinematic body is moved by scripts and animation only, not by forces.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.Position">
+            <summary>Position of the body in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRigidbody.Rotation">
+            <summary>Rotation of the body in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.AddForce(UnityEngine.Vector3,ParelVR.Volt.Objects.VoltForceMode)">
+            <summary>Pushes the body.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.AddForceAtPosition(UnityEngine.Vector3,UnityEngine.Vector3,ParelVR.Volt.Objects.VoltForceMode)">
+            <summary>Pushes the body at a point, which also makes it spin.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.AddTorque(UnityEngine.Vector3,ParelVR.Volt.Objects.VoltForceMode)">
+            <summary>Spins the body.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.MovePosition(UnityEngine.Vector3)">
+            <summary>Moves a kinematic body to a position, colliding along the way.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.MoveRotation(UnityEngine.Quaternion)">
+            <summary>Turns a kinematic body to a rotation.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.Sleep">
+            <summary>Puts the body to sleep until something touches it.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRigidbody.WakeUp">
+            <summary>Wakes the body up.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltRenderer">
+            <summary>Something that draws: a mesh, a skinned mesh, a line, a trail.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRenderer.Enabled">
+            <summary>Whether the renderer draws.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRenderer.IsVisible">
+            <summary>True while any camera can see the renderer.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltRenderer.MaterialCount">
+            <summary>Number of material slots.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetColor(UnityEngine.Color)">
+            <summary>Sets the main colour of this renderer only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetColor(System.String,UnityEngine.Color)">
+            <summary>Sets a colour property of this renderer only, for example "_EmissionColor".</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetFloat(System.String,System.Single)">
+            <summary>Sets a number property of this renderer only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetVector(System.String,UnityEngine.Vector4)">
+            <summary>Sets a vector property of this renderer only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.GetColor(System.String)">
+            <summary>Reads a colour property.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.GetFloat(System.String)">
+            <summary>Reads a number property.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.ClearProperties">
+            <summary>Removes every property this script set, back to the material's own values.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetBlendShapeWeight(System.Int32,System.Single)">
+            <summary>Sets the weight of a blend shape on a skinned mesh, 0 to 100.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltLight">
+            <summary>A light.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltLight.Enabled">
+            <summary>Whether the light is on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltLight.Color">
+            <summary>Colour of the light.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltLight.Intensity">
+            <summary>Brightness of the light.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltLight.Range">
+            <summary>How far the light reaches, for point and spot lights.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltLight.SpotAngle">
+            <summary>Cone angle of a spot light in degrees.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltSceneComponent">
+            <summary>
+            Base of the components ParelVR adds to Unity for worlds, such as VoltPickup and VoltStation. A script can
+            hold one in a field and assign it in the inspector like any other component.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltSceneComponent.transform">
+            <summary>The transform of the object the component is on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltSceneComponent.gameObject">
+            <summary>The object the component is on.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltSceneComponent.enabled">
+            <summary>Whether the component is switched on.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Objects.VoltObjectReference">
+            <summary>
+            The stable id of a scene object. It is the same for every player and survives a rebuild of the world, so
+            it is what to put in synced fields, network events and storage when a script needs to name an object.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltObjectReference.Id">
+            <summary>The id as text. Empty for an object that was created while the world was running.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Objects.VoltObjectReference.IsValid">
+            <summary>True when the id names an object that exists in this world right now.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltObjectReference.Resolve">
+            <summary>The object the id names, or null when it no longer exists.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltObjectReference.FromId(System.String)">
+            <summary>Rebuilds a reference from the text of its id. Returns null when the text is not an id of this world.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Physics.VoltRaycastHit">
+            <summary>What a ray or a shape cast hit.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Point">
+            <summary>Where the hit happened, in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Normal">
+            <summary>The direction the surface faces at the hit.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Distance">
+            <summary>Distance from the start of the cast to the hit.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Collider">
+            <summary>The collider that was hit. Null when the hit was a player or something outside the world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.GameObject">
+            <summary>The object that was hit. Null when the hit was a player or something outside the world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Transform">
+            <summary>The transform that was hit.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltRaycastHit.Player">
+            <summary>The player that was hit, or null.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Physics.VoltCollision">
+            <summary>Details of a collision.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.Collider">
+            <summary>The other collider. Null when it is not part of the world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.GameObject">
+            <summary>The other object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.Rigidbody">
+            <summary>The other rigidbody, if it has one.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.RelativeVelocity">
+            <summary>How fast the two were moving toward each other.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.Impulse">
+            <summary>The impulse the collision applied.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.Point">
+            <summary>The first point of contact.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltCollision.Normal">
+            <summary>The surface direction at the first point of contact.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Physics.VoltPhysics">
+            <summary>
+            Queries against the world's colliders. A query can hit a player, but it never hands a script anything
+            that belongs to ParelVR itself: such hits report a point and a distance and nothing else.
+            </summary>
+        </member>
+        <member name="F:ParelVR.Volt.Physics.VoltPhysics.AllLayers">
+            <summary>Layer mask that matches every layer.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Physics.VoltPhysics.Gravity">
+            <summary>The world's gravity.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.Raycast(UnityEngine.Vector3,UnityEngine.Vector3,System.Single)">
+            <summary>True when a ray hits something within a distance.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.Raycast(UnityEngine.Vector3,UnityEngine.Vector3,ParelVR.Volt.Physics.VoltRaycastHit@,System.Single)">
+            <summary>Casts a ray and reports the nearest hit.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.Raycast(UnityEngine.Vector3,UnityEngine.Vector3,ParelVR.Volt.Physics.VoltRaycastHit@,System.Single,System.Int32)">
+            <summary>Casts a ray against some layers and reports the nearest hit.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.RaycastAll(UnityEngine.Vector3,UnityEngine.Vector3,System.Single,System.Int32)">
+            <summary>Casts a ray and reports every hit, nearest first. At most 64 hits.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.SphereCast(UnityEngine.Vector3,System.Single,UnityEngine.Vector3,ParelVR.Volt.Physics.VoltRaycastHit@,System.Single,System.Int32)">
+            <summary>Sweeps a sphere along a ray and reports the nearest hit.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.BoxCast(UnityEngine.Vector3,UnityEngine.Vector3,UnityEngine.Vector3,ParelVR.Volt.Physics.VoltRaycastHit@,UnityEngine.Quaternion,System.Single,System.Int32)">
+            <summary>Sweeps a box along a ray and reports the nearest hit.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.CapsuleCast(UnityEngine.Vector3,UnityEngine.Vector3,System.Single,UnityEngine.Vector3,ParelVR.Volt.Physics.VoltRaycastHit@,System.Single,System.Int32)">
+            <summary>Sweeps a capsule along a ray and reports the nearest hit.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.CheckSphere(UnityEngine.Vector3,System.Single,System.Int32)">
+            <summary>True when any collider overlaps a sphere.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.CheckBox(UnityEngine.Vector3,UnityEngine.Vector3,UnityEngine.Quaternion,System.Int32)">
+            <summary>True when any collider overlaps a box.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.CheckCapsule(UnityEngine.Vector3,UnityEngine.Vector3,System.Single,System.Int32)">
+            <summary>True when any collider overlaps a capsule.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.OverlapSphere(UnityEngine.Vector3,System.Single,System.Int32)">
+            <summary>The world colliders that overlap a sphere. At most 64.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.OverlapBox(UnityEngine.Vector3,UnityEngine.Vector3,UnityEngine.Quaternion,System.Int32)">
+            <summary>The world colliders that overlap a box. At most 64.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.OverlapSpherePlayers(UnityEngine.Vector3,System.Single)">
+            <summary>The players inside a sphere.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Physics.VoltPhysics.LayerMask(System.String)">
+            <summary>The mask for one layer, by name. Zero when there is no such layer.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Interaction.VoltInteractable">
+            <summary>
+            Makes an object usable: players see a prompt when they point at it and the behaviours on the object get
+            OnInteract when they use it.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltInteractable.InteractionText">
+            <summary>Text shown to the player who points at the object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltInteractable.Proximity">
+            <summary>How close a player has to be, in metres.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltInteractable.Interactable">
+            <summary>Whether players can use the object right now.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Interaction.VoltHand">
+            <summary>Which hand holds something.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Interaction.VoltPickup">
+            <summary>
+            Makes an object something players can pick up and carry. Add a VoltObjectSync as well so everyone sees
+            where it goes.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltPickup.IsHeld">
+            <summary>True while a player holds the object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltPickup.Holder">
+            <summary>The player who holds the object, or null.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltPickup.HeldHand">
+            <summary>The hand that holds the object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltPickup.Pickupable">
+            <summary>Whether players can pick the object up.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltPickup.InteractionText">
+            <summary>Text shown to the player who points at the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Interaction.VoltPickup.Drop">
+            <summary>Makes the local player let go of the object.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Interaction.VoltStationMobility">
+            <summary>How a player can leave a station.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Interaction.VoltStationMobility.Immobilize">
+            <summary>The player cannot move while seated and leaves by moving or jumping.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Interaction.VoltStationMobility.ImmobilizeForVehicle">
+            <summary>The player stays seated until a script calls ExitStation.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Interaction.VoltStationMobility.Mobile">
+            <summary>The player can walk while attached to the station.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Interaction.VoltStation">
+            <summary>A seat. A player who uses it sits at the station's position until they leave.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltStation.IsOccupied">
+            <summary>True while a player sits in the station.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Interaction.VoltStation.Occupant">
+            <summary>The player in the station, or null.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Interaction.VoltStation.UseStation">
+            <summary>Seats the local player in the station.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Interaction.VoltStation.ExitStation">
+            <summary>Makes the local player leave the station.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Players.VoltTrackingPoint">
+            <summary>A point on a player's body that ParelVR tracks or estimates.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltTrackingPoint.Origin">
+            <summary>The floor point under the player: where the avatar stands.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Players.VoltBone">
+            <summary>A bone of a player's avatar.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Players.VoltPlayer">
+            <summary>
+            A player in the current instance. A script only ever sees what ParelVR chooses to share about a player:
+            never an account, a session or anything that identifies the device.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.PlayerId">
+            <summary>Number of the player in this instance. Unique while the player is here; reused after they leave.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.DisplayName">
+            <summary>The name the player shows to others.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsLocal">
+            <summary>True for the player on this client.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsMaster">
+            <summary>True for the instance master.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsValid">
+            <summary>False once the player has left the instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsInVR">
+            <summary>True when the player is in VR.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Position">
+            <summary>Where the player stands, in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Rotation">
+            <summary>Which way the player's body faces.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Velocity">
+            <summary>How fast the player is moving.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsGrounded">
+            <summary>True when the player is standing on something.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.IsSeated">
+            <summary>True when the player is sitting in a station.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Station">
+            <summary>The station the player is sitting in, or null.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.AvatarId">
+            <summary>Id of the avatar the player wears, or an empty string when it is not shared.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.AvatarEyeHeight">
+            <summary>Height of the player's avatar in metres, from the floor to the eyes.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetPosition">
+            <summary>Position of the player in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetRotation">
+            <summary>Rotation of the player's body in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetVelocity">
+            <summary>Velocity of the player in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.IsTrackingAvailable(ParelVR.Volt.Players.VoltTrackingPoint)">
+            <summary>True when ParelVR has a position for a tracking point of this player.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetTrackingPosition(ParelVR.Volt.Players.VoltTrackingPoint)">
+            <summary>Position of a tracking point in world space. The player's position when the point is not available.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetTrackingRotation(ParelVR.Volt.Players.VoltTrackingPoint)">
+            <summary>Rotation of a tracking point in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetBonePosition(ParelVR.Volt.Players.VoltBone)">
+            <summary>Position of an avatar bone in world space. The player's position when the avatar has no such bone.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetBoneRotation(ParelVR.Volt.Players.VoltBone)">
+            <summary>Rotation of an avatar bone in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.IsOwner(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>True when the player owns the object.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.Teleport(UnityEngine.Vector3,UnityEngine.Quaternion)">
+            <summary>Moves the local player. Has no effect on another player.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.Respawn">
+            <summary>Moves the local player back to a spawn point.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetVelocity(UnityEngine.Vector3)">
+            <summary>Sets the local player's velocity, for launch pads and knock-back.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.Immobilize(System.Boolean)">
+            <summary>Stops the local player from walking. They can still look around and use the menu.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.WalkSpeed">
+            <summary>Walking speed of the local player in metres per second.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.RunSpeed">
+            <summary>Running speed of the local player in metres per second.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.JumpImpulse">
+            <summary>Upward speed the local player gets from a jump. Zero disables jumping.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.GravityStrength">
+            <summary>Gravity on the local player as a multiple of normal gravity.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.PlayHaptics(ParelVR.Volt.Players.VoltTrackingPoint,System.Single,System.Single)">
+            <summary>Vibrates a controller of the local player. Does nothing on desktop.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Worlds.VoltWorld">
+            <summary>The world that is loaded and the players in it.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.WorldId">
+            <summary>Id of this world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.WorldName">
+            <summary>Name of this world as shown in the menu.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.WorldVersion">
+            <summary>Version of the world build that is running. It changes every time the creator publishes.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.PlayerCount">
+            <summary>Number of players in the instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.Players">
+            <summary>Every player in the instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.LocalPlayer">
+            <summary>The player on this client.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.Time">
+            <summary>Seconds since the world loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.DeltaTime">
+            <summary>Seconds the last frame took.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Worlds.VoltWorld.FixedDeltaTime">
+            <summary>Seconds between physics steps.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Worlds.VoltWorld.GetPlayers">
+            <summary>Every player in the instance.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Worlds.VoltWorld.GetPlayer(System.Int32)">
+            <summary>The player with a PlayerId, or null.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Worlds.VoltWorld.RespawnPlayer(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Moves a player back to a spawn point. Only works for the local player.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Worlds.VoltWorld.ReturnToHub">
+            <summary>Asks ParelVR to take the local player back to their home world. ParelVR asks the player to confirm.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Instance.VoltInstancePrivacy">
+            <summary>Who can join an instance.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Instance.VoltInstance">
+            <summary>The running copy of the world that the local player is in.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.InstanceId">
+            <summary>Id of this instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.WorldId">
+            <summary>Id of the world this is an instance of.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.Master">
+            <summary>The instance master: the player who decides when several clients could.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.Authority">
+            <summary>The player with authority over shared state that has no owner. In ParelVR this is the master.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.LocalPlayer">
+            <summary>The player on this client.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.PlayerCount">
+            <summary>Number of players in the instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.Capacity">
+            <summary>Most players the instance accepts.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.Privacy">
+            <summary>Who can join the instance.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Instance.VoltInstance.GetProperty(System.String)">
+            <summary>A property of the instance, such as "region" or "name". Empty when there is no such property.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Input.VoltInputAction">
+            <summary>An action a player can perform, whatever device they use for it.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Input.VoltInputAction.Movement">
+            <summary>Walking: an axis pair read with GetAxis2D.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Input.VoltInputAction.Turn">
+            <summary>Turning: an axis pair read with GetAxis2D.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Input.VoltInput">
+            <summary>
+            The local player's input as actions. Scripts never see keys, buttons, devices or anything typed into a
+            text field, and input is not reported while a ParelVR menu is open.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltInput.GetAction(ParelVR.Volt.Input.VoltInputAction)">
+            <summary>True while an action is held.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltInput.GetActionDown(ParelVR.Volt.Input.VoltInputAction)">
+            <summary>True in the frame an action was pressed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltInput.GetActionUp(ParelVR.Volt.Input.VoltInputAction)">
+            <summary>True in the frame an action was released.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltInput.GetValue(ParelVR.Volt.Input.VoltInputAction)">
+            <summary>How far an action is pressed, 0 to 1. Buttons read 0 or 1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltInput.GetAxis2D(ParelVR.Volt.Input.VoltInputAction)">
+            <summary>The two axes of Movement or Turn, each from -1 to 1.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Input.VoltVRInput">
+            <summary>Input that only exists in VR.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Input.VoltVRInput.IsVR">
+            <summary>True when the local player is in VR.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltVRInput.GetTrigger(ParelVR.Volt.Interaction.VoltHand)">
+            <summary>How far the trigger of a hand is pulled, 0 to 1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltVRInput.GetGrip(ParelVR.Volt.Interaction.VoltHand)">
+            <summary>How far the grip of a hand is squeezed, 0 to 1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltVRInput.GetStick(ParelVR.Volt.Interaction.VoltHand)">
+            <summary>The thumbstick or touchpad of a hand, each axis from -1 to 1.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Input.VoltVRInput.PlayHaptics(ParelVR.Volt.Interaction.VoltHand,System.Single,System.Single)">
+            <summary>Vibrates a controller.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltCanvas">
+            <summary>A canvas in the world.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltCanvas.Enabled">
+            <summary>Whether the canvas is drawn.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltPanel">
+            <summary>A rectangle of the UI: the layout of anything on a canvas.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltPanel.AnchoredPosition">
+            <summary>Position of the pivot relative to the anchors.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltPanel.SizeDelta">
+            <summary>Size relative to the distance between the anchors.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltPanel.Size">
+            <summary>Width and height of the rectangle.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltPanel.SetVisible(System.Boolean)">
+            <summary>Shows or hides the rectangle and everything in it.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltText">
+            <summary>A text element, legacy or TextMeshPro.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltText.Text">
+            <summary>The text shown. Limited to 16,000 characters.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltText.Color">
+            <summary>Colour of the text.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltText.FontSize">
+            <summary>Size of the text.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltButton">
+            <summary>A button. Wire its click to a behaviour's public method in the inspector.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltButton.Interactable">
+            <summary>Whether players can press the button.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltImage">
+            <summary>A picture element.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltImage.Color">
+            <summary>Tint of the picture.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltImage.FillAmount">
+            <summary>How much of a filled image is drawn, 0 to 1.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltImage.Enabled">
+            <summary>Whether the picture is drawn.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltSlider">
+            <summary>A slider.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltSlider.Value">
+            <summary>Current value.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltSlider.MinValue">
+            <summary>Lowest value.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltSlider.MaxValue">
+            <summary>Highest value.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltSlider.Interactable">
+            <summary>Whether players can move the slider.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltSlider.SetValueWithoutNotify(System.Single)">
+            <summary>Sets the value without raising the slider's change event.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltToggle">
+            <summary>A checkbox.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltToggle.IsOn">
+            <summary>Whether the box is ticked.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltToggle.Interactable">
+            <summary>Whether players can change the box.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltToggle.SetIsOnWithoutNotify(System.Boolean)">
+            <summary>Sets the state without raising the toggle's change event.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltInputField">
+            <summary>A text box players can type into.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltInputField.Text">
+            <summary>The text in the box.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltInputField.Interactable">
+            <summary>Whether players can type into the box.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltScrollView">
+            <summary>A scrolling area.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltScrollView.NormalizedPosition">
+            <summary>Scroll position: (0, 0) is the bottom left, (1, 1) the top right.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltScrollView.Content">
+            <summary>The rectangle that holds the scrolled content.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltUI">
+            <summary>Helpers for world UI.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltUI.RebuildLayout(ParelVR.Volt.UI.VoltPanel)">
+            <summary>Redoes the layout of a rectangle and its children now instead of at the end of the frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltUI.ColorToHex(UnityEngine.Color)">
+            <summary>Turns a colour into text such as "#FF8800FF", for rich text.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Video.VoltVideoError">
+            <summary>Why a video failed.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Video.VoltVideoPlayer">
+            <summary>
+            A video screen in the world. It plays from an https address through ParelVR's own video pipeline, which
+            applies the same address rules as web requests.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Url">
+            <summary>The address that is loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.IsPlaying">
+            <summary>True while the video is playing.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.IsReady">
+            <summary>True once the video is loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Time">
+            <summary>Position in the video in seconds.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Duration">
+            <summary>Length of the video in seconds. Zero for a live stream.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Volume">
+            <summary>Loudness, 0 to 1.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Loop">
+            <summary>Whether the video starts over when it ends.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Video.VoltVideoPlayer.Error">
+            <summary>Why the last load failed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Video.VoltVideoPlayer.LoadUrl(ParelVR.Volt.Web.VoltUrl)">
+            <summary>Loads a video. OnVideoReady or OnVideoError follows.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Video.VoltVideoPlayer.Play">
+            <summary>Starts or continues playing.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Video.VoltVideoPlayer.Pause">
+            <summary>Pauses.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Video.VoltVideoPlayer.Stop">
+            <summary>Stops and unloads the video.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Video.VoltVideoPlayer.Seek(System.Single)">
+            <summary>Jumps to a position in seconds.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltWaitInstruction">
+            <summary>What a coroutine yields to say when it wants to continue.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltWait">
+            <summary>The waits a coroutine can yield. Yielding null waits for the next frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.Seconds(System.Single)">
+            <summary>Waits a number of seconds of world time.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.RealSeconds(System.Single)">
+            <summary>Waits a number of real seconds, whatever the world's time scale.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.Frames(System.Int32)">
+            <summary>Waits a number of frames.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.FixedUpdate">
+            <summary>Waits for the next physics step.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.EndOfFrame">
+            <summary>Waits until the end of the frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.Until(System.Func{System.Boolean})">
+            <summary>Waits until a method of this behaviour returns true. Checked once per frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltWait.While(System.Func{System.Boolean})">
+            <summary>Waits while a method of this behaviour returns true. Checked once per frame.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltCoroutine">
+            <summary>
+            A running coroutine. Coroutines are state machines inside VoltVM: they never run on another thread, and
+            a world can have at most 512 of them at a time.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltCoroutine.IsRunning">
+            <summary>True while the coroutine has not finished and was not stopped.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltCoroutine.IsDone">
+            <summary>True once the coroutine ran to its end.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltCoroutine.Stop">
+            <summary>Stops the coroutine. It does not continue after its current yield.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltCoroutine.Start(ParelVR.Volt.VoltBehaviour,System.Collections.IEnumerator)">
+            <summary>Starts a coroutine on a behaviour. The same as calling StartCoroutine on it.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltCoroutine.StopAll(ParelVR.Volt.VoltBehaviour)">
+            <summary>Stops every coroutine of a behaviour.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltDebug">
+            <summary>Messages for the creator. They go to the Volt Console in the editor and to the world log in ParelVR.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltDebug.Log(System.Object)">
+            <summary>Writes a message.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltDebug.LogWarning(System.Object)">
+            <summary>Writes a warning.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltDebug.LogError(System.Object)">
+            <summary>Writes an error. The script keeps running.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltDebug.Assert(System.Boolean,System.String)">
+            <summary>Writes an error when a condition is false.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltTime">
+            <summary>Clocks.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.Time">
+            <summary>Seconds since the world loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.DeltaTime">
+            <summary>Seconds the last frame took.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.FixedDeltaTime">
+            <summary>Seconds between physics steps.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.RealTime">
+            <summary>Real seconds since the world loaded, whatever the time scale.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.FrameCount">
+            <summary>Frames since the world loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.UnixTimeSeconds">
+            <summary>Seconds since 1 January 1970 UTC, from this device's clock.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.UnixTimeMilliseconds">
+            <summary>Milliseconds since 1 January 1970 UTC, from this device's clock.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltTime.LocalOffsetMinutes">
+            <summary>Difference between this device's local time and UTC in minutes.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltRuntime">
+            <summary>Facts about the runtime a script is running in.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltRuntime.ApiVersion">
+            <summary>Version of the Volt API the runtime provides, such as "1.0".</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltRuntime.BytecodeVersion">
+            <summary>Version of the bytecode format the runtime reads.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltRuntime.IsEditor">
+            <summary>True when the script runs in the Unity editor's simulator instead of ParelVR.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltRuntime.Platform">
+            <summary>The platform ParelVR runs on: "windows" or "android".</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltProfiler">
+            <summary>What the world's scripts cost, for scripts that want to adapt to it.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltProfiler.InstructionsLastFrame">
+            <summary>Instructions every script of the world ran in the last frame.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltProfiler.ScriptMsLastFrame">
+            <summary>Milliseconds every script of the world took in the last frame.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltProfiler.MemoryBytes">
+            <summary>Estimate of the memory the world's scripts hold, in bytes.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltProfiler.CoroutineCount">
+            <summary>Number of coroutines that are running.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Scene.VoltScene">
+            <summary>The objects of the world scene.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Find(System.String)">
+            <summary>Finds an object by name or by a path from the top of the hierarchy, such as "Room/Door". Inactive objects are found too.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.FindWithTag(System.String)">
+            <summary>Every active object with a tag. At most 256.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Scene.VoltScene.RootObjects">
+            <summary>The objects at the top of the world's hierarchy.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>Makes a copy of a world object. The copy exists on this client only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,UnityEngine.Vector3,UnityEngine.Quaternion)">
+            <summary>Makes a copy of a world object at a position.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,ParelVR.Volt.Objects.VoltTransform)">
+            <summary>Makes a copy of a world object under a parent.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Destroy(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>Destroys a world object at the end of the frame.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Destroy(ParelVR.Volt.Objects.VoltGameObject,System.Single)">
+            <summary>Destroys a world object after a delay in seconds.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltError">
+            <summary>Why a web request, a storage request or a purchase did not succeed.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.InvalidArgument">
+            <summary>The address or the key is not well formed.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.NotPermitted">
+            <summary>The world is not allowed to do this, or the player has switched it off.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.DomainNotAllowed">
+            <summary>The address is not on the world's list of allowed domains.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.RateLimited">
+            <summary>Too many requests in a short time.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.TooLarge">
+            <summary>The request or the answer is larger than the limit.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.Timeout">
+            <summary>No answer arrived in time.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.NetworkError">
+            <summary>The connection failed.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.HttpError">
+            <summary>The server answered with an error status.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.NotFound">
+            <summary>There is no value for the key.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.VoltError.Unavailable">
+            <summary>The service is not available right now.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Web.VoltUrl">
+            <summary>A web address. Only https addresses of public hosts are valid.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltUrl.#ctor(System.String)">
+            <summary>Wraps an address. An address that is not valid can be created but is refused when it is used.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltUrl.IsValid">
+            <summary>True when the address is a plain https address of a public host.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltUrl.Host">
+            <summary>The host part of the address, in lower case.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltUrl.Value">
+            <summary>The address as text.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Web.VoltWebResponse">
+            <summary>The answer to a web request.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebResponse.StatusCode">
+            <summary>HTTP status code.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebResponse.Text">
+            <summary>The body as text.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebResponse.ContentType">
+            <summary>The content type the server reported.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebResponse.IsSuccess">
+            <summary>True for a status from 200 to 299.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Web.VoltWebRequest">
+            <summary>
+            A web request in progress. Yield it in a coroutine to wait for the answer, or override OnWebResponse on the
+            behaviour that started it.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.IsDone">
+            <summary>True once the request has finished, whatever the result.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.Success">
+            <summary>True when an answer with a success status arrived.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.Error">
+            <summary>Why the request failed.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.Url">
+            <summary>The address that was requested.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.Response">
+            <summary>The answer. Null until the request is done, and when no answer arrived.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Web.VoltWebRequest.Text">
+            <summary>The body of the answer as text, or an empty string.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Web.VoltWeb">
+            <summary>
+            Controlled access to the web. Requests are https only, go to hosts the world declared when it was built,
+            are limited in number, size and time, and never carry anything that identifies the player.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltWeb.Get(ParelVR.Volt.Web.VoltUrl)">
+            <summary>Requests an address and returns at once; the answer arrives later.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltWeb.Post(ParelVR.Volt.Web.VoltUrl,System.String,System.String)">
+            <summary>Sends text to an address.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltWeb.PostJson(ParelVR.Volt.Web.VoltUrl,ParelVR.Volt.Data.VoltData)">
+            <summary>Sends structured data to an address as JSON.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltWeb.IsAllowed(ParelVR.Volt.Web.VoltUrl)">
+            <summary>True when the world may send requests to the address.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Web.VoltStringDownloader">
+            <summary>Loads text from the web. The same rules as VoltWeb apply.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Web.VoltStringDownloader.Load(ParelVR.Volt.Web.VoltUrl)">
+            <summary>Loads the text at an address.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Storage.VoltStorageScope">
+            <summary>Whose data a storage key belongs to.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Storage.VoltStorageScope.World">
+            <summary>One value for the whole world, shared by every visitor in every instance.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Storage.VoltStorageScope.Player">
+            <summary>The local player's data, shared by every world of the same creator.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Storage.VoltStorageScope.PlayerWorld">
+            <summary>The local player's data in this world only.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Storage.VoltStorageScope.Instance">
+            <summary>Data of this instance. It is gone when the instance closes.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Storage.VoltStorageRequest">
+            <summary>
+            A storage request in progress. Yield it in a coroutine to wait for the result, or override
+            OnStorageResult on the behaviour that started it.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.IsDone">
+            <summary>True once the request has finished.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.Success">
+            <summary>True when the request did what was asked.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.Error">
+            <summary>Why the request failed.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.Key">
+            <summary>The key of the request.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.Value">
+            <summary>The stored text, after a Get. An empty string when there is none.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Storage.VoltStorageRequest.Exists">
+            <summary>Whether the key has a value, after a Get or an Exists.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Storage.VoltStorage">
+            <summary>
+            Data that outlives the session, kept by ParelVR's own backend. Keys are up to 64 letters, digits, dots,
+            dashes and underscores; values are text up to 64 KB. A script can only reach the local player's data.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltStorage.Get(ParelVR.Volt.Storage.VoltStorageScope,System.String)">
+            <summary>Reads the value of a key.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltStorage.Set(ParelVR.Volt.Storage.VoltStorageScope,System.String,System.String)">
+            <summary>Stores text under a key.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltStorage.Delete(ParelVR.Volt.Storage.VoltStorageScope,System.String)">
+            <summary>Removes a key.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltStorage.Exists(ParelVR.Volt.Storage.VoltStorageScope,System.String)">
+            <summary>Checks whether a key has a value.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Economy.VoltProduct">
+            <summary>Something this world sells. A script sees what the player sees in the shop, never payment details.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.Id">
+            <summary>Id of the product, as set in the SDK's Monetization tab.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.Name">
+            <summary>Name shown in the shop.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.Description">
+            <summary>Description shown in the shop.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.PriceText">
+            <summary>The price as ParelVR shows it to this player, in their own currency.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.IsOwned">
+            <summary>True when the local player owns the product.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltProduct.IsConsumable">
+            <summary>True when the product can be bought more than once.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Economy.VoltEconomy">
+            <summary>
+            The products of this world. A script can ask what the local player owns and can ask ParelVR to offer a
+            purchase; ParelVR shows its own confirmation and handles the payment. A script can never complete a
+            purchase by itself and never sees another player's purchases.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Economy.VoltEconomy.IsAvailable">
+            <summary>True when purchases are available in this build of ParelVR.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Economy.VoltEconomy.Owns(System.String)">
+            <summary>True once the local player's purchase of a product went through.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Economy.VoltEconomy.HasFailed(System.String)">
+            <summary>True when a purchase of the product was tried this session and failed.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Economy.VoltEconomy.Purchase(System.String)">
+            <summary>Asks ParelVR to offer the product to the local player. OnPurchaseCompleted follows.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Economy.VoltEconomy.GetProduct(System.String)">
+            <summary>A product of this world, or null.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Economy.VoltEconomy.GetProducts">
+            <summary>Every product of this world.</summary>
+        </member>
+    </members>
+</doc>

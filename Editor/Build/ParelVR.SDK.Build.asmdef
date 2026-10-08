@@ -1,0 +1,17 @@
+{
+    "name": "ParelVR.SDK.Build",
+    "rootNamespace": "ParelVR.SDK.Build",
+    "references": [
+        "ParelVR.SDK.Core",
+        "ParelVR.SDK.Validation"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

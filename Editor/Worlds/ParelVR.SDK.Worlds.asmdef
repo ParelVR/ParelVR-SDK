@@ -1,0 +1,23 @@
+{
+    "name": "ParelVR.SDK.Worlds",
+    "rootNamespace": "ParelVR.SDK.Worlds",
+    "references": [
+        "ParelVR.SDK.Core",
+        "ParelVR.SDK.Validation",
+        "ParelVR.SDK.Build",
+        "ParelVR.SDK.Backend",
+        "ParelVR.SDK.Worlds.Components",
+        "ParelVR.WorldSDK"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

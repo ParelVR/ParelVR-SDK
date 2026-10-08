@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+  <ui:VisualElement name="settings-root" style="flex-grow: 1;">
+    <ui:VisualElement name="settings-topbar" class="bk-topbar">
+      <ui:VisualElement class="bk-brandline" style="margin-bottom: 0;">
+        <ui:Image name="settings-logo" />
+        <ui:Label text="PARELVR SDK" />
+      </ui:VisualElement>
+      <ui:Label text="Settings" style="margin-left: 16px; font-size: 13px; -unity-font-style: bold;" />
+      <ui:VisualElement class="bk-spacer" />
+      <ui:Button name="settings-back-btn" text="← Back" class="bk-btn" style="padding: 4px 10px; margin-right: 8px;" />
+      <ui:Label name="settings-signed-in-as" text="" class="bk-signed-in-label" />
+      <ui:Button name="settings-logout-btn" text="Sign Out" class="bk-btn" style="padding: 4px 10px;" />
+    </ui:VisualElement>
+    <ui:VisualElement name="settings-body" class="bk-row" style="flex-grow: 1; align-items: stretch;">
+      <ui:VisualElement name="settings-sidebar" class="bk-settings-sidebar">
+        <ui:Label name="nav-project-type" text="Project Type" class="bk-nav-item bk-nav-item-active" />
+        <ui:Label name="nav-preferences" text="Preferences" class="bk-nav-item" />
+      </ui:VisualElement>
+      <ui:ScrollView name="settings-content-scroll" class="bk-body">
+        <ui:VisualElement name="settings-content" style="flex-grow: 1;" />
+      </ui:ScrollView>
+    </ui:VisualElement>
+  </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,20 @@
+{
+    "name": "ParelVR.SDK.Avatars",
+    "rootNamespace": "ParelVR.SDK.Avatars",
+    "references": [
+        "ParelVR.SDK.Core",
+        "ParelVR.SDK.Validation",
+        "ParelVR.SDK.Build",
+        "ParelVR.SDK.Backend",
+        "ParelVR.AvatarSDK"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

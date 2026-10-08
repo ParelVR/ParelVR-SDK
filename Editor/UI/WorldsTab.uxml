@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+  <ui:VisualElement name="worlds-root" style="flex-direction: row; flex-grow: 1;">
+    <ui:VisualElement name="worlds-sidebar" style="width: 220px; margin-right: 20px;">
+      <ui:Button name="new-world-btn" text="+ New World" class="bk-btn bk-btn-primary" style="width: 100%; margin-bottom: 12px;" />
+      <ui:ScrollView name="worlds-list-scroll" style="flex-grow: 1;">
+        <ui:VisualElement name="worlds-list" />
+      </ui:ScrollView>
+    </ui:VisualElement>
+    <ui:VisualElement name="worlds-detail" style="flex-grow: 1;" />
+  </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,20 @@
+{
+    "name": "ParelVR.Volt.Editor",
+    "rootNamespace": "ParelVR.Volt.EditorTools",
+    "references": [
+        "ParelVR.SDK.Core",
+        "ParelVR.SDK.Build",
+        "ParelVR.Volt.Simulator"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
