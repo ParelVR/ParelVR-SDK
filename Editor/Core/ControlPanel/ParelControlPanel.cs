@@ -81,12 +81,27 @@ namespace ParelVR.SDK.Core.ControlPanel
 
         public static bool IsOpen => HasOpenInstances<ParelControlPanel>();
 
+        /// <summary>The panel is one fixed, tall rectangle: it cannot be resized, maximized or docked.</summary>
+        private static readonly Vector2 WindowSize = new Vector2(520, 700);
+
         public static void Open()
         {
-            var window = GetWindow<ParelControlPanel>();
-            window.titleContent = new GUIContent("ParelVR SDK");
-            window.minSize = new Vector2(880, 560);
-            window.Show();
+            ParelControlPanel window = HasOpenInstances<ParelControlPanel>() ? GetWindow<ParelControlPanel>() : null;
+            // A panel left open from before it had a fixed size is still an ordinary resizable window.
+            if (window != null && (window.docked || window.maxSize != WindowSize))
+            {
+                window.Close();
+                window = null;
+            }
+            if (window == null)
+            {
+                window = CreateInstance<ParelControlPanel>();
+                window.titleContent = new GUIContent("ParelVR SDK");
+                window.minSize = WindowSize;
+                window.maxSize = WindowSize;
+                window.ShowUtility();
+            }
+            window.Focus();
         }
 
         /// <summary>Opens the Control Panel on the named tab ("Builder", "Content Manager", ...).</summary>
@@ -339,9 +354,20 @@ namespace ParelVR.SDK.Core.ControlPanel
         {
             _authHost = container;
 
+            var banner = new VisualElement();
+            banner.AddToClassList("bk-banner");
+            var bannerLogo = new Image { image = LoadLogo(), scaleMode = ScaleMode.ScaleToFit };
+            banner.Add(bannerLogo);
+            var bannerTitle = new Label("ParelVR SDK");
+            bannerTitle.AddToClassList("bk-banner-title");
+            banner.Add(bannerTitle);
+            var bannerSub = new Label("Avatars, worlds and Volt world scripts");
+            bannerSub.AddToClassList("bk-banner-sub");
+            banner.Add(bannerSub);
+            container.Add(banner);
+
             var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UiRoot + "LoginScreen.uxml");
             _loginScreen = uxml != null ? uxml.Instantiate() : new VisualElement();
-            _loginScreen.style.flexGrow = 1;
             container.Add(_loginScreen);
 
             var logoImage = _loginScreen.Q<Image>("login-logo");
@@ -361,9 +387,8 @@ namespace ParelVR.SDK.Core.ControlPanel
 
             if (_submitButton != null) _submitButton.clicked += OnLoginSubmit;
             if (_totpCancelButton != null) _totpCancelButton.clicked += CancelTotp;
-            LinkTo(_loginScreen.Q<Label>("login-link-website"), "https://parelvr.parelllc.com/Home");
-            LinkTo(_loginScreen.Q<Label>("login-link-docs"), "https://docs-parelvr.parelllc.com/");
-            LinkTo(_loginScreen.Q<Label>("login-link-support"), "https://support-parelvr.parelllc.com/");
+            var signUp = _loginScreen.Q<Button>("login-signup");
+            if (signUp != null) signUp.clicked += () => Application.OpenURL("https://parelvr.parelllc.com/Home");
             _loginServerLabel = _loginScreen.Q<Label>("login-server");
             if (_identifierField != null) _identifierField.RegisterCallback<KeyDownEvent>(OnLoginFieldKeyDown);
             if (_passwordField != null) _passwordField.RegisterCallback<KeyDownEvent>(OnLoginFieldKeyDown);
@@ -381,7 +406,7 @@ namespace ParelVR.SDK.Core.ControlPanel
             _accountCard.style.display = loggedIn ? DisplayStyle.Flex : DisplayStyle.None;
             if (!loggedIn)
             {
-                if (_loginServerLabel != null) _loginServerLabel.text = "Server: " + ParelEnvironment.Current + "\n" + ParelEnvironment.BaseUrl;
+                if (_loginServerLabel != null) _loginServerLabel.text = "Server: " + ParelEnvironment.Current + " (" + ParelEnvironment.BaseUrl + ")";
                 CancelTotp();
                 return;
             }
@@ -389,7 +414,6 @@ namespace ParelVR.SDK.Core.ControlPanel
             _accountCard.Clear();
             var card = new VisualElement();
             card.AddToClassList("bk-card");
-            card.style.maxWidth = 760;
             _accountCard.Add(card);
 
             var heading = new Label("Account");
@@ -404,36 +428,32 @@ namespace ParelVR.SDK.Core.ControlPanel
 
             var buttons = new VisualElement();
             buttons.AddToClassList("bk-row");
-            buttons.style.marginTop = 12;
+            buttons.style.marginTop = 6;
             var signOut = new Button(() => ParelAuth.Logout()) { text = "Sign Out" };
             signOut.AddToClassList("bk-btn");
+            signOut.style.flexGrow = 1;
+            signOut.style.marginLeft = 0;
             buttons.Add(signOut);
             var website = new Button(() => Application.OpenURL("https://parelvr.parelllc.com/Home")) { text = "Open ParelVR Website" };
             website.AddToClassList("bk-btn");
-            website.style.marginLeft = 6;
+            website.style.flexGrow = 1;
+            website.style.marginRight = 0;
             buttons.Add(website);
             card.Add(buttons);
-        }
-
-        private static void LinkTo(Label link, string url)
-        {
-            if (link == null) return;
-            link.pickingMode = PickingMode.Position;
-            link.RegisterCallback<ClickEvent>(_ => Application.OpenURL(url));
         }
 
         private static void AddAccountRow(VisualElement card, string label, string value)
         {
             var row = new VisualElement();
-            row.AddToClassList("bk-row");
-            row.style.marginBottom = 4;
+            row.AddToClassList("bk-prop");
             var name = new Label(label);
-            name.AddToClassList("bk-label");
-            name.style.width = 120;
-            name.style.marginBottom = 0;
+            name.AddToClassList("bk-prop-label");
             row.Add(name);
             var text = new Label(value ?? string.Empty);
             text.selection.isSelectable = true;
+            text.style.paddingTop = 5;
+            text.style.whiteSpace = WhiteSpace.Normal;
+            text.style.flexShrink = 1;
             row.Add(text);
             card.Add(row);
         }
@@ -547,81 +567,61 @@ namespace ParelVR.SDK.Core.ControlPanel
             heading.AddToClassList("bk-card-title");
             card.Add(heading);
 
-            var row = new VisualElement();
-            row.AddToClassList("bk-row");
-            card.Add(row);
-
-            var label = new Label("Auto Port Content");
-            label.AddToClassList("bk-label");
-            row.Add(label);
-
-            var spacer = new VisualElement();
-            spacer.AddToClassList("bk-spacer");
-            row.Add(spacer);
-
             var toggle = new Toggle { value = ParelPreferences.AutoPortContentEnabled };
             toggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoPortContentEnabled(evt.newValue));
-            row.Add(toggle);
-
-            var desc = new Label("Automatically detects and fixes common setup issues in the open scene.");
-            desc.AddToClassList("bk-hint");
-            desc.style.marginTop = 8;
-            desc.style.marginBottom = 12;
-            card.Add(desc);
+            VisualElement portValue = Setting(card, "Auto Port Content", toggle,
+                "Automatically detects and fixes common setup issues in the open scene.");
 
             var scanBtn = new Button(RunAutoPortScan) { text = "Scan Now" };
             scanBtn.AddToClassList("bk-btn");
-            card.Add(scanBtn);
+            scanBtn.style.alignSelf = Align.FlexStart;
+            scanBtn.style.marginLeft = 0;
+            scanBtn.style.marginTop = 4;
+            portValue.Add(scanBtn);
 
             _autoPortReportContainer = new VisualElement();
-            _autoPortReportContainer.style.marginTop = 12;
-            card.Add(_autoPortReportContainer);
-
-            var divider = new VisualElement();
-            divider.AddToClassList("bk-divider");
-            card.Add(divider);
-
-            var addRow = new VisualElement();
-            addRow.AddToClassList("bk-row");
-            card.Add(addRow);
-
-            var addLabel = new Label("Automatically Add Referenced Scripts");
-            addLabel.AddToClassList("bk-label");
-            addRow.Add(addLabel);
-
-            var addSpacer = new VisualElement();
-            addSpacer.AddToClassList("bk-spacer");
-            addRow.Add(addSpacer);
+            portValue.Add(_autoPortReportContainer);
 
             var addToggle = new Toggle { value = ParelPreferences.AutoAddReferencedScripts };
             addToggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoAddReferencedScripts(evt.newValue));
-            addRow.Add(addToggle);
-
-            var addDesc = new Label("When you add a script to an object and it needs other scripts to work, the SDK adds those for you. " +
-                                    "For example, adding a Volt Pickup also adds a Rigidbody, a collider and a Volt Object Sync, and a script that " +
-                                    "handles OnInteract gets a collider. Nothing already on the object is changed, and each addition can be undone.");
-            addDesc.AddToClassList("bk-hint");
-            addDesc.style.marginTop = 8;
-            card.Add(addDesc);
-
-            var envLabel = new Label("API Environment");
-            envLabel.AddToClassList("bk-label");
-            envLabel.style.marginTop = 16;
-            card.Add(envLabel);
-
-            var envDesc = new Label("Connects the SDK to different backend instances (Development, Staging, Production). Changing it signs you out.");
-            envDesc.AddToClassList("bk-hint");
-            envDesc.style.marginBottom = 8;
-            card.Add(envDesc);
+            Setting(card, "Automatically Add Referenced Scripts", addToggle,
+                "When you add a script to an object and it needs other scripts to work, the SDK adds those for you. " +
+                "For example, adding a Volt Pickup also adds a Rigidbody, a collider and a Volt Object Sync, and a script that " +
+                "handles OnInteract gets a collider. Nothing already on the object is changed, and each addition can be undone.");
 
             var envDropdown = new EnumField(ParelEnvironment.Current);
-            envDropdown.AddToClassList("bk-input");
             envDropdown.RegisterValueChangedCallback(evt =>
             {
                 ParelPreferences.SetEnvironment((ParelEnvironmentType)evt.newValue);
                 if (ParelSession.IsLoggedIn) ParelAuth.Logout();
             });
-            card.Add(envDropdown);
+            Setting(card, "API Environment", envDropdown,
+                "Connects the SDK to different backend instances (Development, Staging, Production). Changing it signs you out.");
+        }
+
+        /// <summary>One setting: its name on the left; its control and what it does on the right.</summary>
+        private static VisualElement Setting(VisualElement card, string name, VisualElement control, string description)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("bk-prop");
+            row.style.marginBottom = 10;
+            var label = new Label(name);
+            label.AddToClassList("bk-prop-label");
+            row.Add(label);
+
+            var value = new VisualElement();
+            value.AddToClassList("bk-prop-value");
+            value.style.flexDirection = FlexDirection.Column;
+            control.style.marginLeft = 0;
+            control.style.alignSelf = control is Toggle ? Align.FlexStart : Align.Stretch;
+            value.Add(control);
+            var hint = new Label(description);
+            hint.AddToClassList("bk-hint");
+            hint.style.marginTop = 2;
+            value.Add(hint);
+            row.Add(value);
+            card.Add(row);
+            return value;
         }
 
         private async void RunAutoPortScan()

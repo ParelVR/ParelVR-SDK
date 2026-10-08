@@ -326,35 +326,23 @@ namespace ParelVR.SDK.Avatars.UI
             // ---- Details --------------------------------------------------------------------------
             VisualElement details = Card(_builderBody);
             details.Add(Title("Avatar Info"));
-            details.Add(FieldLabel("Name *"));
             _nameField = new TextField { maxLength = 64 };
             _nameField.AddToClassList("bk-input");
-            details.Add(_nameField);
+            Prop(details, "Name *").Add(_nameField);
 
-            details.Add(FieldLabel("Description"));
             _descriptionField = new TextField { multiline = true, maxLength = 1000 };
             _descriptionField.AddToClassList("bk-input");
             _descriptionField.style.minHeight = 54;
             _descriptionField.style.whiteSpace = WhiteSpace.Normal;
-            details.Add(_descriptionField);
+            Prop(details, "Description").Add(_descriptionField);
 
-            VisualElement visibilityRow = Row();
-            visibilityRow.style.alignItems = Align.FlexEnd;
-            var visibilityColumn = new VisualElement();
-            visibilityColumn.style.flexGrow = 1;
-            visibilityColumn.Add(FieldLabel("Visibility"));
             _visibilityField = new DropdownField(new List<string>(VisibilityLabels), 0);
-            visibilityColumn.Add(_visibilityField);
-            visibilityRow.Add(visibilityColumn);
-            _cloneToggle = new Toggle("Allow Cloning");
-            _cloneToggle.style.marginLeft = 16;
-            _cloneToggle.style.marginBottom = 4;
-            visibilityRow.Add(_cloneToggle);
-            details.Add(visibilityRow);
+            Prop(details, "Visibility").Add(_visibilityField);
+            _cloneToggle = new Toggle("Allow others to clone this avatar");
+            Prop(details, "Cloning").Add(_cloneToggle);
             details.Add(Hint("Private avatars are only visible to you. Public avatars can be found and worn by anyone; Friends Only limits that to your friends. Allow Cloning lets others wear it from your pedestal or profile."));
 
-            details.Add(FieldLabel("Tags"));
-            VisualElement tagRow = Row();
+            VisualElement tagRow = Prop(details, "Tags");
             _tagInput = new TextField { maxLength = 32 };
             _tagInput.AddToClassList("bk-input");
             _tagInput.style.flexGrow = 1;
@@ -365,22 +353,21 @@ namespace ParelVR.SDK.Avatars.UI
                 evt.StopPropagation();
             });
             tagRow.Add(_tagInput);
-            tagRow.Add(SmallButton("Add Tag", AddTag));
-            details.Add(tagRow);
+            tagRow.Add(SmallButton("Add", AddTag));
             _tagsRow = Row();
             _tagsRow.style.flexWrap = Wrap.Wrap;
-            _tagsRow.style.marginTop = 6;
+            _tagsRow.style.marginBottom = 4;
+            _tagsRow.style.marginLeft = 150;
             details.Add(_tagsRow);
 
-            var warnings = new Foldout { text = "Content Warnings", value = false };
-            warnings.style.marginTop = 10;
+            VisualElement warnings = Prop(details, "Content Warnings");
+            warnings.style.flexDirection = FlexDirection.Column;
             foreach (string label in WarningLabels)
             {
                 var toggle = new Toggle(label);
                 _warningToggles.Add(toggle);
                 warnings.Add(toggle);
             }
-            details.Add(warnings);
 
             // ---- Validations ------------------------------------------------------------------------
             VisualElement validation = Card(_builderBody);
@@ -1617,6 +1604,21 @@ namespace ParelVR.SDK.Avatars.UI
             var label = new Label(text);
             label.AddToClassList("bk-card-title");
             return label;
+        }
+
+        /// <summary>A property row: the name on the left; what is returned holds the value on the right.</summary>
+        private static VisualElement Prop(VisualElement parent, string name)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("bk-prop");
+            var label = new Label(name);
+            label.AddToClassList("bk-prop-label");
+            row.Add(label);
+            var value = new VisualElement();
+            value.AddToClassList("bk-prop-value");
+            row.Add(value);
+            parent.Add(row);
+            return value;
         }
 
         private static Label FieldLabel(string text)

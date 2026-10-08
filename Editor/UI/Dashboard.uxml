@@ -1,14 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
   <ui:VisualElement name="dashboard-root" style="flex-grow: 1;">
-    <ui:VisualElement name="topbar" class="bk-topbar">
-      <ui:VisualElement class="bk-brandline" style="margin-bottom: 0;">
-        <ui:Image name="dash-logo" />
-        <ui:Label text="PARELVR SDK" />
-      </ui:VisualElement>
-      <ui:VisualElement class="bk-spacer" />
-      <ui:Label name="signed-in-as" text="" class="bk-signed-in-label" />
-      <ui:Button name="logout-btn" text="Sign Out" class="bk-btn" style="padding: 3px 10px;" />
-    </ui:VisualElement>
+    <!-- The tabs are the top of the window; the account lives on the Authentication tab. -->
     <ui:VisualElement name="tabs" class="bk-tabs" />
     <ui:ScrollView name="tab-content-scroll" class="bk-body">
       <ui:VisualElement name="tab-content" style="flex-grow: 1;" />

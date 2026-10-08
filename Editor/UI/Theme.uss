@@ -128,15 +128,15 @@
     border-width: 1px;
     border-color: var(--bk-line);
     border-radius: 0;
-    padding: 14px;
-    margin-bottom: 12px;
+    padding: 10px;
+    margin-bottom: 8px;
 }
 
 /* The title bar of a card: every section of a page is a card with one of these across its top. */
 .bk-card-title,
 .bk-card-titlebar {
-    margin: -14px -14px 12px -14px;
-    padding: 6px 12px;
+    margin: -10px -10px 8px -10px;
+    padding: 5px 10px;
     background-color: var(--bk-header);
     border-bottom-width: 1px;
     border-bottom-color: var(--bk-line);
@@ -150,7 +150,7 @@
 .bk-card-titlebar {
     flex-direction: row;
     align-items: center;
-    padding: 3px 6px 3px 12px;
+    padding: 2px 4px 2px 10px;
 }
 
 .bk-card-titlebar > .bk-label {
@@ -199,6 +199,45 @@
     background-color: var(--bk-line-strong);
     margin-top: 12px;
     margin-bottom: 12px;
+}
+
+/* ── Property rows ─────────────────────────────────────────────── */
+/* Every setting on every page is one of these: its name on the left, its value on the right. */
+
+.bk-prop {
+    flex-direction: row;
+    align-items: flex-start;
+    min-height: 24px;
+    margin-bottom: 4px;
+}
+
+.bk-prop-label {
+    width: 150px;
+    flex-shrink: 0;
+    padding-top: 5px;
+    padding-left: 0;
+    margin: 0;
+    font-size: 12px;
+    color: var(--bk-ink-soft);
+    white-space: normal;
+}
+
+.bk-prop-value {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    flex-direction: row;
+}
+
+.bk-prop-value > .unity-base-field {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.bk-prop-value > .unity-toggle {
+    margin-top: 3px;
 }
 
 /* ── Fields ────────────────────────────────────────────────────── */
@@ -275,8 +314,7 @@
 }
 
 .bk-btn {
-    padding: 6px 14px;
-    -unity-font-style: bold;
+    padding: 4px 12px;
 }
 
 .bk-btn:hover,
@@ -289,6 +327,7 @@
 }
 
 .bk-btn-primary {
+    -unity-font-style: bold;
     background-color: var(--bk-accent);
     border-color: var(--bk-accent);
     color: var(--bk-on-accent);
@@ -346,7 +385,7 @@
 .bk-tabs {
     flex-direction: row;
     flex-shrink: 0;
-    height: 30px;
+    height: 26px;
     background-color: var(--bk-paper-2);
     border-bottom-width: 1px;
     border-bottom-color: var(--bk-line);
@@ -361,9 +400,10 @@
     border-right-color: var(--bk-line);
     border-bottom-width: 2px;
     border-bottom-color: rgba(0, 0, 0, 0);
-    font-size: 12px;
-    color: var(--bk-ink-faint);
+    font-size: 11px;
+    color: var(--bk-ink-soft);
     -unity-text-align: middle-center;
+    overflow: hidden;
 }
 
 .bk-tab:hover {
@@ -478,7 +518,7 @@
 
 .bk-body {
     flex-grow: 1;
-    padding: 14px;
+    padding: 8px;
 }
 
 /* The scrolling body of a page tab (Credits, Monetization). */
@@ -501,125 +541,40 @@
     -unity-text-align: middle-center;
 }
 
-/* ── Sign-in page ──────────────────────────────────────────────── */
-/* One wide rectangle in two halves: who you are signing in to on the left, the form on the right. */
+/* ── Authentication page ───────────────────────────────────────── */
 
-.bk-login-wrap {
-    flex-grow: 1;
+.bk-banner {
     align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.bk-login-panel {
-    flex-direction: row;
-    width: 660px;
-    max-width: 100%;
-    min-height: 330px;
+    padding: 18px 12px 16px 12px;
+    margin-bottom: 8px;
+    background-color: var(--bk-header);
     border-width: 1px;
     border-color: var(--bk-line);
-    background-color: var(--bk-paper-2);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--bk-accent);
 }
 
-.bk-login-brand {
-    width: 250px;
-    flex-shrink: 0;
-    padding: 26px 24px;
-    background-color: var(--bk-header);
-    border-right-width: 3px;
-    border-right-color: var(--bk-accent);
+.bk-banner > Image {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 8px;
 }
 
-.bk-login-brand > Image {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 14px;
-}
-
-.bk-login-brand-name {
-    font-size: 19px;
+.bk-banner-title {
+    font-size: 18px;
     -unity-font-style: bold;
     color: var(--bk-ink);
-    margin-bottom: 6px;
+    -unity-text-align: middle-center;
 }
 
-.bk-login-brand-text {
-    font-size: 11px;
-    color: var(--bk-ink-soft);
-    white-space: normal;
-}
-
-.bk-login-points {
-    margin-top: 16px;
-}
-
-.bk-login-point {
+.bk-banner-sub {
     font-size: 11px;
     color: var(--bk-ink-faint);
-    white-space: normal;
-    padding-left: 8px;
-    margin-bottom: 6px;
-    border-left-width: 2px;
-    border-left-color: var(--bk-line-strong);
-}
-
-.bk-login-server {
-    font-size: 10px;
-    color: var(--bk-ink-faint);
-    white-space: normal;
-}
-
-.bk-login-form {
-    flex-grow: 1;
-    flex-shrink: 1;
-    padding: 26px 28px;
-}
-
-.bk-login-title {
-    font-size: 16px;
-    -unity-font-style: bold;
-    color: var(--bk-ink);
-    margin-bottom: 2px;
-}
-
-.bk-login-sub {
-    font-size: 11px;
-    color: var(--bk-ink-faint);
-    margin-bottom: 16px;
-    white-space: normal;
-}
-
-.bk-login-submit {
-    height: 32px;
-    font-size: 13px;
-    margin-top: 6px;
-    margin-left: 0;
-    margin-right: 0;
-}
-
-.bk-login-links {
-    flex-direction: row;
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top-width: 1px;
-    border-top-color: var(--bk-line-strong);
-}
-
-.bk-link {
-    font-size: 11px;
-    color: var(--bk-accent);
-    margin-right: 16px;
-}
-
-.bk-link:hover {
-    color: var(--bk-accent-hover);
+    -unity-text-align: middle-center;
+    margin-top: 2px;
 }
 
 /* ── Settings screen ───────────────────────────────────────────── */
-
-.bk-settings-column {
-    max-width: 760px;
-}
 
 .bk-settings-sidebar {
     width: 170px;
