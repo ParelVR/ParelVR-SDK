@@ -85,6 +85,7 @@ namespace ParelVR.SDK.Avatars.UI
 
         private VisualElement _setupCard;
         private VisualElement _builderBody;
+        private VisualElement _buildCard;
         private DropdownField _avatarDropdown;
         private Image _thumbImage;
         private Label _publishTitle;
@@ -324,8 +325,7 @@ namespace ParelVR.SDK.Avatars.UI
             infoCard.Add(infoRow);
 
             // ---- Details --------------------------------------------------------------------------
-            VisualElement details = Card(_builderBody);
-            details.Add(Title("Avatar Info"));
+            VisualElement details = Section(_builderBody, "Avatar Info");
             _nameField = new TextField { maxLength = 64 };
             _nameField.AddToClassList("bk-input");
             Prop(details, "Name *").Add(_nameField);
@@ -370,10 +370,8 @@ namespace ParelVR.SDK.Avatars.UI
             }
 
             // ---- Validations ------------------------------------------------------------------------
-            VisualElement validation = Card(_builderBody);
+            VisualElement validation = Section(_builderBody, "Validations");
             VisualElement validationHeader = Row();
-            validationHeader.AddToClassList("bk-card-titlebar");
-            validationHeader.Add(Bold("Validations"));
             validationHeader.Add(Spacer());
             _fixAllButton = SmallButton("Auto Fix All", FixAll);
             validationHeader.Add(_fixAllButton);
@@ -386,7 +384,9 @@ namespace ParelVR.SDK.Avatars.UI
             validation.Add(_validationList);
 
             // ---- Build ------------------------------------------------------------------------------
-            VisualElement build = Card(_builderBody);
+            // The Build section is docked at the bottom of the window, under the scrolling page.
+            VisualElement build = Card(ParelControlPanel.FooterFor(_container) ?? _builderBody);
+            _buildCard = build;
             build.Add(Title("Build"));
             bool androidAvailable = ParelAvatarBuilder.CanBuildFor(BuildTarget.Android);
             _androidToggle = new Toggle("Also publish an Android (Quest) build")
@@ -490,6 +490,7 @@ namespace ParelVR.SDK.Avatars.UI
             bool any = _descriptors.Count > 0;
             _setupCard.style.display = any ? DisplayStyle.None : DisplayStyle.Flex;
             _builderBody.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_buildCard != null) _buildCard.style.display = any ? DisplayStyle.Flex : DisplayStyle.None;
             if (!any)
             {
                 _current = null;
@@ -1596,6 +1597,15 @@ namespace ParelVR.SDK.Avatars.UI
             var label = new Label(text);
             label.AddToClassList("bk-label");
             return label;
+        }
+
+        /// <summary>A section of the page that opens and closes from its header bar.</summary>
+        private static VisualElement Section(VisualElement parent, string title, bool open = true)
+        {
+            var section = new Foldout { text = title, value = open };
+            section.AddToClassList("bk-section");
+            parent.Add(section);
+            return section;
         }
 
         /// <summary>The title bar across the top of a card.</summary>

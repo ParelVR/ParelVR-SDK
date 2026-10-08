@@ -33,6 +33,7 @@ namespace ParelVR.SDK.Core.ControlPanel
             public Action Shown;
             public bool RequiresLogin;
             public VisualElement Container;
+            public VisualElement Footer;
             public VisualElement Placeholder;
             public Label Label;
             public bool Built;
@@ -42,6 +43,7 @@ namespace ParelVR.SDK.Core.ControlPanel
         private VisualElement _dashboard;
         private VisualElement _tabStrip;
         private VisualElement _tabContentHost;
+        private VisualElement _footerHost;
         private Label _signedInLabel;
         private Button _signOutButton;
 
@@ -164,6 +166,7 @@ namespace ParelVR.SDK.Core.ControlPanel
 
             _tabStrip = _dashboard.Q<VisualElement>("tabs") ?? new VisualElement();
             _tabContentHost = _dashboard.Q<VisualElement>("tab-content") ?? _dashboard;
+            _footerHost = _dashboard.Q<VisualElement>("tab-footer") ?? new VisualElement();
             _signedInLabel = _dashboard.Q<Label>("signed-in-as");
 
             // Settings is a tab now, like VRChat's.
@@ -178,6 +181,7 @@ namespace ParelVR.SDK.Core.ControlPanel
         {
             _tabStrip.Clear();
             _tabContentHost.Clear();
+            _footerHost.Clear();
             _entries.Clear();
             _active = null;
 
@@ -226,6 +230,8 @@ namespace ParelVR.SDK.Core.ControlPanel
 
                 entry.Container = new VisualElement { style = { display = DisplayStyle.None, flexGrow = 1 } };
                 _tabContentHost.Add(entry.Container);
+                entry.Footer = new VisualElement { style = { display = DisplayStyle.None } };
+                _footerHost.Add(entry.Footer);
 
                 if (entry.RequiresLogin)
                 {
@@ -290,8 +296,10 @@ namespace ParelVR.SDK.Core.ControlPanel
             if (_active != null)
             {
                 _active.Container.style.display = DisplayStyle.None;
+                _active.Footer.style.display = DisplayStyle.None;
                 _active.Label.RemoveFromClassList("bk-tab-active");
             }
+            _footerHost.style.display = DisplayStyle.None;
 
             _active = entry;
             entry.Container.style.display = DisplayStyle.Flex;
@@ -317,6 +325,23 @@ namespace ParelVR.SDK.Core.ControlPanel
             {
                 Debug.LogError($"[ParelVR SDK] The {entry.Name} tab failed: {ex}");
             }
+
+            bool docked = entry.Footer.childCount > 0;
+            entry.Footer.style.display = docked ? DisplayStyle.Flex : DisplayStyle.None;
+            _footerHost.style.display = docked ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>
+        /// Where a tab docks what must stay in reach under its scrolling page, the way the Builder keeps its Build
+        /// section at the bottom of the window. Pass the container the tab was given in BuildUI.
+        /// </summary>
+        public static VisualElement FooterFor(VisualElement tabContainer)
+        {
+            foreach (ParelControlPanel window in Resources.FindObjectsOfTypeAll<ParelControlPanel>())
+                for (VisualElement element = tabContainer; element != null; element = element.parent)
+                    foreach (TabEntry entry in window._entries)
+                        if (entry.Container == element) return entry.Footer;
+            return null;
         }
 
         private void OnSessionChanged()

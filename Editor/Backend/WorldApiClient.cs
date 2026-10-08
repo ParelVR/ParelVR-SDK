@@ -58,6 +58,14 @@ namespace ParelVR.SDK.Backend
         }
 
         /// <summary>
+        /// Deletes one of the signed-in user's worlds.
+        /// </summary>
+        public static Task<WorldResponse> DeleteWorldAsync(string worldId, CancellationToken ct = default)
+        {
+            return ParelApiClient.DeleteJsonAsync<WorldResponse>($"/api/parelvr/worlds/{worldId}", ct);
+        }
+
+        /// <summary>
         /// Uploads a built AssetBundle to a specific world and platform.
         /// </summary>
         public static async Task<WorldResponse> UploadBundleAsync(

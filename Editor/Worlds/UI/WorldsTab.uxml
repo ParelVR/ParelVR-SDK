@@ -9,9 +9,7 @@
 
         <ui:VisualElement name="publish-container" style="display: none; flex-grow: 1;">
             <!-- World Info -->
-            <ui:VisualElement class="bk-card">
-                <ui:Label text="World Info" class="bk-card-title"/>
-
+            <ui:Foldout text="World Info" value="true" class="bk-section">
                 <ui:VisualElement class="bk-prop">
                     <ui:Label name="publish-title" text="Publish New World" class="bk-prop-label" style="-unity-font-style: bold;"/>
                     <ui:VisualElement class="bk-prop-value">
@@ -49,9 +47,16 @@
                     <ui:VisualElement class="bk-prop-value" style="flex-direction: column;">
                         <ui:VisualElement style="flex-direction: row;">
                             <ui:TextField name="world-tag-input" class="bk-input" style="flex-grow: 1; flex-shrink: 1;"/>
-                            <ui:Button name="btn-add-tag" text="Add" class="bk-btn"/>
+                            <ui:Button name="btn-add-tag" text="Add Tag" class="bk-btn"/>
                         </ui:VisualElement>
                         <ui:VisualElement name="tags-container" style="flex-direction: row; flex-wrap: wrap; margin-top: 4px;"/>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="bk-prop">
+                    <ui:Label text="Max. Capacity" class="bk-prop-label"/>
+                    <ui:VisualElement class="bk-prop-value">
+                        <ui:IntegerField name="world-max-cap" class="bk-input"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
 
@@ -59,13 +64,6 @@
                     <ui:Label text="Recommended Capacity" class="bk-prop-label"/>
                     <ui:VisualElement class="bk-prop-value">
                         <ui:IntegerField name="world-rec-cap" class="bk-input"/>
-                    </ui:VisualElement>
-                </ui:VisualElement>
-
-                <ui:VisualElement class="bk-prop">
-                    <ui:Label text="Maximum Capacity" class="bk-prop-label"/>
-                    <ui:VisualElement class="bk-prop-value">
-                        <ui:IntegerField name="world-max-cap" class="bk-input"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
 
@@ -83,43 +81,45 @@
                             <ui:Image name="thumbnail-preview" style="flex-grow: 1;"/>
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; width: 240px; margin-top: 4px;">
-                            <ui:Button name="btn-capture-thumbnail" text="Capture From Scene" class="bk-btn" style="flex-grow: 1; margin-left: 0;"/>
-                            <ui:Button name="btn-select-image" text="Select Image..." class="bk-btn" style="flex-grow: 1; margin-right: 0;"/>
+                            <ui:Button name="btn-select-image" text="Select New Thumbnail..." class="bk-btn" style="flex-grow: 1; margin-left: 0;"/>
+                            <ui:Button name="btn-capture-thumbnail" text="Capture From Scene" class="bk-btn" style="flex-grow: 1; margin-right: 0;"/>
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
-            </ui:VisualElement>
+            </ui:Foldout>
+
+            <!-- Credits and Monetization are part of the world's info, closed until you need them -->
+            <ui:Foldout text="Credits" value="false" class="bk-section">
+                <ui:VisualElement name="credits-host"/>
+            </ui:Foldout>
+
+            <ui:Foldout text="Monetization" value="false" class="bk-section">
+                <ui:VisualElement name="monetization-host"/>
+            </ui:Foldout>
 
             <!-- Validations -->
-            <ui:VisualElement class="bk-card">
-                <ui:Label text="Validations" class="bk-card-title"/>
+            <ui:Foldout text="Validations" value="true" class="bk-section">
                 <ui:Label text="The scene is checked when you build. Anything that has to be fixed first is listed here." class="bk-hint" style="margin-top: 0;"/>
                 <ui:VisualElement name="validation-errors-container" style="display: none; margin-top: 6px;">
                     <ui:Label text="Fix these before building:" class="bk-label bk-text-bad"/>
                     <ui:ScrollView name="validation-errors-list" style="max-height: 160px; margin-top: 2px;"/>
                 </ui:VisualElement>
-            </ui:VisualElement>
+            </ui:Foldout>
 
-            <!-- Build -->
-            <ui:VisualElement class="bk-card">
+            <!-- Build: moved by the tab into the bar docked at the bottom of the window -->
+            <ui:VisualElement name="build-section" class="bk-card">
                 <ui:Label text="Build" class="bk-card-title"/>
                 <ui:VisualElement class="bk-prop">
                     <ui:Label text="Selected Platform" class="bk-prop-label"/>
                     <ui:VisualElement class="bk-prop-value">
-                        <ui:Label text="Windows" style="padding-top: 4px;"/>
+                        <ui:Label text="Windows" style="padding-top: 5px;"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="bk-prop">
-                    <ui:Label text="Online Publishing" class="bk-prop-label"/>
-                    <ui:VisualElement class="bk-prop-value">
-                        <ui:Label text="Builds the world with its Volt scripts and uploads it to ParelVR." class="bk-hint" style="margin-top: 4px;"/>
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 32px; font-size: 13px; margin-left: 0; margin-right: 0;"/>
+                <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 30px; font-size: 13px; margin-left: 0; margin-right: 0;"/>
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <ui:VisualElement name="progress-container" class="bk-card" style="display: none;">
+        <ui:VisualElement name="progress-container" class="bk-card" style="display: none; margin-top: 8px;">
             <ui:Label text="Publishing" class="bk-card-title"/>
             <ui:Label name="progress-status" text="Starting..." class="bk-hint" style="margin-top: 0;"/>
             <ui:ProgressBar name="progress-bar" value="0" high-value="100" style="margin-top: 6px;"/>

@@ -171,6 +171,63 @@
     overflow: hidden;
 }
 
+/* A section of a page: a foldout whose header is a bar across the page. Click the bar to open or close it. */
+.bk-section {
+    margin-bottom: 8px;
+    border-width: 1px;
+    border-color: var(--bk-line);
+    background-color: var(--bk-paper-2);
+}
+
+.bk-section > .unity-foldout__toggle {
+    margin: 0;
+    padding: 3px 6px;
+    background-color: var(--bk-header);
+}
+
+.bk-section > .unity-foldout__toggle:hover {
+    background-color: var(--bk-paper-3);
+}
+
+.bk-section > .unity-foldout__toggle .unity-foldout__text,
+.bk-section > .unity-foldout__toggle .unity-toggle__text {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: var(--bk-ink);
+}
+
+.bk-section > .unity-foldout__content {
+    margin: 0;
+    padding: 10px;
+    border-top-width: 1px;
+    border-top-color: var(--bk-line);
+}
+
+/* Docked under the scrolling page: the Builder keeps its Build section here, always in reach. */
+.bk-footer {
+    flex-shrink: 0;
+    padding: 8px;
+    background-color: var(--bk-paper);
+    border-top-width: 1px;
+    border-top-color: var(--bk-line);
+}
+
+.bk-footer > .bk-card {
+    margin-bottom: 0;
+}
+
+/* One uploaded world or avatar in the Content Manager. */
+.bk-content-row {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.bk-content-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: var(--bk-ink);
+}
+
 /* A compact card for the rows of a list (a credit role, a product, a tier). */
 .bk-panel {
     background-color: var(--bk-paper-2);

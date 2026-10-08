@@ -5,5 +5,7 @@
     <ui:ScrollView name="tab-content-scroll" class="bk-body">
       <ui:VisualElement name="tab-content" style="flex-grow: 1;" />
     </ui:ScrollView>
+    <!-- What a tab docks at the bottom of the window, below the scrolling page (the Builder's Build section). -->
+    <ui:VisualElement name="tab-footer" class="bk-footer" style="display: none;" />
   </ui:VisualElement>
 </ui:UXML>

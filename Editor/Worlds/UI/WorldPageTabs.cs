@@ -17,21 +17,21 @@ using UnityEngine.UIElements;
 namespace ParelVR.SDK.Worlds.UI
 {
     /// <summary>
-    /// What the Credits and Monetization tabs share: they both edit the scene's World Descriptor
-    /// and rebuild themselves whenever a row is added or removed.
+    /// What the Credits and Monetization sections of the Builder share: they both edit the scene's World
+    /// Descriptor and rebuild themselves whenever a row is added or removed. The Builder hosts them inside its
+    /// own sections, so they are not tabs.
     /// </summary>
-    public abstract class WorldPageTabBase : IParelTab
+    public abstract class WorldPageTabBase
     {
         public abstract string TabName { get; }
         public abstract int TabOrder { get; }
-        public ParelProjectType RequiredMode => ParelProjectType.World;
 
         protected ParelWorldDescriptor Descriptor;
-        private ScrollView _root;
+        private VisualElement _root;
 
         public void BuildUI(VisualElement container)
         {
-            _root = new ScrollView { style = { flexGrow = 1 } };
+            _root = new VisualElement();
             _root.AddToClassList("bk-page");
             container.Add(_root);
             Rebuild();
@@ -147,7 +147,6 @@ namespace ParelVR.SDK.Worlds.UI
 
         protected override void Build(VisualElement root)
         {
-            root.Add(Heading("Credits (optional)"));
             root.Add(Note("Credit the people who helped make this world. Give each role your own title, for example \"Developer of UI\", then add people to it. " +
                           "Search for a ParelVR account and click it to add it; players can open that person's profile from the credit, and they do not have to be your friend. " +
                           "Someone without an account can be credited with a link to their profile on another platform."));
@@ -401,7 +400,6 @@ namespace ParelVR.SDK.Worlds.UI
         {
             ParelWorldMonetization money = Descriptor.monetization;
 
-            root.Add(Heading("Monetization"));
             if (!Currencies.Contains(money.currency)) money.currency = "USD";
             var currency = new PopupField<string>("Your currency", Currencies, money.currency);
             currency.RegisterValueChangedCallback(evt => Change(() => money.currency = evt.newValue, true));

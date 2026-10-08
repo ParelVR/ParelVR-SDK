@@ -55,6 +55,10 @@ namespace ParelVR.SDK.Worlds.UI
         private VisualElement _validationErrorsContainer;
         private ScrollView _validationErrorsList;
 
+        private VisualElement _buildSection;
+        private readonly WorldCreditsTab _creditsSection = new WorldCreditsTab();
+        private readonly WorldMonetizationTab _monetizationSection = new WorldMonetizationTab();
+
         private VisualElement _progressContainer;
         private Label _progressStatus;
         private ProgressBar _progressBar;
@@ -119,6 +123,20 @@ namespace ParelVR.SDK.Worlds.UI
             _progressStatus = tree.Q<Label>("progress-status");
             _progressBar = tree.Q<ProgressBar>("progress-bar");
 
+            // The Build section is docked at the bottom of the window, under the scrolling page.
+            _buildSection = tree.Q<VisualElement>("build-section");
+            VisualElement footer = ParelControlPanel.FooterFor(container);
+            if (footer != null)
+            {
+                if (_buildSection != null) footer.Add(_buildSection);
+                footer.Add(_progressContainer);
+            }
+
+            VisualElement creditsHost = tree.Q<VisualElement>("credits-host");
+            if (creditsHost != null) _creditsSection.BuildUI(creditsHost);
+            VisualElement monetizationHost = tree.Q<VisualElement>("monetization-host");
+            if (monetizationHost != null) _monetizationSection.BuildUI(monetizationHost);
+
             // Wire events
             _btnSetupScene.clicked += SetupScene;
             _btnCaptureThumbnail.clicked += CaptureThumbnail;
@@ -162,6 +180,7 @@ namespace ParelVR.SDK.Worlds.UI
             {
                 _setupContainer.style.display = DisplayStyle.None;
                 _publishContainer.style.display = DisplayStyle.None;
+                ShowBuild(false);
                 _currentDescriptor = null;
                 return;
             }
@@ -185,6 +204,7 @@ namespace ParelVR.SDK.Worlds.UI
                 // Missing one or both → show setup button
                 _setupContainer.style.display = DisplayStyle.Flex;
                 _publishContainer.style.display = DisplayStyle.None;
+                ShowBuild(false);
                 _currentDescriptor = null;
             }
             else
@@ -197,6 +217,12 @@ namespace ParelVR.SDK.Worlds.UI
                 // (e.g. switching scenes or first setup)
                 bool isNewDescriptor = (_currentDescriptor != newDescriptor);
                 _currentDescriptor = newDescriptor;
+                ShowBuild(true);
+                if (isNewDescriptor)
+                {
+                    _creditsSection.OnShown();
+                    _monetizationSection.OnShown();
+                }
 
                 if (string.IsNullOrEmpty(_currentDescriptor.blueprintId))
                 {
@@ -240,6 +266,11 @@ namespace ParelVR.SDK.Worlds.UI
                     }
                 }
             }
+        }
+
+        private void ShowBuild(bool show)
+        {
+            if (_buildSection != null) _buildSection.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
         private void ClearWarnings()
