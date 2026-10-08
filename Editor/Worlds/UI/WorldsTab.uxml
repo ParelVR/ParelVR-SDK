@@ -53,19 +53,6 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <ui:VisualElement class="bk-prop">
-                    <ui:Label text="Max. Capacity" class="bk-prop-label"/>
-                    <ui:VisualElement class="bk-prop-value">
-                        <ui:IntegerField name="world-max-cap" class="bk-input"/>
-                    </ui:VisualElement>
-                </ui:VisualElement>
-
-                <ui:VisualElement class="bk-prop">
-                    <ui:Label text="Recommended Capacity" class="bk-prop-label"/>
-                    <ui:VisualElement class="bk-prop-value">
-                        <ui:IntegerField name="world-rec-cap" class="bk-input"/>
-                    </ui:VisualElement>
-                </ui:VisualElement>
 
                 <ui:VisualElement class="bk-prop">
                     <ui:Label text="World Debugging" class="bk-prop-label"/>

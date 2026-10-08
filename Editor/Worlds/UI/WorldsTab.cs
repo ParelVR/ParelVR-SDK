@@ -35,8 +35,9 @@ namespace ParelVR.SDK.Worlds.UI
         private Label _blueprintIdLabel;
         private TextField _worldName;
         private TextField _worldDesc;
-        private IntegerField _worldRecCap;
-        private IntegerField _worldMaxCap;
+        /// <summary>Every ParelVR lobby holds the same number of players; creators cannot change it.</summary>
+        private const int LobbyCapacity = 50;
+
         private Toggle _worldAllowDebug;
         private TextField _worldTagInput;
         private Button _btnAddTag;
@@ -95,8 +96,6 @@ namespace ParelVR.SDK.Worlds.UI
             _worldName = tree.Q<TextField>("world-name");
             _worldDesc = tree.Q<TextField>("world-desc");
             
-            _worldRecCap = tree.Q<IntegerField>("world-rec-cap");
-            _worldMaxCap = tree.Q<IntegerField>("world-max-cap");
             _worldAllowDebug = tree.Q<Toggle>("world-allow-debug");
             
             _worldTagInput = tree.Q<TextField>("world-tag-input");
@@ -234,8 +233,6 @@ namespace ParelVR.SDK.Worlds.UI
                     {
                         _worldName.value = "";
                         _worldDesc.value = "";
-                        _worldRecCap.value = 16;
-                        _worldMaxCap.value = 32;
                         _worldAllowDebug.value = false;
                         _currentTags.Clear();
                         RenderTags();
@@ -254,8 +251,6 @@ namespace ParelVR.SDK.Worlds.UI
                     {
                         _worldName.value = "";
                         _worldDesc.value = "";
-                        _worldRecCap.value = 16;
-                        _worldMaxCap.value = 32;
                         _worldAllowDebug.value = false;
                         _currentTags.Clear();
                         RenderTags();
@@ -395,8 +390,6 @@ namespace ParelVR.SDK.Worlds.UI
                     _worldName.value = world.name;
                     _worldDesc.value = world.description ?? "";
                     
-                    _worldRecCap.value = world.recommendedCapacity > 0 ? world.recommendedCapacity : 16;
-                    _worldMaxCap.value = world.maximumCapacity > 0 ? world.maximumCapacity : 32;
                     _worldAllowDebug.value = world.allowDebugging;
                     
                     if (world.tags != null)
@@ -581,8 +574,8 @@ namespace ParelVR.SDK.Worlds.UI
                     authorName = ParelSession.Username ?? "Unknown",
                     releaseStatus = "public",
                     tags = new List<string>(_currentTags),
-                    recommendedCapacity = _worldRecCap.value,
-                    maximumCapacity = _worldMaxCap.value,
+                    recommendedCapacity = LobbyCapacity,
+                    maximumCapacity = LobbyCapacity,
                     allowDebugging = _worldAllowDebug.value,
                     portalEnabled = true,
                     contentWarnings = GetSelectedWarnings()
