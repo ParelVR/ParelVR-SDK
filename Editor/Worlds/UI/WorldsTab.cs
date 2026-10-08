@@ -660,6 +660,24 @@ namespace ParelVR.SDK.Worlds.UI
                         _progressStatus.text = "Uploading scripts...";
                         await WorldBuilder.AfterBundleUploaded(blueprintId, "windows", bundlePath, _uploadCts.Token);
                     }
+
+                    // The bundle cannot be turned back into a project, so the project itself is saved for Import World.
+                    _progressStatus.text = "Saving the project for Import World...";
+                    try
+                    {
+                        WorldSourceStore.Info source = WorldSourceStore.Save(blueprintId, worldRecord.name, _currentDescriptor.gameObject.scene.path);
+                        if (source != null)
+                        {
+                            _progressStatus.text = "Uploading the project...";
+                            await WorldSourceStore.UploadAsync(source, _uploadCts.Token);
+                        }
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception sourceError)
+                    {
+                        // The world itself is published; only Import World misses this version.
+                        Debug.LogWarning($"[WorldsTab] The project was not saved for Import World: {sourceError.Message}");
+                    }
                     _progressBar.value = 100;
                     _progressStatus.text = "Done!";
                     EditorUtility.DisplayDialog("Success",

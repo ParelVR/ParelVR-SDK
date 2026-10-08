@@ -6,6 +6,7 @@ using ParelVR.SDK.Backend;
 using ParelVR.SDK.Core.ControlPanel;
 using ParelVR.SDK.Core.Settings;
 using ParelVR.SDK.Core.Util;
+using ParelVR.SDK.Worlds;
 using ParelVR.SDK.Worlds.Components;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -158,6 +159,7 @@ namespace ParelVR.SDK.Worlds.UI
             actions.style.width = 132;
             actions.style.flexShrink = 0;
             actions.style.marginLeft = 8;
+            actions.Add(ActionButton("Import World", () => _ = ImportAsync(world)));
             actions.Add(ActionButton("Copy ID", () => EditorGUIUtility.systemCopyBuffer = world.id));
             if (!inScene && descriptor != null) actions.Add(ActionButton("Use in This Scene", () => Attach(world, descriptor)));
             Button delete = ActionButton("Delete", () => _ = DeleteAsync(world));
@@ -178,6 +180,72 @@ namespace ParelVR.SDK.Worlds.UI
             EditorUtility.SetDirty(descriptor);
             EditorSceneManager.MarkSceneDirty(descriptor.gameObject.scene);
             Render();
+        }
+
+        /// <summary>
+        /// Brings the latest saved project of a world into this project. Everything under Assets and the open
+        /// scene are replaced, so nothing of the current project mixes with the imported one.
+        /// </summary>
+        private async Task ImportAsync(WorldRecord world)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling)
+            {
+                EditorUtility.DisplayDialog("Import World", "Leave play mode and wait for scripts to finish compiling, then try again.", "OK");
+                return;
+            }
+
+            WorldSourceStore.Info source;
+            try
+            {
+                _status.text = "Looking for the saved project of \"" + world.name + "\"...";
+                source = await WorldSourceStore.FetchLatestAsync(world.id, text => _status.text = text);
+            }
+            catch (Exception ex)
+            {
+                _status.text = string.Empty;
+                EditorUtility.DisplayDialog("Import World", ex.Message, "OK");
+                return;
+            }
+            finally
+            {
+                Render();
+            }
+
+            if (source == null)
+            {
+                EditorUtility.DisplayDialog("Import World",
+                    "There is no saved project for \"" + world.name + "\".\n\n" +
+                    "ParelVR hosts the built world, which cannot be turned back into a project. The project is saved each time the world is " +
+                    "published with this version of the SDK. Open the project the world was made in and publish it once; after that it can be imported.",
+                    "OK");
+                return;
+            }
+
+            string saved = DateTime.TryParse(source.savedAt, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out DateTime when)
+                ? when.ToLocalTime().ToString("d MMM yyyy, HH:mm", CultureInfo.CurrentCulture)
+                : "an unknown date";
+            bool hasAssets = WorldSourceStore.HasAssets();
+            string message = "Import \"" + world.name + "\" (project saved " + saved + ")?\n\n" +
+                             "This replaces what is in this Unity project:\n" +
+                             "  \u2022 the open scene is closed\n" +
+                             "  \u2022 EVERYTHING in the Assets folder is deleted\n" +
+                             "  \u2022 the world's project is imported in its place\n\n" +
+                             (hasAssets ? "A backup of the current Assets folder is saved first, to Backups/ParelVR in this project's folder. " : string.Empty) +
+                             "The ParelVR SDK and other packages are not touched.";
+            if (!EditorUtility.DisplayDialog("Import World", message, "Delete Assets and Import", "Cancel")) return;
+            // Unsaved scene changes would not be in the backup: let the user save or discard them, or back out.
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            try
+            {
+                string backup = WorldSourceStore.Import(source);
+                Debug.Log("[ParelVR SDK] Importing \"" + world.name + "\"." + (backup != null ? " The previous Assets folder was backed up to " + backup : string.Empty));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                EditorUtility.DisplayDialog("Import World", "The import did not complete: " + ex.Message, "OK");
+            }
         }
 
         private async Task DeleteAsync(WorldRecord world)
