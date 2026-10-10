@@ -1,7 +1,7 @@
 # ParelVR Volt API lock. Records the released contract so a later change cannot break it by accident.
 # Updated by 'voltapigen --update-lock' when a release is cut.
-version 1.0
-hash 206d5311f63e42b8fa5cce99ac472d6089927dd455bfa18218074725395f528d
+version 1.1
+hash a0f4334bdd362b5119425265d99557d46dbd738fea533bd0a8104fb40c62618e
 M 62a2e1ca 0 1 0 F:UnityEngine.Mathf.Epsilon
 M f7ac2aa8 4 0 16 M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)
 M 0aa79038 2 1 0 M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)
@@ -366,6 +366,7 @@ M 684a6447 3 0 513 M:ParelVR.Volt.Players.VoltPlayer.Teleport(UnityEngine.Vector
 M 30b60ec7 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_AvatarEyeHeight
 M b4a4a6f6 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_AvatarId
 M f35e4313 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_DisplayName
+M 903a66dd 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Fps
 M 58278461 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_GravityStrength
 M 21d83048 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsGrounded
 M bf66c045 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsInVR
@@ -374,6 +375,7 @@ M cf3cd414 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsMaster
 M ccb8ee92 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsSeated
 M 502d6030 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsValid
 M aeb47e15 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_JumpImpulse
+M 1b31fae2 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Ping
 M 743d1b0e 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_PlayerId
 M f2dad775 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Position
 M c03444f8 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Rotation

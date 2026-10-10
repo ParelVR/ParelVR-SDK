@@ -207,6 +207,8 @@ namespace ParelVR.Volt.Simulator
         public bool IsInVR(VoltPlayerHandle player) => false;
         public float GetAvatarEyeHeight(VoltPlayerHandle player) => EyeHeight;
         public string GetAvatarId(VoltPlayerHandle player) => "simulated";
+        public int GetFps(VoltPlayerHandle player) => Time.smoothDeltaTime > 0f ? Mathf.RoundToInt(1f / Time.smoothDeltaTime) : 0;
+        public int GetPingMs(VoltPlayerHandle player) => 0;
 
         public bool TryGetTracking(VoltPlayerHandle player, VoltTrackingPoint point, out Vector3 position, out Quaternion rotation)
         {

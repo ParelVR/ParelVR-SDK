@@ -1408,6 +1408,12 @@
         <member name="P:ParelVR.Volt.Players.VoltPlayer.AvatarEyeHeight">
             <summary>Height of the player's avatar in metres, from the floor to the eyes.</summary>
         </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Fps">
+            <summary>Frames per second the player's client is drawing, averaged over about a second. Zero until it is known.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.Ping">
+            <summary>The player's round trip time to the instance server in milliseconds. Zero until it is known.</summary>
+        </member>
         <member name="M:ParelVR.Volt.Players.VoltPlayer.GetPosition">
             <summary>Position of the player in world space.</summary>
         </member>

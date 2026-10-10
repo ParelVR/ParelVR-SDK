@@ -1,6 +1,6 @@
 {
   "name": "com.parelvrsdk.pvr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "ParelVR SDK",
   "description": "Everything for making ParelVR content: avatars, worlds and VoltCS world scripts with their compiler, editor tools and in-editor simulator.",
   "unity": "6000.0",

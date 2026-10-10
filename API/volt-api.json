@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 0
+    "minor": 1
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.0.0",
-  "hash": "206d5311f63e42b8fa5cce99ac472d6089927dd455bfa18218074725395f528d",
+  "sdkVersion": "1.1.0",
+  "hash": "a0f4334bdd362b5119425265d99557d46dbd738fea533bd0a8104fb40c62618e",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -8577,6 +8577,24 @@
       "doc": "The name the player shows to others."
     },
     {
+      "id": "0x903A66DD",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.get_Fps",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "Fps",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Players.VoltPlayer.Fps",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 1,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "Frames per second the player\u0027s client is drawing, averaged over about a second. Zero until it is known."
+    },
+    {
       "id": "0x58278461",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.get_GravityStrength",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -8711,6 +8729,24 @@
       "returns": "System.Single",
       "params": [],
       "doc": "Upward speed the local player gets from a jump. Zero disables jumping."
+    },
+    {
+      "id": "0x1B31FAE2",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.get_Ping",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "Ping",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Players.VoltPlayer.Ping",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 1,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "The player\u0027s round trip time to the instance server in milliseconds. Zero until it is known."
     },
     {
       "id": "0x743D1B0E",
