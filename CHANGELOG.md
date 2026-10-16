@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased
+
+### Motion Bones
+
+- Smoother at any frame rate: frames at 90 Hz or faster now take one step of their own length (at
+  120 / 144 Hz no frame is skipped, so chains no longer stutter), slower frames are split into up to four
+  steps, and the chain root eases to its new position across those steps. Momentum keeps the same decay
+  per second at every step length, so existing settings behave as before at 90 Hz.
+- Snap turns carry the chain round with the avatar instead of whipping it. The teleport distance that
+  resets a chain now grows with the avatar's scale.
+- Robustness: a destroyed bone (outfit toggles, avatar edits) makes the chain re-read its hierarchy
+  instead of throwing; a NaN setting or degenerate collider resets the chain to its animated pose instead
+  of corrupting the transforms; an error in one Motion Bone no longer stops the others (it is logged,
+  rebuilt, and stopped after three failures in a row).
+- Hand / finger colliders registered as global keep that status when disabled and re-enabled.
+- Performance: colliders are filtered (active, valid, permission, nearby) once per Motion Bone per frame
+  instead of per bone per step; owner lookups are cached. Motion Bones over the
+  `ParelMotionBoneSystem.MaxSimulatedParticles` budget now rest in their original pose and restart cleanly
+  instead of freezing mid-motion, and smaller chains later in the list still fit in the remaining budget.
+- New, optional: `ParelMotionBoneSystem.CullDistance` / `Viewer` pause far-away Motion Bones (off by
+  default); `ParelMotionBone.ResetSimulation()` for scripts that teleport an avatar; `ExternalForce` (in
+  Gravity units, not saved, not networked) as a hook for wind or interactions; `IsSuspended` and
+  per-frame counters on `ParelMotionBoneSystem` for debugging.
+- Presets: the Motion Bone inspector has **Apply Preset...** (Hair, Long Hair, Tail, Ears, Clothing,
+  Accessory, Soft Body), also available as `ParelMotionBone.ApplyPreset`. A preset fills Forces, Limits and
+  Stretch & Squish and clears their curves; it never touches transforms, radius, colliders, permissions or
+  the parameter. Select several Motion Bones to apply one preset to all of them.
+- Different behaviour per state (idle, walking, running, falling): animate the Motion Bone's force
+  settings from the avatar's own Animator Controller. They are read every frame, so Animator transitions
+  blend between settings smoothly.
+- Set-up checks, in the inspector and the avatar Builder: Root Transform outside the avatar, chains that
+  move humanoid bones (which fight animation and IK), two Motion Bones moving the same bones, empty
+  Collider slots, and colliders without a radius. Tooltips on every setting, and a Runtime section in
+  Play Mode (state, bone count, totals, Reset Simulation, Clear Pose).
+- Migration: none. No serialized field was renamed or removed, so existing Motion Bones load unchanged.
+  Above 90 Hz the simulation now runs once per frame, so it costs a little more CPU than before.
+- Still missing: self-collision, collision layers / groups beyond Allow Collision, and shared profile
+  assets linked across chains.
+
 ## 1.1.0
 
 - `VoltPlayer.Fps`: frames per second a player's client is drawing, as an int.

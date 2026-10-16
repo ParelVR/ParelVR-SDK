@@ -45,7 +45,7 @@ namespace ParelVR.AvatarSDK
         FingerLittleR = 13,
     }
 
-    /// <summary>Who may collide with / grab / pose a PhysBone (VRChat's True / False / Other).</summary>
+    /// <summary>Who may collide with / grab / pose a Motion Bone (VRChat's True / False / Other).</summary>
     public enum ParelDynamicsPermission
     {
         Nobody = 0,
@@ -59,7 +59,7 @@ namespace ParelVR.AvatarSDK
     {
         Driver = 0,
         Contact = 1,
-        PhysBone = 2,
+        MotionBone = 2,
         Rsp = 3,
         Other = 4,
     }

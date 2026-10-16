@@ -3,15 +3,28 @@ using UnityEngine;
 
 namespace ParelVR.AvatarSDK
 {
+    /// <summary>Starting points for common Motion Bone set-ups (see <see cref="ParelMotionBone.ApplyPreset"/>).</summary>
+    public enum ParelMotionBonePreset
+    {
+        Hair = 0,
+        LongHair = 1,
+        Tail = 2,
+        Ears = 3,
+        Clothing = 4,
+        Accessory = 5,
+        SoftBody = 6,
+    }
+
     /// <summary>
-    /// VRChat's PhysBone: secondary motion for hair, tails, ears, skirts and anything else hanging off
-    /// the avatar, simulated from <see cref="rootTransform"/> down through every child bone. Supports
+    /// Motion Bone: secondary motion for hair, tails, ears, skirts and anything else hanging off the
+    /// avatar, simulated from <see cref="rootTransform"/> down through every child bone. Supports
     /// pull / momentum / stiffness / gravity (+ falloff) / immobile, angle / hinge / polar limits,
     /// stretch and squish, colliders (its own list plus everyone's hands and fingers), grabbing and
     /// posing, and the {parameter}_IsGrabbed / _IsPosed / _Angle / _Stretch / _Squish parameters.
+    /// The simulation is local: every client runs it for every avatar, no bone is networked.
     /// </summary>
-    [AddComponentMenu("ParelVR/Avatar SDK/PhysBone")]
-    public sealed class ParelPhysBone : MonoBehaviour
+    [AddComponentMenu("ParelVR/Avatar SDK/Motion Bone")]
+    public sealed class ParelMotionBone : MonoBehaviour
     {
         public enum IntegrationType
         {
@@ -40,7 +53,7 @@ namespace ParelVR.AvatarSDK
             Polar = 3,
         }
 
-        /// <summary>VRChat's PhysBone versions. 1.1 adds Max Squish and Stretch Motion.</summary>
+        /// <summary>Motion Bone versions. 1.1 adds Max Squish and Stretch Motion.</summary>
         public enum Version
         {
             Version_1_0 = 0,
@@ -48,22 +61,29 @@ namespace ParelVR.AvatarSDK
         }
 
         public const int MaxParticles = 256;
+        /// <summary>The step length the force settings are tuned for. Faster frame rates take shorter steps.</summary>
         private const float StepSeconds = 1f / 90f;
         private const int MaxStepsPerFrame = 4;
         private const float TeleportDistance = 3f;
+        /// <summary>A turn sharper than this in one frame (a snap turn) carries the chain round instead of whipping it.</summary>
+        private const float SnapTurnDegrees = 20f;
+        private const float GravityStrength = 0.12f;
 
-        [Tooltip("1.1 adds Max Squish and Stretch Motion. Keep 1.0 for PhysBones tuned before that.")]
+        [Tooltip("1.1 adds Max Squish and Stretch Motion. Keep 1.0 for Motion Bones tuned before that.")]
         public Version version = Version.Version_1_1;
 
         // ---- Transforms ---------------------------------------------------------------------
         [Tooltip("Where the chain starts (empty = this object). Everything below it moves.")]
         public Transform rootTransform;
+        [Tooltip("Bones (and everything under them) that stay out of the simulation, e.g. eyes under a head-rooted hair chain.")]
         public List<Transform> ignoreTransforms = new List<Transform>();
         [Tooltip("Adds a virtual bone past each end bone (in that bone's local space) so end bones rotate too.")]
         public Vector3 endpointPosition;
+        [Tooltip("What a bone with several children does: Ignore leaves its rotation alone, First aims it at the first child, Average at all of them.")]
         public MultiChildType multiChildType = MultiChildType.Ignore;
 
         // ---- Forces -------------------------------------------------------------------------
+        [Tooltip("Simplified: Pull and Spring only, easy to tune. Advanced: adds Stiffness and treats Spring as Momentum.")]
         public IntegrationType integrationType = IntegrationType.Simplified;
         [Range(0f, 1f), Tooltip("How strongly bones return to their rest pose.")]
         public float pull = 0.2f;
@@ -74,32 +94,38 @@ namespace ParelVR.AvatarSDK
         [Range(0f, 1f), Tooltip("Advanced only: how much bones keep their rest angle.")]
         public float stiffness = 0.2f;
         public AnimationCurve stiffnessCurve;
-        [Range(-1f, 1f)]
+        [Range(-1f, 1f), Tooltip("Pulls bones down (positive) or up (negative), relative to their length.")]
         public float gravity;
         public AnimationCurve gravityCurve;
         [Range(0f, 1f), Tooltip("Less gravity for bones already hanging down at rest.")]
         public float gravityFalloff;
         public AnimationCurve gravityFalloffCurve;
+        [Tooltip("All Motion: Immobile ignores any movement of the chain. World: only the avatar moving through the world (walking, flying), not its own animation.")]
         public ImmobileType immobileType = ImmobileType.AllMotion;
         [Range(0f, 1f), Tooltip("How much movement is ignored (1 = bones don't react to you moving).")]
         public float immobile;
         public AnimationCurve immobileCurve;
 
         // ---- Limits -------------------------------------------------------------------------
+        [Tooltip("Angle: a cone around the rest direction. Hinge: swing in one plane only. Polar: a cone with separate X and Z widths.")]
         public LimitType limitType = LimitType.None;
-        [Range(0f, 180f)] public float maxAngleX = 45f;
+        [Range(0f, 180f), Tooltip("How far (degrees) a bone may swing away from its rest direction.")]
+        public float maxAngleX = 45f;
         public AnimationCurve maxAngleXCurve;
-        [Range(0f, 90f)] public float maxAngleZ = 45f;
+        [Range(0f, 90f), Tooltip("Polar only: how far (degrees) a bone may swing sideways.")]
+        public float maxAngleZ = 45f;
         public AnimationCurve maxAngleZCurve;
         [Tooltip("Rotates the limit's axis / hinge plane.")]
         public Vector3 limitRotation;
 
         // ---- Collision ----------------------------------------------------------------------
+        [Tooltip("Thickness of each bone for collisions and grabbing, in the root's scale (0 = a thin line).")]
         public float radius;
         public AnimationCurve radiusCurve;
         [Tooltip("Whose hand / finger colliders bump these bones. The Colliders list below always applies.")]
         public ParelDynamicsPermission allowCollision = ParelDynamicsPermission.Everyone;
-        public List<ParelPhysBoneCollider> colliders = new List<ParelPhysBoneCollider>();
+        [Tooltip("Colliders on this avatar the bones can't pass through (body, head, legs...).")]
+        public List<ParelMotionBoneCollider> colliders = new List<ParelMotionBoneCollider>();
 
         // ---- Stretch & Squish ---------------------------------------------------------------
         [Range(0f, 5f), Tooltip("How far bones may stretch, as a multiple of their length.")]
@@ -113,7 +139,9 @@ namespace ParelVR.AvatarSDK
         public AnimationCurve stretchMotionCurve;
 
         // ---- Grab & Pose --------------------------------------------------------------------
+        [Tooltip("Whose hands may grab these bones.")]
         public ParelDynamicsPermission allowGrabbing = ParelDynamicsPermission.Everyone;
+        [Tooltip("Whose hands may leave the bones posed when letting go.")]
         public ParelDynamicsPermission allowPosing = ParelDynamicsPermission.Everyone;
         [Range(0f, 1f), Tooltip("How quickly a grabbed bone follows the hand.")]
         public float grabMovement = 0.5f;
@@ -125,12 +153,20 @@ namespace ParelVR.AvatarSDK
         public string parameter = string.Empty;
         [Tooltip("Tick if an animation moves these bones (they aren't reset each frame).")]
         public bool isAnimated;
+        [Tooltip("Put the bones back in their original pose when this component is disabled.")]
         public bool resetWhenDisabled;
 
         // ---- Gizmos -------------------------------------------------------------------------
+        [Tooltip("Draw the chain, radii and limits in the Scene view while selected.")]
         public bool showGizmos = true;
         [Range(0f, 1f)] public float boneOpacity = 0.5f;
         [Range(0f, 1f)] public float limitOpacity = 0.5f;
+
+        /// <summary>
+        /// Extra world-space push for scripts (wind, fans, interactions), in Gravity units: a length of 1
+        /// is as strong as Gravity 1 on this chain. Not saved and not networked.
+        /// </summary>
+        [System.NonSerialized] public Vector3 ExternalForce;
 
         private struct Particle
         {
@@ -155,13 +191,18 @@ namespace ParelVR.AvatarSDK
         private int _count;
         private bool _built;
         private bool _needsReset = true;
-        private float _accumulator;
+        private float _lastStep = StepSeconds;
         private Vector3 _lastMovePosition;
+        private Quaternion _lastAnchorRotation = Quaternion.identity;
         private bool _hasLastMove;
         private Transform _ownerRoot;
+        private bool _ownerResolved;
         private IParelAvatarParameterSink _sink;
         private bool _sinkResolved;
         private Bounds _bounds;
+        private bool _suspended;
+        private bool _faulted;
+        private int _faults;
 
         // Grab / pose state.
         private int _grabIndex = -1;
@@ -178,14 +219,17 @@ namespace ParelVR.AvatarSDK
         public int ParticleCount => _count;
         public bool IsGrabbed => _grabIndex >= 0;
         public bool IsPosed => _posed;
+        /// <summary>Paused this frame: over the simulation budget, out of range, or stopped after errors.</summary>
+        public bool IsSuspended => _suspended || _faulted;
 
-        /// <summary>The avatar root this PhysBone belongs to (null for world PhysBones).</summary>
+        /// <summary>The avatar root this Motion Bone belongs to (null for world Motion Bones).</summary>
         public Transform OwnerRoot
         {
             get
             {
-                if (_ownerRoot == null)
+                if (!_ownerResolved)
                 {
+                    _ownerResolved = true;
                     ParelAvatarDescriptor descriptor = GetComponentInParent<ParelAvatarDescriptor>();
                     _ownerRoot = descriptor != null ? descriptor.transform : null;
                 }
@@ -198,27 +242,110 @@ namespace ParelVR.AvatarSDK
         private void OnEnable()
         {
             _needsReset = true;
-            ParelPhysBoneSystem.Register(this);
+            _ownerResolved = false;
+            _suspended = false;
+            _faulted = false;
+            _faults = 0;
+            ParelMotionBoneSystem.Register(this);
         }
 
         private void OnDisable()
         {
-            ParelPhysBoneSystem.Unregister(this);
+            ParelMotionBoneSystem.Unregister(this);
             ReleaseGrab(false);
             if (resetWhenDisabled) RestoreInitialPose();
+        }
+
+        private void OnTransformParentChanged()
+        {
+            _ownerResolved = false;
+            _needsReset = true;
         }
 
         /// <summary>Re-reads the bone hierarchy (call after adding / removing bones).</summary>
         public void Rebuild()
         {
+            MarkForRebuild();
+            _faulted = false;
+            _faults = 0;
+        }
+
+        /// <summary>Drops all motion and starts again from the animated pose (call after teleporting an avatar).</summary>
+        public void ResetSimulation() => _needsReset = true;
+
+        private void MarkForRebuild()
+        {
             _built = false;
             _needsReset = true;
+        }
+
+        /// <summary>
+        /// Fills the force, limit and stretch settings with a starting point for <paramref name="preset"/>
+        /// and clears their curves. Transforms, radius, colliders, permissions, grabbing and the parameter
+        /// are left alone.
+        /// </summary>
+        public void ApplyPreset(ParelMotionBonePreset preset)
+        {
+            version = Version.Version_1_1;
+            integrationType = IntegrationType.Advanced;
+            immobileType = ImmobileType.AllMotion;
+            limitType = LimitType.Angle;
+            limitRotation = Vector3.zero;
+            stiffness = 0f;
+            gravityFalloff = 0f;
+            immobile = 0f;
+            maxAngleZ = 45f;
+            maxStretch = 0f;
+            maxSquish = 0f;
+            stretchMotion = 0f;
+
+            switch (preset)
+            {
+                case ParelMotionBonePreset.Hair:
+                    pull = 0.2f; spring = 0.25f; stiffness = 0.2f; gravity = 0.1f; gravityFalloff = 0.6f; immobile = 0.3f; maxAngleX = 60f;
+                    break;
+                case ParelMotionBonePreset.LongHair:
+                    pull = 0.12f; spring = 0.35f; stiffness = 0.1f; gravity = 0.25f; gravityFalloff = 0.5f; immobile = 0.35f; maxAngleX = 75f;
+                    break;
+                case ParelMotionBonePreset.Tail:
+                    pull = 0.15f; spring = 0.45f; stiffness = 0.15f; gravity = 0.1f; gravityFalloff = 0.3f; maxAngleX = 90f;
+                    break;
+                case ParelMotionBonePreset.Ears:
+                    pull = 0.5f; spring = 0.3f; stiffness = 0.6f; gravity = 0f; immobile = 0.5f; maxAngleX = 25f;
+                    break;
+                case ParelMotionBonePreset.Clothing:
+                    pull = 0.3f; spring = 0.15f; stiffness = 0.3f; gravity = 0.2f; gravityFalloff = 0.8f; immobile = 0.6f; maxAngleX = 45f;
+                    break;
+                case ParelMotionBonePreset.Accessory:
+                    integrationType = IntegrationType.Simplified;
+                    limitType = LimitType.None;
+                    pull = 0.1f; spring = 0.6f; gravity = 0.4f; maxAngleX = 45f;
+                    break;
+                case ParelMotionBonePreset.SoftBody:
+                    pull = 0.4f; spring = 0.6f; stiffness = 0.5f; gravity = 0.05f; immobile = 0.2f; maxAngleX = 20f;
+                    maxStretch = 0.2f; maxSquish = 0.1f; stretchMotion = 0.5f;
+                    break;
+            }
+
+            pullCurve = new AnimationCurve();
+            springCurve = new AnimationCurve();
+            stiffnessCurve = new AnimationCurve();
+            gravityCurve = new AnimationCurve();
+            gravityFalloffCurve = new AnimationCurve();
+            immobileCurve = new AnimationCurve();
+            maxAngleXCurve = new AnimationCurve();
+            maxAngleZCurve = new AnimationCurve();
+            maxStretchCurve = new AnimationCurve();
+            maxSquishCurve = new AnimationCurve();
+            stretchMotionCurve = new AnimationCurve();
         }
 
         private void Build()
         {
             _built = true;
             _count = 0;
+            _grabIndex = -1;
+            _posed = false;
             var particles = new List<Particle>();
             var depths = new List<int>();
             var ignored = new HashSet<Transform>();
@@ -287,52 +414,75 @@ namespace ParelVR.AvatarSDK
         }
 
         // =========================================================================================
-        // Simulation (driven by ParelPhysBoneSystem once per frame, after animation and IK)
+        // Simulation (driven by ParelMotionBoneSystem once per frame, after animation and IK)
         // =========================================================================================
 
-        internal void PrepareFrame()
+        /// <summary>Reads this frame's animated pose. False when there is nothing to simulate this frame.</summary>
+        internal bool PrepareFrame()
         {
+            if (_faulted) return false;
+            _suspended = false;
             if (!_built) Build();
-            if (_count == 0) return;
+            if (_count < 2) return false;
 
             if (!isAnimated) RestoreInitialPose();
 
             float scale = WorldScale();
-            Vector3 min = Vector3.positiveInfinity;
-            Vector3 max = Vector3.negativeInfinity;
-
             for (int i = 0; i < _count; i++)
             {
                 ref Particle p = ref _particles[i];
+                Transform source = p.IsVirtual ? _particles[p.Parent].Transform : p.Transform;
+                if (source == null)
+                {
+                    // A bone was destroyed (outfit toggles, avatar edits): re-read the hierarchy next frame.
+                    MarkForRebuild();
+                    return false;
+                }
                 if (p.IsVirtual)
                 {
-                    Transform parent = _particles[p.Parent].Transform;
-                    p.AnimPosition = parent.TransformPoint(p.EndOffset);
-                    p.AnimRotation = parent.rotation;
+                    p.AnimPosition = source.TransformPoint(p.EndOffset);
+                    p.AnimRotation = source.rotation;
                 }
                 else
                 {
-                    p.AnimPosition = p.Transform.position;
-                    p.AnimRotation = p.Transform.rotation;
+                    p.AnimPosition = source.position;
+                    p.AnimRotation = source.rotation;
                 }
                 p.RestLength = p.Parent >= 0 ? Vector3.Distance(p.AnimPosition, _particles[p.Parent].AnimPosition) : 0f;
                 p.Radius = radius * Curve(radiusCurve, p.Depth01) * scale;
             }
 
-            Vector3 moveAnchor = immobileType == ImmobileType.World && OwnerRoot != null ? OwnerRoot.position : _particles[0].AnimPosition;
+            Transform owner = OwnerRoot;
+            Vector3 moveAnchor = immobileType == ImmobileType.World && owner != null ? owner.position : _particles[0].AnimPosition;
+            Quaternion anchorRotation = (owner != null ? owner : PoseSpace).rotation;
             Vector3 move = _hasLastMove ? moveAnchor - _lastMovePosition : Vector3.zero;
+            float turn = _hasLastMove ? Quaternion.Angle(_lastAnchorRotation, anchorRotation) : 0f;
+            Quaternion turnDelta = anchorRotation * Quaternion.Inverse(_lastAnchorRotation);
             _lastMovePosition = moveAnchor;
+            _lastAnchorRotation = anchorRotation;
             _hasLastMove = true;
 
-            if (_needsReset || move.sqrMagnitude > TeleportDistance * TeleportDistance)
+            // Scaled-up avatars cover more ground per frame; bone scale says nothing about that (some rigs use 100).
+            float teleport = TeleportDistance * Mathf.Max(1f, owner != null ? MaxAbs(owner.lossyScale) : 1f);
+            if (_needsReset || move.sqrMagnitude > teleport * teleport)
             {
                 ResetParticles();
-                move = Vector3.zero;
             }
-
-            // Immobile: carry the particles along with the avatar so its own movement isn't felt.
-            if (move != Vector3.zero)
+            else if (turn > SnapTurnDegrees)
             {
+                // Snap turn: swing the whole chain round with the avatar, keeping its motion.
+                Vector3 pivot = _particles[0].Position;
+                Vector3 target = _particles[0].AnimPosition;
+                for (int i = 0; i < _count; i++)
+                {
+                    ref Particle p = ref _particles[i];
+                    p.Position = target + turnDelta * (p.Position - pivot);
+                    p.PrevPosition = target + turnDelta * (p.PrevPosition - pivot);
+                }
+            }
+            else if (move != Vector3.zero)
+            {
+                // Immobile: carry the particles along with the avatar so its own movement isn't felt.
                 for (int i = 1; i < _count; i++)
                 {
                     ref Particle p = ref _particles[i];
@@ -344,6 +494,8 @@ namespace ParelVR.AvatarSDK
                 }
             }
 
+            Vector3 min = Vector3.positiveInfinity;
+            Vector3 max = Vector3.negativeInfinity;
             for (int i = 0; i < _count; i++)
             {
                 Vector3 pos = _particles[i].Position;
@@ -352,12 +504,31 @@ namespace ParelVR.AvatarSDK
                 max = Vector3.Max(max, pos + Vector3.one * r);
             }
             _bounds = new Bounds((min + max) * 0.5f, max - min);
+            return true;
+        }
+
+        /// <summary>Skipped this frame (budget / distance): rest in the original pose and start fresh when resumed.</summary>
+        internal void Suspend()
+        {
+            if (_suspended) return;
+            _suspended = true;
+            _needsReset = true;
+            ReleaseGrab(false);
+            if (!isAnimated) RestoreInitialPose();
+        }
+
+        /// <summary>Called when this Motion Bone threw. True once it has failed often enough to be stopped.</summary>
+        internal bool Fault()
+        {
+            MarkForRebuild();
+            _faulted = ++_faults >= 3;
+            return _faulted;
         }
 
         private void ResetParticles()
         {
             _needsReset = false;
-            _accumulator = 0f;
+            _lastStep = StepSeconds;
             for (int i = 0; i < _count; i++)
             {
                 _particles[i].Position = _particles[i].AnimPosition;
@@ -365,34 +536,63 @@ namespace ParelVR.AvatarSDK
             }
         }
 
-        private float WorldScale()
-        {
-            Vector3 s = Root.lossyScale;
-            return Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
-        }
+        private float WorldScale() => MaxAbs(Root.lossyScale);
 
-        internal void Simulate(float deltaTime, List<ParelPhysBoneCollider> globalColliders)
-        {
-            if (_count < 2) return;
+        private static float MaxAbs(Vector3 s) => Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
 
-            _accumulator = Mathf.Min(_accumulator + deltaTime, StepSeconds * MaxStepsPerFrame);
-            while (_accumulator >= StepSeconds)
+        /// <param name="frameColliders">Every collider that applies to this chain this frame (already filtered).</param>
+        internal void Simulate(float deltaTime, List<ParelMotionBoneCollider> frameColliders)
+        {
+            if (_count < 2 || deltaTime <= 0f) return;
+
+            // Frames at 90 Hz or faster take one step of the frame's length; slower ones are split into
+            // up to MaxStepsPerFrame steps. A longer hitch plays out as slow motion, not one huge step.
+            float frame = Mathf.Min(deltaTime, StepSeconds * MaxStepsPerFrame);
+            int steps = Mathf.Clamp(Mathf.CeilToInt(frame / StepSeconds - 0.1f), 1, MaxStepsPerFrame);
+            float h = frame / steps;
+            Vector3 rootFrom = _particles[0].Position;
+            for (int s = 1; s <= steps; s++) Step(h, rootFrom, (float)s / steps, frameColliders);
+
+            if (!ParticlesAreFinite())
             {
-                _accumulator -= StepSeconds;
-                Step(StepSeconds, globalColliders);
+                // Bad input (a NaN setting, a degenerate collider...): start over from the animated pose.
+                ResetParticles();
+                return;
             }
 
+            _faults = 0;
             ApplyToTransforms();
             WriteParameters();
         }
 
-        private void Step(float dt, List<ParelPhysBoneCollider> globalColliders)
+        private bool ParticlesAreFinite()
         {
-            // The root bone is pinned to wherever animation / IK put it.
-            _particles[0].PrevPosition = _particles[0].Position;
-            _particles[0].Position = _particles[0].AnimPosition;
+            for (int i = 0; i < _count; i++)
+            {
+                Vector3 p = _particles[i].Position;
+                float sum = p.x + p.y + p.z;
+                if (float.IsNaN(sum) || float.IsInfinity(sum)) return false;
+            }
+            return true;
+        }
 
-            float frameScale = dt * 60f;
+        private void Step(float h, Vector3 rootFrom, float t, List<ParelMotionBoneCollider> frameColliders)
+        {
+            // The root bone is pinned to wherever animation / IK put it, eased there across the frame's steps.
+            ref Particle root = ref _particles[0];
+            root.PrevPosition = root.Position;
+            root.Position = Vector3.LerpUnclamped(rootFrom, root.AnimPosition, t);
+
+            float frameScale = h * 60f;
+            // Momentum is tuned per 90 Hz step; raising it to the step ratio keeps the same decay per second,
+            // and scaling by the step change keeps the velocity when the step length changes.
+            float stepRatio = h / StepSeconds;
+            float carry = h / _lastStep;
+            _lastStep = h;
+            float simplified = integrationType == IntegrationType.Simplified ? 0.95f : 1f;
+            bool momentumCurve = springCurve != null && springCurve.length > 0;
+            float baseMomentum = Mathf.Pow(Mathf.Clamp01(spring) * simplified, stepRatio);
+            bool pushed = ExternalForce != Vector3.zero;
             Transform poseSpace = PoseSpace;
 
             for (int i = 1; i < _count; i++)
@@ -405,9 +605,8 @@ namespace ParelVR.AvatarSDK
                 Vector3 restPosition = _posed ? poseSpace.TransformPoint(p.PosedLocal) : parent.Position + animOffset;
 
                 // Momentum (verlet).
-                float momentum = Mathf.Clamp01(spring * Curve(springCurve, depth));
-                if (integrationType == IntegrationType.Simplified) momentum *= 0.95f;
-                Vector3 velocity = (p.Position - p.PrevPosition) * momentum;
+                float momentum = momentumCurve ? Mathf.Pow(Mathf.Clamp01(spring * Curve(springCurve, depth)) * simplified, stepRatio) : baseMomentum;
+                Vector3 velocity = (p.Position - p.PrevPosition) * (momentum * carry);
                 p.PrevPosition = p.Position;
                 p.Position += velocity;
 
@@ -418,8 +617,9 @@ namespace ParelVR.AvatarSDK
                     float hanging = Mathf.Max(0f, Vector3.Dot(animOffset / p.RestLength, g > 0f ? Vector3.down : Vector3.up));
                     float falloff = gravityFalloff * Curve(gravityFalloffCurve, depth);
                     g *= 1f - falloff * hanging;
-                    p.Position += Vector3.down * (g * p.RestLength * 0.12f * frameScale);
+                    p.Position += Vector3.down * (g * p.RestLength * GravityStrength * frameScale);
                 }
+                if (pushed) p.Position += ExternalForce * (p.RestLength * GravityStrength * frameScale);
 
                 // Pull back toward the rest (or posed) position.
                 float pullAmount = _posed ? 1f : Mathf.Clamp01(pull * Curve(pullCurve, depth));
@@ -441,8 +641,11 @@ namespace ParelVR.AvatarSDK
 
                 ApplyLimit(ref p, ref parent, animOffset);
                 ApplyLength(ref p, ref parent, animOffset);
-                Collide(ref p, ref parent, globalColliders);
-                ApplyLength(ref p, ref parent, animOffset);
+                if (frameColliders != null && frameColliders.Count > 0)
+                {
+                    Collide(ref p, ref parent, frameColliders);
+                    ApplyLength(ref p, ref parent, animOffset);
+                }
             }
 
             if (_grabIndex > 0 && _grabIndex < _count) ApplyGrab();
@@ -532,26 +735,9 @@ namespace ParelVR.AvatarSDK
 
         private float SquishAt(float depth) => version == Version.Version_1_1 ? maxSquish * Curve(maxSquishCurve, depth) : 0f;
 
-        private void Collide(ref Particle p, ref Particle parent, List<ParelPhysBoneCollider> globalColliders)
+        private static void Collide(ref Particle p, ref Particle parent, List<ParelMotionBoneCollider> frameColliders)
         {
-            if (colliders != null)
-            {
-                for (int c = 0; c < colliders.Count; c++)
-                {
-                    ParelPhysBoneCollider collider = colliders[c];
-                    if (collider != null && collider.isActiveAndEnabled) CollideBone(collider, ref p, ref parent);
-                }
-            }
-
-            if (globalColliders == null || allowCollision == ParelDynamicsPermission.Nobody) return;
-            Transform owner = OwnerRoot;
-            for (int c = 0; c < globalColliders.Count; c++)
-            {
-                ParelPhysBoneCollider collider = globalColliders[c];
-                if (collider == null || !collider.isActiveAndEnabled) continue;
-                if (!ParelDynamicsMath.Allows(allowCollision, owner, collider.OwnerRoot)) continue;
-                CollideBone(collider, ref p, ref parent);
-            }
+            for (int c = 0; c < frameColliders.Count; c++) CollideBone(frameColliders[c], ref p, ref parent);
         }
 
         /// <summary>
@@ -559,7 +745,7 @@ namespace ParelVR.AvatarSDK
         /// collider has Bones As Spheres -- capsules from their parent to their tip, approximated by
         /// also testing the bone's midpoint and moving the tip twice as far.
         /// </summary>
-        private static void CollideBone(ParelPhysBoneCollider collider, ref Particle p, ref Particle parent)
+        private static void CollideBone(ParelMotionBoneCollider collider, ref Particle p, ref Particle parent)
         {
             collider.Collide(ref p.Position, p.Radius);
             if (collider.bonesAsSpheres) return;
@@ -627,7 +813,7 @@ namespace ParelVR.AvatarSDK
             grabbed.PrevPosition = grabbed.Position;
 
             // FABRIK along the path root -> grabbed bone so the whole chain bends toward the hand.
-            var path = ParelPhysBoneSystem.PathBuffer;
+            var path = ParelMotionBoneSystem.PathBuffer;
             path.Clear();
             for (int k = _grabIndex; k > 0; k = _particles[k].Parent) path.Add(k);
 
@@ -680,6 +866,7 @@ namespace ParelVR.AvatarSDK
                 for (int c = 0; c < used; c++)
                 {
                     ref Particle child = ref _particles[children[c]];
+                    if (!child.IsVirtual && child.Transform == null) continue;
                     Vector3 childNow = child.IsVirtual ? p.Transform.TransformPoint(child.EndOffset) : child.Transform.position;
                     from += childNow - origin;
                     to += child.Position - origin;
@@ -704,12 +891,12 @@ namespace ParelVR.AvatarSDK
             if (grabbed != _lastGrabbed)
             {
                 _lastGrabbed = grabbed;
-                _sink.SetParameter(parameter + "_IsGrabbed", grabbed ? 1f : 0f, ParelParameterSource.PhysBone);
+                _sink.SetParameter(parameter + "_IsGrabbed", grabbed ? 1f : 0f, ParelParameterSource.MotionBone);
             }
             if (_posed != _lastPosed)
             {
                 _lastPosed = _posed;
-                _sink.SetParameter(parameter + "_IsPosed", _posed ? 1f : 0f, ParelParameterSource.PhysBone);
+                _sink.SetParameter(parameter + "_IsPosed", _posed ? 1f : 0f, ParelParameterSource.MotionBone);
             }
 
             ref Particle first = ref _particles[1];
@@ -724,17 +911,17 @@ namespace ParelVR.AvatarSDK
             if (Mathf.Abs(angle - _lastAngle) > 0.002f)
             {
                 _lastAngle = angle;
-                _sink.SetParameter(parameter + "_Angle", angle, ParelParameterSource.PhysBone);
+                _sink.SetParameter(parameter + "_Angle", angle, ParelParameterSource.MotionBone);
             }
             if (Mathf.Abs(stretch - _lastStretch) > 0.002f)
             {
                 _lastStretch = stretch;
-                _sink.SetParameter(parameter + "_Stretch", stretch, ParelParameterSource.PhysBone);
+                _sink.SetParameter(parameter + "_Stretch", stretch, ParelParameterSource.MotionBone);
             }
             if (Mathf.Abs(squish - _lastSquish) > 0.002f)
             {
                 _lastSquish = squish;
-                _sink.SetParameter(parameter + "_Squish", squish, ParelParameterSource.PhysBone);
+                _sink.SetParameter(parameter + "_Squish", squish, ParelParameterSource.MotionBone);
             }
         }
 
@@ -749,6 +936,7 @@ namespace ParelVR.AvatarSDK
             Gizmos.color = new Color(1f, 0.85f, 0.2f, Mathf.Clamp01(boneOpacity) * 0.6f + 0.4f);
             if (Application.isPlaying && _count > 0)
             {
+                if (IsSuspended) Gizmos.color = new Color(0.6f, 0.6f, 0.6f, 0.5f);
                 for (int i = 1; i < _count; i++)
                 {
                     Gizmos.DrawLine(_particles[_particles[i].Parent].Position, _particles[i].Position);

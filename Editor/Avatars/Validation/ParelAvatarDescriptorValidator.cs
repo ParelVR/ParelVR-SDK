@@ -333,21 +333,114 @@ namespace ParelVR.SDK.Avatars.Validation
             }
         }
 
+        /// <summary>
+        /// Common Motion Bone set-up mistakes, one sentence each. Shared by the avatar Builder and the
+        /// Motion Bone inspector.
+        /// </summary>
+        internal static void CollectMotionBoneIssues(ParelMotionBone bone, List<string> issues)
+        {
+            Transform chain = bone.Root;
+            ParelAvatarDescriptor descriptor = bone.GetComponentInParent<ParelAvatarDescriptor>(true);
+            Transform avatar = descriptor != null ? descriptor.transform : null;
+
+            if (avatar != null && !chain.IsChildOf(avatar))
+            {
+                issues.Add($"Root Transform '{chain.name}' is outside the avatar, so it isn't uploaded with it.");
+            }
+
+            int count = chain.GetComponentsInChildren<Transform>(true).Length;
+            if (count > ParelMotionBone.MaxParticles)
+            {
+                issues.Add($"Covers {count} bones; only the first {ParelMotionBone.MaxParticles} are simulated. Split it into several Motion Bones.");
+            }
+            if (chain.childCount == 0 && bone.endpointPosition == Vector3.zero)
+            {
+                issues.Add("Starts at a bone with no children and has no Endpoint Position, so nothing will move.");
+            }
+
+            if (bone.colliders != null)
+            {
+                int empty = 0;
+                foreach (ParelMotionBoneCollider collider in bone.colliders)
+                {
+                    if (collider == null)
+                    {
+                        empty++;
+                        continue;
+                    }
+                    if (collider.shapeType != ParelMotionBoneCollider.ShapeType.Plane && !(collider.radius > 0f))
+                    {
+                        issues.Add($"Collider '{collider.name}' has no radius, so bones pass straight through it.");
+                    }
+                }
+                if (empty > 0) issues.Add($"The Colliders list has {empty} empty slot(s).");
+            }
+
+            if (avatar == null) return;
+
+            // Humanoid bones belong to animation and IK; simulating them makes the two fight every frame.
+            Animator animator = avatar.GetComponent<Animator>();
+            if (animator != null && animator.isHuman)
+            {
+                for (HumanBodyBones humanBone = HumanBodyBones.Hips; humanBone < HumanBodyBones.LastBone; humanBone++)
+                {
+                    Transform t = animator.GetBoneTransform(humanBone);
+                    if (t == null) continue;
+                    bool moved = t == chain ? RotatesRoot(bone, chain) : t.IsChildOf(chain) && !IsIgnored(bone, t);
+                    if (!moved) continue;
+                    issues.Add($"Moves the humanoid {ObjectNames.NicifyVariableName(humanBone.ToString())} bone ('{t.name}'), which animation and IK also drive. Start the chain below it or add it to Ignore Transforms.");
+                    break;
+                }
+            }
+
+            // Two Motion Bones writing the same transforms fight each other.
+            foreach (ParelMotionBone other in avatar.GetComponentsInChildren<ParelMotionBone>(true))
+            {
+                if (other == bone) continue;
+                Transform otherRoot = other.Root;
+                if (otherRoot == chain)
+                {
+                    issues.Add($"The Motion Bone on '{other.name}' has the same Root Transform; keep one of them.");
+                    break;
+                }
+                if (otherRoot.IsChildOf(chain) && !IsIgnored(bone, otherRoot))
+                {
+                    issues.Add($"The Motion Bone on '{other.name}' starts inside this chain at '{otherRoot.name}', so both move those bones. Add '{otherRoot.name}' to Ignore Transforms.");
+                    break;
+                }
+            }
+        }
+
+        /// <summary>Does the simulation turn the chain's root bone? (It only does when it can aim it at its children.)</summary>
+        private static bool RotatesRoot(ParelMotionBone bone, Transform root)
+        {
+            int children = 0;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                if (!IsIgnored(bone, root.GetChild(i))) children++;
+            }
+            if (children == 0) return bone.endpointPosition != Vector3.zero;
+            return children == 1 || bone.multiChildType != ParelMotionBone.MultiChildType.Ignore;
+        }
+
+        private static bool IsIgnored(ParelMotionBone bone, Transform t)
+        {
+            if (bone.ignoreTransforms == null) return false;
+            foreach (Transform ignored in bone.ignoreTransforms)
+            {
+                if (ignored != null && t.IsChildOf(ignored)) return true;
+            }
+            return false;
+        }
+
         private static void CheckDynamics(GameObject root, ValidationReport report)
         {
-            foreach (ParelPhysBone physBone in root.GetComponentsInChildren<ParelPhysBone>(true))
+            var issues = new List<string>();
+            foreach (ParelMotionBone motionBone in root.GetComponentsInChildren<ParelMotionBone>(true))
             {
-                Transform chain = physBone.Root;
-                if (chain == null) continue;
-                int count = chain.GetComponentsInChildren<Transform>(true).Length;
-                if (count > ParelPhysBone.MaxParticles)
-                {
-                    report.AddWarning($"PhysBone on '{physBone.name}' covers {count} bones; only the first {ParelPhysBone.MaxParticles} are simulated. Split it into several PhysBones.");
-                }
-                if (chain.childCount == 0 && physBone.endpointPosition == Vector3.zero)
-                {
-                    report.AddWarning($"PhysBone on '{physBone.name}' starts at a bone with no children and has no Endpoint Position, so nothing will move.");
-                }
+                issues.Clear();
+                CollectMotionBoneIssues(motionBone, issues);
+                foreach (string issue in issues) report.AddWarning($"Motion Bone on '{motionBone.name}': {issue}", null, motionBone);
             }
 
             foreach (ParelContactReceiver receiver in root.GetComponentsInChildren<ParelContactReceiver>(true))
@@ -409,7 +502,7 @@ namespace ParelVR.SDK.Avatars.Validation
         {
             ParelAvatarPerformance perf = ParelAvatarPerformance.Measure(root);
             ParelAvatarPerformance.Rank rank = perf.OverallRank;
-            string summary = $"Performance: {ParelAvatarPerformance.RankLabel(rank)} on PC, {ParelAvatarPerformance.RankLabel(perf.MobileRank)} on Quest -- {perf.Triangles:N0} triangles, {perf.MaterialSlots} material slots, {perf.SkinnedMeshes} skinned meshes, {perf.Bones} bones, {perf.PhysBones} PhysBones ({perf.PhysBoneTransforms} bones), {perf.Contacts} contacts.";
+            string summary = $"Performance: {ParelAvatarPerformance.RankLabel(rank)} on PC, {ParelAvatarPerformance.RankLabel(perf.MobileRank)} on Quest -- {perf.Triangles:N0} triangles, {perf.MaterialSlots} material slots, {perf.SkinnedMeshes} skinned meshes, {perf.Bones} bones, {perf.MotionBones} Motion Bones ({perf.MotionBoneTransforms} bones), {perf.Contacts} contacts.";
             if (rank == ParelAvatarPerformance.Rank.VeryPoor) report.AddWarning(summary + " Very Poor avatars may be hidden by other players' performance settings.");
             else report.AddInfo(summary);
         }

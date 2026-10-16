@@ -37,7 +37,7 @@ namespace ParelVR.AvatarSDK
             Automatic = 0,
             /// <summary>Uses the transform / radius / height below.</summary>
             Custom = 1,
-            /// <summary>This collider doesn't exist (no contacts, no PhysBone collisions).</summary>
+            /// <summary>This collider doesn't exist (no contacts, no Motion Bone collisions).</summary>
             Disabled = 2,
         }
 

@@ -3,12 +3,12 @@ using UnityEngine;
 namespace ParelVR.AvatarSDK
 {
     /// <summary>
-    /// VRChat's PhysBone Collider: a sphere, capsule or plane that PhysBones can't pass through (or,
-    /// with Inside Bounds, can't leave). Add it to a PhysBone's Colliders list. ParelVR also puts these
+    /// Motion Bone Collider: a sphere, capsule or plane that Motion Bones can't pass through (or,
+    /// with Inside Bounds, can't leave). Add it to a Motion Bone's Colliders list. ParelVR also puts these
     /// on every avatar's hands and fingers automatically, so people can touch each other's hair and tails.
     /// </summary>
-    [AddComponentMenu("ParelVR/Avatar SDK/PhysBone Collider")]
-    public sealed class ParelPhysBoneCollider : MonoBehaviour
+    [AddComponentMenu("ParelVR/Avatar SDK/Motion Bone Collider")]
+    public sealed class ParelMotionBoneCollider : MonoBehaviour
     {
         public enum ShapeType
         {
@@ -19,15 +19,18 @@ namespace ParelVR.AvatarSDK
 
         [Tooltip("Transform the shape follows (empty = this object).")]
         public Transform rootTransform;
+        [Tooltip("Sphere, capsule, or an endless plane bones stay above (along the shape's local Y axis).")]
         public ShapeType shapeType = ShapeType.Sphere;
         [Tooltip("Keep bones inside the shape instead of outside it (sphere / capsule).")]
         public bool insideBounds;
+        [Tooltip("Sphere / capsule radius, in this transform's scale.")]
         public float radius = 0.05f;
         [Tooltip("Capsule: total height, including the rounded ends. Along the shape's local Y axis.")]
         public float height = 0.2f;
+        [Tooltip("Offset of the shape from the Root Transform, in its local space.")]
         public Vector3 position;
         public Quaternion rotation = Quaternion.identity;
-        [Tooltip("Treat PhysBone bones as spheres at their tips instead of capsules along their length.")]
+        [Tooltip("Treat Motion Bone bones as spheres at their tips instead of capsules along their length.")]
         public bool bonesAsSpheres;
 
         /// <summary>Set by the game on the auto-created hand / finger colliders.</summary>
@@ -37,6 +40,13 @@ namespace ParelVR.AvatarSDK
         internal Vector3 WorldB;
         internal Vector3 WorldNormal;
         internal float WorldRadius;
+        /// <summary>Registered with <see cref="ParelMotionBoneSystem.RegisterGlobalCollider"/>; survives disable / enable.</summary>
+        internal bool IsGlobal;
+        /// <summary>False when the shape came out degenerate (NaN / infinite) on the last <see cref="UpdateWorld"/>.</summary>
+        internal bool IsValid;
+
+        private Transform _ownerRoot;
+        private bool _ownerResolved;
 
         public Transform Root => rootTransform != null ? rootTransform : transform;
 
@@ -46,25 +56,42 @@ namespace ParelVR.AvatarSDK
             get
             {
                 if (OwnerRootOverride != null) return OwnerRootOverride;
-                ParelAvatarDescriptor descriptor = GetComponentInParent<ParelAvatarDescriptor>();
-                return descriptor != null ? descriptor.transform : null;
+                if (!_ownerResolved)
+                {
+                    _ownerResolved = true;
+                    ParelAvatarDescriptor descriptor = GetComponentInParent<ParelAvatarDescriptor>();
+                    _ownerRoot = descriptor != null ? descriptor.transform : null;
+                }
+                return _ownerRoot;
             }
         }
 
-        internal void UpdateWorld()
+        /// <summary>Refreshes the world-space shape. False if it is unusable this frame.</summary>
+        internal bool UpdateWorld()
         {
             Transform root = Root;
             Vector3 scale = root.lossyScale;
             float s = Mathf.Max(Mathf.Abs(scale.x), Mathf.Max(Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
             Vector3 center = root.TransformPoint(position);
-            Quaternion worldRotation = root.rotation * rotation;
-            Vector3 up = worldRotation * Vector3.up;
 
-            WorldRadius = Mathf.Max(0f, radius * s);
+            // A zeroed or unnormalised quaternion (script-made or corrupted data) would warp the shape's axis.
+            Quaternion local = rotation;
+            float lengthSq = local.x * local.x + local.y * local.y + local.z * local.z + local.w * local.w;
+            if (!(lengthSq > 1e-6f)) local = Quaternion.identity;
+            else if (Mathf.Abs(lengthSq - 1f) > 1e-3f)
+            {
+                float inverse = 1f / Mathf.Sqrt(lengthSq);
+                local = new Quaternion(local.x * inverse, local.y * inverse, local.z * inverse, local.w * inverse);
+            }
+            Vector3 up = root.rotation * local * Vector3.up;
+
+            float r = radius * s;
+            WorldRadius = r > 0f ? r : 0f;
             WorldNormal = up;
             if (shapeType == ShapeType.Capsule)
             {
-                float half = Mathf.Max(0f, height * s * 0.5f - WorldRadius);
+                float half = height * s * 0.5f - WorldRadius;
+                if (!(half > 0f)) half = 0f;
                 WorldA = center - up * half;
                 WorldB = center + up * half;
             }
@@ -73,6 +100,10 @@ namespace ParelVR.AvatarSDK
                 WorldA = center;
                 WorldB = center;
             }
+
+            float check = WorldA.x + WorldA.y + WorldA.z + WorldB.x + WorldB.y + WorldB.z + up.x + up.y + up.z + WorldRadius;
+            IsValid = !float.IsNaN(check) && !float.IsInfinity(check);
+            return IsValid;
         }
 
         /// <summary>Pushes a sphere (point + radius) out of (or into) the shape. True if it moved.</summary>
@@ -111,8 +142,15 @@ namespace ParelVR.AvatarSDK
             }
         }
 
-        private void OnEnable() => ParelPhysBoneSystem.RegisterCollider(this);
-        private void OnDisable() => ParelPhysBoneSystem.UnregisterCollider(this);
+        private void OnEnable()
+        {
+            _ownerResolved = false;
+            ParelMotionBoneSystem.RegisterCollider(this);
+        }
+
+        private void OnDisable() => ParelMotionBoneSystem.UnregisterCollider(this);
+
+        private void OnTransformParentChanged() => _ownerResolved = false;
 
         private void OnDrawGizmosSelected()
         {

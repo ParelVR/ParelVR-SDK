@@ -28,9 +28,9 @@ namespace ParelVR.SDK.Avatars.Validation
         public int ParticleSystems;
         public int Lights;
         public int AudioSources;
-        public int PhysBones;
-        public int PhysBoneTransforms;
-        public int PhysBoneColliders;
+        public int MotionBones;
+        public int MotionBoneTransforms;
+        public int MotionBoneColliders;
         public int Contacts;
 
         private static readonly int[] TriangleLimits = { 32000, 70000, 70000, 70000 };
@@ -40,9 +40,9 @@ namespace ParelVR.SDK.Avatars.Validation
         private static readonly int[] BoneLimits = { 75, 150, 256, 400 };
         private static readonly int[] ParticleLimits = { 0, 4, 8, 16 };
         private static readonly int[] LightLimits = { 0, 0, 0, 1 };
-        private static readonly int[] PhysBoneLimits = { 4, 8, 16, 32 };
-        private static readonly int[] PhysBoneTransformLimits = { 16, 64, 128, 256 };
-        private static readonly int[] PhysBoneColliderLimits = { 4, 8, 16, 32 };
+        private static readonly int[] MotionBoneLimits = { 4, 8, 16, 32 };
+        private static readonly int[] MotionBoneTransformLimits = { 16, 64, 128, 256 };
+        private static readonly int[] MotionBoneColliderLimits = { 4, 8, 16, 32 };
         private static readonly int[] ContactLimits = { 8, 16, 24, 32 };
 
         // Quest / Android (VRChat's mobile thresholds).
@@ -52,9 +52,9 @@ namespace ParelVR.SDK.Avatars.Validation
         private static readonly int[] MobileMeshLimits = { 1, 1, 2, 2 };
         private static readonly int[] MobileBoneLimits = { 75, 90, 150, 150 };
         private static readonly int[] MobileParticleLimits = { 0, 0, 0, 2 };
-        private static readonly int[] MobilePhysBoneLimits = { 0, 4, 6, 8 };
-        private static readonly int[] MobilePhysBoneTransformLimits = { 0, 16, 32, 64 };
-        private static readonly int[] MobilePhysBoneColliderLimits = { 0, 4, 8, 16 };
+        private static readonly int[] MobileMotionBoneLimits = { 0, 4, 6, 8 };
+        private static readonly int[] MobileMotionBoneTransformLimits = { 0, 16, 32, 64 };
+        private static readonly int[] MobileMotionBoneColliderLimits = { 0, 4, 8, 16 };
         private static readonly int[] MobileContactLimits = { 2, 4, 8, 16 };
 
         public static ParelAvatarPerformance Measure(GameObject root)
@@ -103,14 +103,14 @@ namespace ParelVR.SDK.Avatars.Validation
             stats.Lights = root.GetComponentsInChildren<Light>(true).Length;
             stats.AudioSources = root.GetComponentsInChildren<AudioSource>(true).Length;
 
-            ParelPhysBone[] physBones = root.GetComponentsInChildren<ParelPhysBone>(true);
-            stats.PhysBones = physBones.Length;
-            foreach (ParelPhysBone physBone in physBones)
+            ParelMotionBone[] motionBones = root.GetComponentsInChildren<ParelMotionBone>(true);
+            stats.MotionBones = motionBones.Length;
+            foreach (ParelMotionBone motionBone in motionBones)
             {
-                Transform chain = physBone.Root;
-                if (chain != null) stats.PhysBoneTransforms += chain.GetComponentsInChildren<Transform>(true).Length;
+                Transform chain = motionBone.Root;
+                if (chain != null) stats.MotionBoneTransforms += chain.GetComponentsInChildren<Transform>(true).Length;
             }
-            stats.PhysBoneColliders = root.GetComponentsInChildren<ParelPhysBoneCollider>(true).Length;
+            stats.MotionBoneColliders = root.GetComponentsInChildren<ParelMotionBoneCollider>(true).Length;
             stats.Contacts = root.GetComponentsInChildren<ParelContactBase>(true).Length;
             return stats;
         }
@@ -127,9 +127,9 @@ namespace ParelVR.SDK.Avatars.Validation
                 worst = Max(worst, RankOf(Bones, BoneLimits));
                 worst = Max(worst, RankOf(ParticleSystems, ParticleLimits));
                 worst = Max(worst, RankOf(Lights, LightLimits));
-                worst = Max(worst, RankOf(PhysBones, PhysBoneLimits));
-                worst = Max(worst, RankOf(PhysBoneTransforms, PhysBoneTransformLimits));
-                worst = Max(worst, RankOf(PhysBoneColliders, PhysBoneColliderLimits));
+                worst = Max(worst, RankOf(MotionBones, MotionBoneLimits));
+                worst = Max(worst, RankOf(MotionBoneTransforms, MotionBoneTransformLimits));
+                worst = Max(worst, RankOf(MotionBoneColliders, MotionBoneColliderLimits));
                 worst = Max(worst, RankOf(Contacts, ContactLimits));
                 return worst;
             }
@@ -148,9 +148,9 @@ namespace ParelVR.SDK.Avatars.Validation
                 worst = Max(worst, RankOf(Bones, MobileBoneLimits));
                 worst = Max(worst, RankOf(ParticleSystems, MobileParticleLimits));
                 worst = Max(worst, RankOf(Lights, LightLimits));
-                worst = Max(worst, RankOf(PhysBones, MobilePhysBoneLimits));
-                worst = Max(worst, RankOf(PhysBoneTransforms, MobilePhysBoneTransformLimits));
-                worst = Max(worst, RankOf(PhysBoneColliders, MobilePhysBoneColliderLimits));
+                worst = Max(worst, RankOf(MotionBones, MobileMotionBoneLimits));
+                worst = Max(worst, RankOf(MotionBoneTransforms, MobileMotionBoneTransformLimits));
+                worst = Max(worst, RankOf(MotionBoneColliders, MobileMotionBoneColliderLimits));
                 worst = Max(worst, RankOf(Contacts, MobileContactLimits));
                 return worst;
             }

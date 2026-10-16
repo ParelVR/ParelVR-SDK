@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using ParelVR.AvatarSDK;
 using ParelVR.SDK.Avatars.Build;
+using ParelVR.SDK.Avatars.Validation;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,7 +19,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
             EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
         }
 
-        /// <summary>A value with an optional curve over the chain (the small "C" button), like VRChat's PhysBone fields.</summary>
+        /// <summary>A value with an optional curve over the chain (the small "C" button).</summary>
         public static void CurveValue(SerializedObject so, string valueName, string curveName, string label, float min, float max)
         {
             SerializedProperty value = so.FindProperty(valueName);
@@ -40,7 +42,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
             }
         }
 
-        /// <summary>VRChat's True / False / Other permission dropdown, stored as a ParelDynamicsPermission.</summary>
+        /// <summary>A True / False / Other permission dropdown, stored as a ParelDynamicsPermission.</summary>
         public static void Permission(SerializedProperty property, string label)
         {
             var value = (ParelDynamicsPermission)property.enumValueIndex;
@@ -78,19 +80,24 @@ namespace ParelVR.SDK.Avatars.Inspectors
 
     // =============================================================================================
 
-    [CustomEditor(typeof(ParelPhysBone)), CanEditMultipleObjects]
-    public sealed class ParelPhysBoneEditor : Editor
+    [CustomEditor(typeof(ParelMotionBone)), CanEditMultipleObjects]
+    public sealed class ParelMotionBoneEditor : Editor
     {
         private static readonly string[] Versions = { "Version 1.0", "Version 1.1" };
+
+        private readonly List<string> _issues = new List<string>();
+        private double _nextIssueCheck;
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-            var bone = (ParelPhysBone)target;
+            var bone = (ParelMotionBone)target;
+
+            DrawPresetMenu();
 
             SerializedProperty version = serializedObject.FindProperty("version");
             version.enumValueIndex = EditorGUILayout.Popup(new GUIContent("Version", version.tooltip), version.enumValueIndex, Versions);
-            bool v11 = version.enumValueIndex == (int)ParelPhysBone.Version.Version_1_1;
+            bool v11 = version.enumValueIndex == (int)ParelMotionBone.Version.Version_1_1;
 
             DynamicsGUI.Section("Transforms");
             DynamicsGUI.Prop(serializedObject, "rootTransform", "Root Transform");
@@ -101,7 +108,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
             DynamicsGUI.Section("Forces");
             SerializedProperty integration = serializedObject.FindProperty("integrationType");
             EditorGUILayout.PropertyField(integration, new GUIContent("Integration Type"));
-            bool advanced = integration.enumValueIndex == (int)ParelPhysBone.IntegrationType.Advanced;
+            bool advanced = integration.enumValueIndex == (int)ParelMotionBone.IntegrationType.Advanced;
             DynamicsGUI.CurveValue(serializedObject, "pull", "pullCurve", "Pull", 0f, 1f);
             DynamicsGUI.CurveValue(serializedObject, "spring", "springCurve", advanced ? "Momentum" : "Spring", 0f, 1f);
             if (advanced) DynamicsGUI.CurveValue(serializedObject, "stiffness", "stiffnessCurve", "Stiffness", 0f, 1f);
@@ -113,11 +120,11 @@ namespace ParelVR.SDK.Avatars.Inspectors
             DynamicsGUI.Section("Limits");
             SerializedProperty limit = serializedObject.FindProperty("limitType");
             EditorGUILayout.PropertyField(limit, new GUIContent("Limit Type"));
-            var limitType = (ParelPhysBone.LimitType)limit.enumValueIndex;
-            if (limitType != ParelPhysBone.LimitType.None)
+            var limitType = (ParelMotionBone.LimitType)limit.enumValueIndex;
+            if (limitType != ParelMotionBone.LimitType.None)
             {
-                DynamicsGUI.CurveValue(serializedObject, "maxAngleX", "maxAngleXCurve", limitType == ParelPhysBone.LimitType.Polar ? "Max Angle X" : "Max Angle", 0f, 180f);
-                if (limitType == ParelPhysBone.LimitType.Polar) DynamicsGUI.CurveValue(serializedObject, "maxAngleZ", "maxAngleZCurve", "Max Angle Z", 0f, 90f);
+                DynamicsGUI.CurveValue(serializedObject, "maxAngleX", "maxAngleXCurve", limitType == ParelMotionBone.LimitType.Polar ? "Max Angle X" : "Max Angle", 0f, 180f);
+                if (limitType == ParelMotionBone.LimitType.Polar) DynamicsGUI.CurveValue(serializedObject, "maxAngleZ", "maxAngleZCurve", "Max Angle Z", 0f, 90f);
                 DynamicsGUI.Prop(serializedObject, "limitRotation", "Rotation");
             }
 
@@ -164,16 +171,87 @@ namespace ParelVR.SDK.Avatars.Inspectors
             {
                 int count = bone.Root != null ? bone.Root.GetComponentsInChildren<Transform>(true).Length : 0;
                 EditorGUILayout.Space(4);
-                EditorGUILayout.HelpBox($"Affected transforms: {count}" + (count > ParelPhysBone.MaxParticles ? $" -- only the first {ParelPhysBone.MaxParticles} move. Split it into several PhysBones." : string.Empty),
-                    count > ParelPhysBone.MaxParticles ? MessageType.Warning : MessageType.None);
+                EditorGUILayout.HelpBox($"Affected transforms: {count}" + (count > ParelMotionBone.MaxParticles ? $" -- only the first {ParelMotionBone.MaxParticles} move. Split it into several Motion Bones." : string.Empty),
+                    count > ParelMotionBone.MaxParticles ? MessageType.Warning : MessageType.None);
+                DrawIssues(bone);
             }
+
+            if (Application.isPlaying) DrawRuntime(bone);
+        }
+
+        private void DrawPresetMenu()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PrefixLabel(new GUIContent("Preset", "Fills Forces, Limits and Stretch & Squish with a starting point for a common use (and clears their curves). Transforms, radius, colliders, permissions and the parameter are left alone."));
+                if (!GUILayout.Button("Apply Preset...", EditorStyles.popup)) return;
+            }
+
+            var menu = new GenericMenu();
+            foreach (ParelMotionBonePreset preset in Enum.GetValues(typeof(ParelMotionBonePreset)))
+            {
+                ParelMotionBonePreset captured = preset;
+                menu.AddItem(new GUIContent(ObjectNames.NicifyVariableName(preset.ToString())), false, () => ApplyPreset(captured));
+            }
+            menu.ShowAsContext();
+        }
+
+        private void ApplyPreset(ParelMotionBonePreset preset)
+        {
+            Undo.RecordObjects(targets, "Apply Motion Bone Preset");
+            foreach (UnityEngine.Object item in targets)
+            {
+                if (!(item is ParelMotionBone motionBone)) continue;
+                motionBone.ApplyPreset(preset);
+                EditorUtility.SetDirty(motionBone);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(motionBone);
+            }
+        }
+
+        /// <summary>The same set-up checks the avatar Builder runs, refreshed about once a second.</summary>
+        private void DrawIssues(ParelMotionBone bone)
+        {
+            if (EditorApplication.timeSinceStartup >= _nextIssueCheck)
+            {
+                _nextIssueCheck = EditorApplication.timeSinceStartup + 1.0;
+                _issues.Clear();
+                ParelAvatarDescriptorValidator.CollectMotionBoneIssues(bone, _issues);
+            }
+            foreach (string issue in _issues) EditorGUILayout.HelpBox(issue, MessageType.Warning);
+        }
+
+        private void DrawRuntime(ParelMotionBone bone)
+        {
+            DynamicsGUI.Section("Runtime");
+            if (!serializedObject.isEditingMultipleObjects)
+            {
+                string state = bone.IsSuspended ? "Paused (over budget, out of range, or stopped after errors)"
+                    : bone.IsGrabbed ? "Grabbed"
+                    : bone.IsPosed ? "Posed"
+                    : "Simulating";
+                EditorGUILayout.LabelField("State", state);
+                EditorGUILayout.LabelField("Simulated Bones", bone.ParticleCount.ToString());
+            }
+            EditorGUILayout.LabelField("All Motion Bones", $"{ParelMotionBoneSystem.SimulatedLastFrame} running, {ParelMotionBoneSystem.SkippedLastFrame} paused, {ParelMotionBoneSystem.SimulatedParticlesLastFrame} bones");
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button(new GUIContent("Reset Simulation", "Drop all motion and start again from the animated pose.")))
+                {
+                    foreach (UnityEngine.Object item in targets) (item as ParelMotionBone)?.ResetSimulation();
+                }
+                if (GUILayout.Button(new GUIContent("Clear Pose", "Let posed bones fall back to normal physics.")))
+                {
+                    foreach (UnityEngine.Object item in targets) (item as ParelMotionBone)?.ClearPose();
+                }
+            }
+            Repaint();
         }
     }
 
     // =============================================================================================
 
-    [CustomEditor(typeof(ParelPhysBoneCollider)), CanEditMultipleObjects]
-    public sealed class ParelPhysBoneColliderEditor : Editor
+    [CustomEditor(typeof(ParelMotionBoneCollider)), CanEditMultipleObjects]
+    public sealed class ParelMotionBoneColliderEditor : Editor
     {
         public override void OnInspectorGUI()
         {
@@ -181,13 +259,13 @@ namespace ParelVR.SDK.Avatars.Inspectors
             DynamicsGUI.Prop(serializedObject, "rootTransform", "Root Transform");
             SerializedProperty shape = serializedObject.FindProperty("shapeType");
             EditorGUILayout.PropertyField(shape, new GUIContent("Shape Type"));
-            var type = (ParelPhysBoneCollider.ShapeType)shape.enumValueIndex;
-            if (type != ParelPhysBoneCollider.ShapeType.Plane)
+            var type = (ParelMotionBoneCollider.ShapeType)shape.enumValueIndex;
+            if (type != ParelMotionBoneCollider.ShapeType.Plane)
             {
                 DynamicsGUI.Prop(serializedObject, "insideBounds", "Inside Bounds");
                 DynamicsGUI.Prop(serializedObject, "radius", "Radius");
             }
-            if (type == ParelPhysBoneCollider.ShapeType.Capsule) DynamicsGUI.Prop(serializedObject, "height", "Height");
+            if (type == ParelMotionBoneCollider.ShapeType.Capsule) DynamicsGUI.Prop(serializedObject, "height", "Height");
             DynamicsGUI.Prop(serializedObject, "position", "Position");
             SerializedProperty rotation = serializedObject.FindProperty("rotation");
             EditorGUI.BeginChangeCheck();
@@ -199,7 +277,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
 
         private void OnSceneGUI()
         {
-            var collider = (ParelPhysBoneCollider)target;
+            var collider = (ParelMotionBoneCollider)target;
             Transform root = collider.Root;
             float scale = Mathf.Max(Mathf.Abs(root.lossyScale.x), Mathf.Max(Mathf.Abs(root.lossyScale.y), Mathf.Abs(root.lossyScale.z)));
             Vector3 center = root.TransformPoint(collider.position);
@@ -207,11 +285,11 @@ namespace ParelVR.SDK.Avatars.Inspectors
             Handles.color = collider.insideBounds ? new Color(1f, 0.55f, 0.2f, 0.9f) : new Color(0.4f, 0.8f, 1f, 0.9f);
             switch (collider.shapeType)
             {
-                case ParelPhysBoneCollider.ShapeType.Plane:
+                case ParelMotionBoneCollider.ShapeType.Plane:
                     Handles.DrawWireDisc(center, rotation * Vector3.up, 0.1f * scale);
                     Handles.DrawLine(center, center + rotation * Vector3.up * 0.1f * scale);
                     break;
-                case ParelPhysBoneCollider.ShapeType.Capsule:
+                case ParelMotionBoneCollider.ShapeType.Capsule:
                     ParelAvatarDescriptorEditor.DrawCapsule(center, rotation, collider.radius * scale, collider.height * scale);
                     break;
                 default:
@@ -237,7 +315,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
 
     public abstract class ParelContactEditorBase : Editor
     {
-        /// <summary>The tags ParelVR's automatic avatar colliders send (VRChat's built-in contact tags).</summary>
+        /// <summary>The tags ParelVR's automatic avatar colliders send.</summary>
         private static readonly string[] BuiltInTags =
         {
             "Head", "Torso", "Hand", "HandL", "HandR", "Foot", "FootL", "FootR",

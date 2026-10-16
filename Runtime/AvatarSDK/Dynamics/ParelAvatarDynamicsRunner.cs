@@ -4,8 +4,8 @@ namespace ParelVR.AvatarSDK
 {
     /// <summary>
     /// Hidden driver for Avatar Dynamics. Runs after everything else in LateUpdate (animation, IK,
-    /// network poses, finger tracking have all been applied by then): PhysBones first, then Contacts.
-    /// Created automatically the first time a PhysBone, contact or grabber appears in Play Mode.
+    /// network poses, finger tracking have all been applied by then): Motion Bones first, then Contacts.
+    /// Created automatically the first time a Motion Bone, contact or grabber appears in Play Mode.
     /// </summary>
     [DefaultExecutionOrder(32000)]
     [AddComponentMenu("")]
@@ -13,7 +13,7 @@ namespace ParelVR.AvatarSDK
     {
         private static ParelAvatarDynamicsRunner _instance;
 
-        /// <summary>Raised after PhysBones and Contacts have run for the frame.</summary>
+        /// <summary>Raised after Motion Bones and Contacts have run for the frame.</summary>
         public static event System.Action AfterDynamics;
 
         public static void EnsureRunning()
@@ -29,7 +29,7 @@ namespace ParelVR.AvatarSDK
             float dt = Time.deltaTime;
             try
             {
-                ParelPhysBoneSystem.Simulate(dt);
+                ParelMotionBoneSystem.Simulate(dt);
             }
             catch (System.Exception e)
             {

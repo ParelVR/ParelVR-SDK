@@ -3,6 +3,7 @@
     "rootNamespace": "ParelVR.SDK.Tests",
     "references": [
         "ParelVR.SDK.Core",
+        "ParelVR.AvatarSDK",
         "UnityEditor.TestRunner",
         "UnityEngine.TestRunner"
     ],
