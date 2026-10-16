@@ -58,6 +58,8 @@ namespace ParelVR.SDK.Avatars.Build
                     descriptor.UpgradeLayout();
                     EditorUtility.SetDirty(descriptor);
                 }
+                // Unlocked Poiyomi shaders are taken out of every build, so they're locked first.
+                ParelAvatarShaderLocker.LockFor(descriptor.gameObject, result.Notes);
                 AssetDatabase.SaveAssets();
                 SaveCleanCopy(descriptor, result);
 
