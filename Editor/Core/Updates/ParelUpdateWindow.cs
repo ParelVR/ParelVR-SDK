@@ -242,11 +242,11 @@ namespace ParelVR.SDK.Core.Updates
         {
             var row = new VisualElement();
             row.AddToClassList("pu-compare");
-            row.Add(Chip("INSTALLED", from, false));
+            row.Add(Chip("Installed", from, false));
             var arrow = new ParelStatusGlyph { Mode = ParelStatusGlyph.Kind.Arrow };
             arrow.AddToClassList("pu-compare-arrow");
             row.Add(arrow);
-            row.Add(Chip("NEW", to, true));
+            row.Add(Chip("New", to, true));
             return row;
         }
 
