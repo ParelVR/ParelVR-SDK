@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 (2026-10-19)
+
+### Check for Updates
+
+- Settings > SDK Updates and ParelVR SDK > Check for Updates open a new updates pane. It checks GitHub
+  for a newer SDK, shows the installed and new versions with what changed, and installs it on request:
+  through the Package Manager for a Git install, or by downloading it (no Git needed) for any other install.
+  When everything is current it says so.
 
 ### Building and publishing
 

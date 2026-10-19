@@ -580,6 +580,26 @@ namespace ParelVR.SDK.Core.ControlPanel
             _settingsContent.Clear();
             BuildProjectTypeContent();
             BuildPreferencesContent();
+            BuildUpdatesContent();
+        }
+
+        private void BuildUpdatesContent()
+        {
+            var card = new VisualElement();
+            card.AddToClassList("bk-card");
+            _settingsContent.Add(card);
+
+            var heading = new Label("SDK Updates");
+            heading.AddToClassList("bk-card-title");
+            card.Add(heading);
+
+            var installed = global::ParelVR.SDK.Core.Updates.ParelSdkUpdater.ReadInstalled();
+            var check = new Button(global::ParelVR.SDK.Core.Updates.ParelUpdateWindow.Open) { text = "Check for Updates" };
+            check.AddToClassList("bk-btn");
+            check.AddToClassList("bk-btn-primary");
+            check.style.alignSelf = Align.FlexStart;
+            Setting(card, "Version " + installed.Version, check,
+                installed.Describe() + ". Checks GitHub for a newer ParelVR SDK, shows what changed, and installs it for you.");
         }
 
         private void BuildPreferencesContent()
