@@ -17,12 +17,39 @@ namespace ParelVR.SDK.Build
         /// <summary>Called after the bundle was uploaded: world id, platform, bundle path. What it uploads belongs to that bundle.</summary>
         public static System.Func<string, string, string, System.Threading.CancellationToken, System.Threading.Tasks.Task> AfterBundleUploaded;
 
+        /// <summary>The platform the last bundle was built for ("windows", "android", or the build target's name).</summary>
+        public static string BuiltPlatform { get; private set; }
+
+        /// <summary>The platform name the backend files a bundle under, or null when ParelVR has no client for the target.</summary>
+        public static string PlatformName(BuildTarget target)
+        {
+            switch (target)
+            {
+                case BuildTarget.StandaloneWindows:
+                case BuildTarget.StandaloneWindows64: return "windows";
+                case BuildTarget.Android: return "android";
+                default: return null;
+            }
+        }
+
+        public static string DisplayName(BuildTarget target)
+        {
+            switch (PlatformName(target))
+            {
+                case "windows": return "Windows";
+                case "android": return "Android (Quest)";
+                default: return target.ToString();
+            }
+        }
+
         public static string BuildWorldBundle()
         {
             string built = null;
+            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+            BuiltPlatform = PlatformName(target) ?? target.ToString().ToLowerInvariant();
             try
             {
-                built = Build();
+                built = Build(target);
                 return built;
             }
             finally
@@ -31,7 +58,7 @@ namespace ParelVR.SDK.Build
             }
         }
 
-        private static string Build()
+        private static string Build(BuildTarget target)
         {
             var activeScene = SceneManager.GetActiveScene();
             if (string.IsNullOrEmpty(activeScene.path))
@@ -61,7 +88,7 @@ namespace ParelVR.SDK.Build
                 outputDir, 
                 buildMap, 
                 BuildAssetBundleOptions.ForceRebuildAssetBundle, 
-                EditorUserBuildSettings.activeBuildTarget
+                target
             );
 
             if (manifest == null)

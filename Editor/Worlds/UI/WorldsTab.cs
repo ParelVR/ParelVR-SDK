@@ -53,6 +53,7 @@ namespace ParelVR.SDK.Worlds.UI
         private Button _btnCaptureThumbnail;
         private Button _btnSelectImage;
         private Button _btnBuildPublish;
+        private Label _selectedPlatform;
 
         private VisualElement _validationErrorsContainer;
         private ScrollView _validationErrorsList;
@@ -115,6 +116,7 @@ namespace ParelVR.SDK.Worlds.UI
             _btnCaptureThumbnail = tree.Q<Button>("btn-capture-thumbnail");
             _btnSelectImage = tree.Q<Button>("btn-select-image");
             _btnBuildPublish = tree.Q<Button>("btn-build-publish");
+            _selectedPlatform = tree.Q<Label>("selected-platform");
 
             // Validation
             _validationErrorsContainer = tree.Q<VisualElement>("validation-errors-container");
@@ -156,10 +158,12 @@ namespace ParelVR.SDK.Worlds.UI
 
             ParelSession.OnSessionChanged += RefreshState;
             EditorApplication.hierarchyChanged += RefreshState;
+            EditorUserBuildSettings.activeBuildTargetChanged += RefreshState;
             container.RegisterCallback<DetachFromPanelEvent>(evt =>
             {
                 ParelSession.OnSessionChanged -= RefreshState;
                 EditorApplication.hierarchyChanged -= RefreshState;
+                EditorUserBuildSettings.activeBuildTargetChanged -= RefreshState;
             });
 
             RefreshState();
@@ -177,6 +181,16 @@ namespace ParelVR.SDK.Worlds.UI
         private void RefreshState()
         {
             if (_progressContainer == null) return; // Prevent errors during window teardown
+
+            // The bundle is built for Unity's active build target, so that is the platform it publishes to.
+            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+            string platformName = WorldBuilder.DisplayName(target);
+            if (_selectedPlatform != null)
+            {
+                bool supported = WorldBuilder.PlatformName(target) != null;
+                _selectedPlatform.text = supported ? platformName : platformName + " (not supported: switch to Windows or Android in Build Profiles)";
+                _selectedPlatform.EnableInClassList("bk-text-bad", !supported);
+            }
 
             if (!ParelSession.IsLoggedIn)
             {
@@ -232,7 +246,7 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _publishTitle.text = "Publish New World";
                     _blueprintIdLabel.text = "Blueprint ID: None (will be assigned on publish)";
-                    _btnBuildPublish.text = "Build & Publish New World";
+                    _btnBuildPublish.text = $"Build & Publish New World for {platformName}";
                     
                     if (isNewDescriptor)
                     {
@@ -250,7 +264,7 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _publishTitle.text = "Update Existing World";
                     _blueprintIdLabel.text = $"Blueprint ID: {_currentDescriptor.blueprintId}";
-                    _btnBuildPublish.text = "Build & Update World";
+                    _btnBuildPublish.text = $"Build & Update World for {platformName}";
                     
                     if (isNewDescriptor)
                     {
@@ -563,6 +577,15 @@ namespace ParelVR.SDK.Worlds.UI
                 return;
             }
 
+            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+            if (WorldBuilder.PlatformName(target) == null)
+            {
+                EditorUtility.DisplayDialog("Unsupported Platform",
+                    $"The project is set to build for {target}. ParelVR worlds publish for Windows or Android (Quest).\n\n" +
+                    "Switch the platform in File > Build Profiles, then publish again.", "OK");
+                return;
+            }
+
             // ── 1. Validate ──
             _progressContainer.style.display = DisplayStyle.Flex;
             _progressStatus.text = "Validating scene...";
@@ -646,6 +669,12 @@ namespace ParelVR.SDK.Worlds.UI
                 if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
                     throw new Exception("AssetBundle build failed. Check the Unity Console.");
 
+                // The bundle is filed under the platform it was built for, so it never replaces another platform's build.
+                string platform = WorldBuilder.BuiltPlatform;
+                if (platform != WorldBuilder.PlatformName(target))
+                    throw new Exception($"The build target changed during the build ({WorldBuilder.DisplayName(target)} to {platform}). Nothing was uploaded; publish again.");
+                string platformName = WorldBuilder.DisplayName(target);
+
                 byte[] bundleBytes = File.ReadAllBytes(bundlePath);
                 _progressBar.value = 50;
 
@@ -660,23 +689,23 @@ namespace ParelVR.SDK.Worlds.UI
                 }
 
                 // ── 6. Upload Bundle ──
-                _progressStatus.text = "Uploading bundle...";
+                _progressStatus.text = $"Uploading {platformName} bundle...";
                 var progress = new Progress<float>(p =>
                 {
                     float overall = 60f + (p * 40f); // 60% to 100%
                     _progressBar.value = overall;
-                    _progressStatus.text = $"Uploading bundle... {(int)(p * 100)}%";
+                    _progressStatus.text = $"Uploading {platformName} bundle... {(int)(p * 100)}%";
                 });
 
                 var response = await WorldApiClient.UploadBundleAsync(
-                    blueprintId, "windows", bundleBytes, progress, _uploadCts.Token);
+                    blueprintId, platform, bundleBytes, progress, _uploadCts.Token);
 
                 if (response != null && response.success)
                 {
                     if (WorldBuilder.AfterBundleUploaded != null)
                     {
                         _progressStatus.text = "Uploading scripts...";
-                        await WorldBuilder.AfterBundleUploaded(blueprintId, "windows", bundlePath, _uploadCts.Token);
+                        await WorldBuilder.AfterBundleUploaded(blueprintId, platform, bundlePath, _uploadCts.Token);
                     }
 
                     // The bundle cannot be turned back into a project, so the project itself is saved for Import World.
@@ -699,7 +728,7 @@ namespace ParelVR.SDK.Worlds.UI
                     _progressBar.value = 100;
                     _progressStatus.text = "Done!";
                     EditorUtility.DisplayDialog("Success",
-                        $"World '{worldRecord.name}' published successfully!", "OK");
+                        $"World '{worldRecord.name}' published for {platformName}.", "OK");
                 }
                 else
                 {

@@ -100,7 +100,7 @@
                 <ui:VisualElement class="bk-prop">
                     <ui:Label text="Selected Platform" class="bk-prop-label"/>
                     <ui:VisualElement class="bk-prop-value">
-                        <ui:Label text="Windows" style="padding-top: 5px;"/>
+                        <ui:Label name="selected-platform" text="Windows" style="padding-top: 5px;"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 30px; font-size: 13px; margin-left: 0; margin-right: 0;"/>

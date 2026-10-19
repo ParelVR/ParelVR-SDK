@@ -577,7 +577,7 @@ namespace ParelVR.Volt.EditorTools
             LastPackagePath = null;
             if (bundlePath == null || _module == null) return;
             LastPackagePath = bundlePath + ".voltpkg";
-            File.WriteAllBytes(LastPackagePath, Package(File.ReadAllBytes(bundlePath), "windows"));
+            File.WriteAllBytes(LastPackagePath, Package(File.ReadAllBytes(bundlePath), WorldBuilder.BuiltPlatform));
         }
 
         private static string Sha(byte[] data)
