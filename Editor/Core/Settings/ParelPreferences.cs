@@ -17,6 +17,12 @@ namespace ParelVR.SDK.Core.Settings
         /// <summary>When a component is added that needs other components to work, add those too. On unless switched off.</summary>
         public static bool AutoAddReferencedScripts { get; private set; } = true;
 
+        /// <summary>Turn Mip Streaming off on the textures a bundle carries when it is built. On unless switched off.</summary>
+        public static bool AutoDisableMipStreaming { get; private set; } = true;
+
+        /// <summary>Lock an avatar's Poiyomi materials when it is built. On unless switched off.</summary>
+        public static bool AutoLockShaders { get; private set; } = true;
+
         public static event Action OnPreferencesChanged;
 
         private static string PreferencesFilePath =>
@@ -32,6 +38,8 @@ namespace ParelVR.SDK.Core.Settings
         {
             public bool autoPortContentEnabled;
             public bool autoAddReferencedScriptsOff; // stored as "off" so a file written before this setting existed reads as on
+            public bool autoDisableMipStreamingOff;
+            public bool autoLockShadersOff;
             public string environment;
         }
 
@@ -44,6 +52,8 @@ namespace ParelVR.SDK.Core.Settings
                 {
                     AutoPortContentEnabled = false;
                     AutoAddReferencedScripts = true;
+                    AutoDisableMipStreaming = true;
+                    AutoLockShaders = true;
                     ParelEnvironment.Current = ParelEnvironmentType.Production;
                     return;
                 }
@@ -52,6 +62,8 @@ namespace ParelVR.SDK.Core.Settings
                 var stored = JsonUtility.FromJson<StoredPreferences>(json);
                 AutoPortContentEnabled = stored != null && stored.autoPortContentEnabled;
                 AutoAddReferencedScripts = stored == null || !stored.autoAddReferencedScriptsOff;
+                AutoDisableMipStreaming = stored == null || !stored.autoDisableMipStreamingOff;
+                AutoLockShaders = stored == null || !stored.autoLockShadersOff;
 
                 if (stored != null && !string.IsNullOrEmpty(stored.environment)
                     && Enum.TryParse(stored.environment, out ParelEnvironmentType env))
@@ -87,6 +99,22 @@ namespace ParelVR.SDK.Core.Settings
             OnPreferencesChanged?.Invoke();
         }
 
+        public static void SetAutoDisableMipStreaming(bool enabled)
+        {
+            if (AutoDisableMipStreaming == enabled) return;
+            AutoDisableMipStreaming = enabled;
+            Save();
+            OnPreferencesChanged?.Invoke();
+        }
+
+        public static void SetAutoLockShaders(bool enabled)
+        {
+            if (AutoLockShaders == enabled) return;
+            AutoLockShaders = enabled;
+            Save();
+            OnPreferencesChanged?.Invoke();
+        }
+
         public static void SetEnvironment(ParelEnvironmentType env)
         {
             if (ParelEnvironment.Current == env) return;
@@ -105,6 +133,8 @@ namespace ParelVR.SDK.Core.Settings
                 {
                     autoPortContentEnabled = AutoPortContentEnabled,
                     autoAddReferencedScriptsOff = !AutoAddReferencedScripts,
+                    autoDisableMipStreamingOff = !AutoDisableMipStreaming,
+                    autoLockShadersOff = !AutoLockShaders,
                     environment = ParelEnvironment.Current.ToString()
                 };
                 File.WriteAllText(path, JsonUtility.ToJson(stored));

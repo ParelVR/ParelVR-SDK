@@ -614,6 +614,18 @@ namespace ParelVR.SDK.Core.ControlPanel
                 "For example, adding a Volt Pickup also adds a Rigidbody, a collider and a Volt Object Sync, and a script that " +
                 "handles OnInteract gets a collider. Nothing already on the object is changed, and each addition can be undone.");
 
+            var mipToggle = new Toggle { value = ParelPreferences.AutoDisableMipStreaming };
+            mipToggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoDisableMipStreaming(evt.newValue));
+            Setting(card, "Turn Off Mip Streaming On Build", mipToggle,
+                "When an avatar or world is built, Mip Streaming is turned off on every texture it uses, so the game " +
+                "loads them at full quality instead of starting blurry. The change stays on the textures.");
+
+            var lockToggle = new Toggle { value = ParelPreferences.AutoLockShaders };
+            lockToggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoLockShaders(evt.newValue));
+            Setting(card, "Lock Poiyomi Materials On Build", lockToggle,
+                "When an avatar is built, its unlocked Poiyomi materials are locked first. Unlocked Poiyomi shaders are " +
+                "left out of every build, so with this off those materials will not show in the game unless you lock them yourself.");
+
             var envDropdown = new EnumField(ParelEnvironment.Current);
             envDropdown.RegisterValueChangedCallback(evt =>
             {

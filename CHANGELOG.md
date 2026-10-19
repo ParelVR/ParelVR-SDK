@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Building and publishing
+
+- Fixed "An abnormal situation has occurred: the PlayerLoop internal function has been called recursively"
+  when building a world or an avatar (Build & Publish, Build & Test, Quest builds): bundles are now built from
+  the editor's update instead of an await continuation.
+- Textures a world or avatar uses have Mip Streaming turned off at build time, so uploads no longer load
+  blurry (Settings > Preferences can switch this off).
+- Poiyomi shader locking before an avatar build can be switched off in Settings > Preferences.
+
+### Install
+
+- The SDK can be installed without Git: Package Manager > + > Install package from tarball, using the
+  `.tgz` from the releases. Installing from the Git URL needs Git; the README says what to do when Unity
+  reports "No 'git' executable was found".
+
 ### Motion Bones
 
 - Smoother at any frame rate: frames at 90 Hz or faster now take one step of their own length (at

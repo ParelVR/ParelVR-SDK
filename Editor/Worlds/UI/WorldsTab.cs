@@ -663,9 +663,8 @@ namespace ParelVR.SDK.Worlds.UI
                 // ── 4. Build AssetBundle ──
                 _progressStatus.text = "Building AssetBundle (this may take a while)...";
                 _progressBar.value = 20;
-                await Task.Yield();
 
-                string bundlePath = WorldBuilder.BuildWorldBundle();
+                string bundlePath = await OutsidePlayerLoop.Run(WorldBuilder.BuildWorldBundle);
                 if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
                     throw new Exception("AssetBundle build failed. Check the Unity Console.");
 

@@ -979,9 +979,9 @@ namespace ParelVR.SDK.Avatars.UI
             BeginBusy("Building test avatar...", false);
             try
             {
-                await Task.Yield();
                 string path = ParelAvatarBuilder.TestAvatarPath(avatarName);
-                ParelAvatarBuildResult result = ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, path);
+                ParelAvatarBuildResult result = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
+                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, path));
                 SetProgress(100, "Test build ready");
 
                 string rank = result.Performance != null ? ParelAvatarPerformance.RankLabel(result.Performance.OverallRank) : "Unknown";
@@ -1033,8 +1033,8 @@ namespace ParelVR.SDK.Avatars.UI
             try
             {
                 // 1. Build first so a broken build never leaves an empty avatar on your account.
-                await Task.Yield();
-                ParelAvatarBuildResult windows = ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"));
+                ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
+                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle")));
                 if (windows.BundleBytes > MaxWindowsBundleBytes)
                 {
                     throw new Exception($"The Windows build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
@@ -1044,8 +1044,8 @@ namespace ParelVR.SDK.Avatars.UI
                 if (buildAndroid)
                 {
                     SetProgress(15, "Building for Android (Quest)...");
-                    await Task.Yield();
-                    quest = ParelAvatarBuilder.Build(descriptor, BuildTarget.Android, Path.Combine(workDir, "android.bundle"));
+                    quest = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
+                        () => ParelAvatarBuilder.Build(descriptor, BuildTarget.Android, Path.Combine(workDir, "android.bundle")));
                     if (quest.BundleBytes > MaxAndroidBundleBytes)
                     {
                         notes.Add($"The Quest build is {EditorUtility.FormatBytes(quest.BundleBytes)}, over the {EditorUtility.FormatBytes(MaxAndroidBundleBytes)} limit, so it wasn't uploaded.");

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using ParelVR.AvatarSDK;
 using ParelVR.SDK.Avatars.Validation;
+using ParelVR.SDK.Build;
+using ParelVR.SDK.Core.Settings;
 using UnityEditor;
 using UnityEngine;
 
@@ -59,9 +61,10 @@ namespace ParelVR.SDK.Avatars.Build
                     EditorUtility.SetDirty(descriptor);
                 }
                 // Unlocked Poiyomi shaders are taken out of every build, so they're locked first.
-                ParelAvatarShaderLocker.LockFor(descriptor.gameObject, result.Notes);
+                if (ParelPreferences.AutoLockShaders) ParelAvatarShaderLocker.LockFor(descriptor.gameObject, result.Notes);
                 AssetDatabase.SaveAssets();
                 SaveCleanCopy(descriptor, result);
+                ParelMipStreamingOff.TurnOffFor(new[] { TempPrefabPath }, result.Notes);
 
                 Directory.CreateDirectory(workDir);
                 // Unity names a bundle's internal file after the bundle name, and refuses to load two

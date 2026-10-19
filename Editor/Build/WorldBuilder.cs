@@ -77,11 +77,14 @@ namespace ParelVR.SDK.Build
                 Directory.CreateDirectory(outputDir);
             }
 
+            string scenePath = PrepareScene != null ? PrepareScene(activeScene.path) : activeScene.path;
+            ParelMipStreamingOff.TurnOffFor(new[] { scenePath });
+
             var buildMap = new AssetBundleBuild[1];
             buildMap[0] = new AssetBundleBuild
             {
                 assetBundleName = "worldbundle",
-                assetNames = new[] { PrepareScene != null ? PrepareScene(activeScene.path) : activeScene.path }
+                assetNames = new[] { scenePath }
             };
 
             var manifest = BuildPipeline.BuildAssetBundles(

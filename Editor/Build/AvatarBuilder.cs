@@ -19,6 +19,8 @@ namespace ParelVR.SDK.Build
             string outputDir = Path.Combine(Application.dataPath, "..", "Builds", "ParelVR");
             if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
 
+            ParelMipStreamingOff.TurnOffFor(new[] { path });
+
             var buildMap = new AssetBundleBuild[1];
             buildMap[0] = new AssetBundleBuild
             {

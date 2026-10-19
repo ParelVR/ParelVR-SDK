@@ -8,11 +8,18 @@ Unity 6 (6000.0 or newer).
 
 ## Install
 
+**From a tarball (recommended, no Git needed)**: download `com.parelvrsdk.pvr-<version>.tgz` from the releases,
+then Window > Package Manager > + > Install package from tarball, and pick the file. Keep the file where it is:
+the project points at it.
+
 **From Git** (Window > Package Manager > + > Install package from git URL):
 
 ```
-https://github.com/OWNER/ParelVR-SDK.git?path=/com.parelvrsdk.pvr
+https://github.com/ParelVR/ParelVR-SDK.git
 ```
+
+This needs Git installed (https://git-scm.com/download/win). If Unity says *No 'git' executable was found*,
+install Git, then close and reopen Unity Hub and Unity so they see it, or use the tarball above instead.
 
 **From a .unitypackage**: download `ParelVR-SDK-<version>.unitypackage` from the releases and use
 Assets > Import Package > Custom Package.
