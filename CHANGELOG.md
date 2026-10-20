@@ -73,3 +73,9 @@
 - Volt world scripting: the VoltCS compiler, the Volt virtual machine, the ParelVR scripting API, the editor
   simulator and the tools under **ParelVR > Volt**.
 - API 1.0, bytecode 1.0.
+
+## [1.3.0] - 2026-10-20
+### Added
+- **ParelVR SDK > World Roles and Permissions**: add co-owners and moderators to your uploaded worlds and choose what each role can do from the world's Settings page on the ParelVR website (edit world settings, ban players, ban groups from hosting, shut down instances, send announcements).
+- Owners, co-owners and moderators are protected from instance-master kicks, mutes and warnings.
+
