@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.4.0 (2026-10-20)
+
+### Quest worlds
+
+- Selected Platform in the Build bar is now a dropdown: pick Windows or Android to switch the project's build
+  target from the SDK window. If that platform's build support isn't installed, it says how to add it in Unity Hub.
+- While Android is the build target, the world validations include a Quest Compatibility check. Missing shaders,
+  shaders with compile errors, geometry shaders, tessellation and Android Graphics APIs without Vulkan and
+  OpenGLES3 have to be fixed before building.
+- It also warns about GrabPass shaders, texture compression other than ASTC, textures over 2048px, point and spot
+  lights with realtime shadows, Realtime reflection probes and missing scripts.
+- Every Quest issue has an Auto Fix, and Auto Fix All applies them all at once. Shader fixes switch materials to
+  Simple Lit (URP) or Legacy Diffuse, which also changes how they look on Windows; texture fixes cap the size for
+  Android only.
+- Warnings are now listed under Validations without stopping the build.
+
+## 1.3.0 (2026-10-20)
+
+### World Roles and Permissions
+
+- **ParelVR SDK > World Roles and Permissions**: add co-owners and moderators to your uploaded worlds and choose what each role can do from the world's Settings page on the ParelVR website (edit world settings, ban players, ban groups from hosting, shut down instances, send announcements).
+- Owners, co-owners and moderators are protected from instance-master kicks, mutes and warnings.
+
 ## 1.2.0 (2026-10-19)
 
 ### Check for Updates
@@ -73,9 +96,3 @@
 - Volt world scripting: the VoltCS compiler, the Volt virtual machine, the ParelVR scripting API, the editor
   simulator and the tools under **ParelVR > Volt**.
 - API 1.0, bytecode 1.0.
-
-## [1.3.0] - 2026-10-20
-### Added
-- **ParelVR SDK > World Roles and Permissions**: add co-owners and moderators to your uploaded worlds and choose what each role can do from the world's Settings page on the ParelVR website (edit world settings, ban players, ban groups from hosting, shut down instances, send announcements).
-- Owners, co-owners and moderators are protected from instance-master kicks, mutes and warnings.
-

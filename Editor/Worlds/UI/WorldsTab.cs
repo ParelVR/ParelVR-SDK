@@ -53,9 +53,10 @@ namespace ParelVR.SDK.Worlds.UI
         private Button _btnCaptureThumbnail;
         private Button _btnSelectImage;
         private Button _btnBuildPublish;
-        private Label _selectedPlatform;
+        private DropdownField _selectedPlatform;
 
         private VisualElement _validationErrorsContainer;
+        private Label _validationHeader;
         private ScrollView _validationErrorsList;
 
         private VisualElement _buildSection;
@@ -116,10 +117,20 @@ namespace ParelVR.SDK.Worlds.UI
             _btnCaptureThumbnail = tree.Q<Button>("btn-capture-thumbnail");
             _btnSelectImage = tree.Q<Button>("btn-select-image");
             _btnBuildPublish = tree.Q<Button>("btn-build-publish");
-            _selectedPlatform = tree.Q<Label>("selected-platform");
+            _selectedPlatform = tree.Q<DropdownField>("selected-platform");
+            if (_selectedPlatform != null)
+            {
+                _selectedPlatform.choices = new List<string>
+                {
+                    WorldBuilder.DisplayName(BuildTarget.StandaloneWindows64),
+                    WorldBuilder.DisplayName(BuildTarget.Android)
+                };
+                _selectedPlatform.RegisterValueChangedCallback(evt => SwitchPlatform(evt.newValue));
+            }
 
             // Validation
             _validationErrorsContainer = tree.Q<VisualElement>("validation-errors-container");
+            _validationHeader = tree.Q<Label>("validation-header");
             _validationErrorsList = tree.Q<ScrollView>("validation-errors-list");
 
             // Progress state
@@ -158,15 +169,48 @@ namespace ParelVR.SDK.Worlds.UI
 
             ParelSession.OnSessionChanged += RefreshState;
             EditorApplication.hierarchyChanged += RefreshState;
-            EditorUserBuildSettings.activeBuildTargetChanged += RefreshState;
+            EditorUserBuildSettings.activeBuildTargetChanged += OnBuildTargetChanged;
             container.RegisterCallback<DetachFromPanelEvent>(evt =>
             {
                 ParelSession.OnSessionChanged -= RefreshState;
                 EditorApplication.hierarchyChanged -= RefreshState;
-                EditorUserBuildSettings.activeBuildTargetChanged -= RefreshState;
+                EditorUserBuildSettings.activeBuildTargetChanged -= OnBuildTargetChanged;
             });
 
             RefreshState();
+            // Switching platform reloads scripts, so the Quest check also runs when the window comes back on Android.
+            if (QuestCompatibilityValidator.Applies) _ = RunValidationAsync();
+        }
+
+        private void OnBuildTargetChanged()
+        {
+            RefreshState();
+            _ = RunValidationAsync();
+        }
+
+        /// <summary>Switches Unity's build target to the platform picked in the Build bar.</summary>
+        private void SwitchPlatform(string displayName)
+        {
+            BuildTarget target = displayName == WorldBuilder.DisplayName(BuildTarget.Android) ? BuildTarget.Android : BuildTarget.StandaloneWindows64;
+            if (WorldBuilder.PlatformName(target) == WorldBuilder.PlatformName(EditorUserBuildSettings.activeBuildTarget)) return;
+
+            BuildTargetGroup group = BuildPipeline.GetBuildTargetGroup(target);
+            if (!BuildPipeline.IsBuildTargetSupported(group, target))
+            {
+                EditorUtility.DisplayDialog("Platform Not Installed",
+                    $"{displayName} build support isn't installed in this Unity Editor.\n\n" +
+                    "Add it in Unity Hub > Installs > this version > Add Modules, then try again.", "OK");
+                RefreshState();
+                return;
+            }
+            if (!EditorUtility.DisplayDialog("Switch Platform",
+                    $"Switch the project to {displayName}? Unity reimports the project's assets for it, which can take a while the first time.",
+                    "Switch", "Cancel"))
+            {
+                RefreshState();
+                return;
+            }
+            EditorUserBuildSettings.SwitchActiveBuildTargetAsync(group, target);
         }
 
         public void OnShown()
@@ -188,7 +232,7 @@ namespace ParelVR.SDK.Worlds.UI
             if (_selectedPlatform != null)
             {
                 bool supported = WorldBuilder.PlatformName(target) != null;
-                _selectedPlatform.text = supported ? platformName : platformName + " (not supported: switch to Windows or Android in Build Profiles)";
+                _selectedPlatform.SetValueWithoutNotify(supported ? platformName : platformName + " (not supported)");
                 _selectedPlatform.EnableInClassList("bk-text-bad", !supported);
             }
 
@@ -510,13 +554,30 @@ namespace ParelVR.SDK.Worlds.UI
             _validationErrorsContainer.style.display = DisplayStyle.None;
             _validationErrorsList.Clear();
 
-            var validator = new WorldValidator();
-            var report = await validator.ValidateAsync();
+            var report = await new WorldValidator().ValidateAsync();
+            report.Merge(await new QuestCompatibilityValidator().ValidateAsync());
 
-            if (report.CanBuild)
+            // Warnings don't stop the build, but they are listed so they can be fixed.
+            if (report.Issues.All(i => i.Level == Core.Validation.ValidationIssueLevel.Info))
                 return true;
 
             _validationErrorsContainer.style.display = DisplayStyle.Flex;
+            if (_validationHeader != null)
+                _validationHeader.text = report.CanBuild ? "Worth fixing (the build still works):" : "Fix these before building:";
+
+            var fixable = report.Issues.Where(i => i.HasAutoFix).ToList();
+            if (fixable.Count > 1)
+            {
+                _validationErrorsList.Add(new Button(() =>
+                {
+                    if (!EditorUtility.DisplayDialog("Auto Fix All",
+                            $"Apply all {fixable.Count} fixes? Shader fixes also change how those materials look on Windows.", "Fix All", "Cancel"))
+                        return;
+                    foreach (var issue in fixable) issue.AutoFix();
+                    _ = RunValidationAsync();
+                }) { text = "Auto Fix All" });
+            }
+
             foreach (var issue in report.Issues)
             {
                 var row = new VisualElement
@@ -549,7 +610,7 @@ namespace ParelVR.SDK.Worlds.UI
                 _validationErrorsList.Add(row);
             }
 
-            return false;
+            return report.CanBuild;
         }
 
         private List<string> GetSelectedWarnings()

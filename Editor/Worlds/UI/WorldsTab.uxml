@@ -89,7 +89,7 @@
             <ui:Foldout text="Validations" value="true" class="bk-section">
                 <ui:Label text="The scene is checked when you build. Anything that has to be fixed first is listed here." class="bk-hint" style="margin-top: 0;"/>
                 <ui:VisualElement name="validation-errors-container" style="display: none; margin-top: 6px;">
-                    <ui:Label text="Fix these before building:" class="bk-label bk-text-bad"/>
+                    <ui:Label name="validation-header" text="Fix these before building:" class="bk-label bk-text-bad"/>
                     <ui:ScrollView name="validation-errors-list" style="max-height: 160px; margin-top: 2px;"/>
                 </ui:VisualElement>
             </ui:Foldout>
@@ -100,7 +100,7 @@
                 <ui:VisualElement class="bk-prop">
                     <ui:Label text="Selected Platform" class="bk-prop-label"/>
                     <ui:VisualElement class="bk-prop-value">
-                        <ui:Label name="selected-platform" text="Windows" style="padding-top: 5px;"/>
+                        <ui:DropdownField name="selected-platform" style="margin-left: 0; margin-right: 0;"/>
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 30px; font-size: 13px; margin-left: 0; margin-right: 0;"/>
