@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 1
+    "minor": 2
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.1.0",
-  "hash": "a0f4334bdd362b5119425265d99557d46dbd738fea533bd0a8104fb40c62618e",
+  "sdkVersion": "1.5.0",
+  "hash": "e1f6693bea901920c2cacd2f49177a8e336e629bc26c7f9a1223e97ef23ab915",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -461,6 +461,17 @@
       "doc": "The state of the connection to other players, and ownership of world objects."
     },
     {
+      "id": "0x5A406060",
+      "name": "ParelVR.Volt.Networking.VoltObjectPool",
+      "docId": "T:ParelVR.Volt.Networking.VoltObjectPool",
+      "namespace": "ParelVR.Volt.Networking",
+      "kind": "component",
+      "host": "Platform",
+      "hostType": "ParelVR.Volt.Networking.VoltObjectPool",
+      "base": "ParelVR.Volt.Objects.VoltSceneComponent",
+      "doc": "Keeps the position and rotation of an object the same for every player. The owner\u0027s copy decides; the others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges."
+    },
+    {
       "id": "0xD67EAF09",
       "name": "ParelVR.Volt.Networking.VoltObjectSync",
       "docId": "T:ParelVR.Volt.Networking.VoltObjectSync",
@@ -468,8 +479,7 @@
       "kind": "component",
       "host": "Platform",
       "hostType": "ParelVR.Volt.Networking.VoltObjectSync",
-      "base": "ParelVR.Volt.Objects.VoltSceneComponent",
-      "doc": "Keeps the position and rotation of an object the same for every player. The owner\u0027s copy decides; the others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges."
+      "base": "ParelVR.Volt.Objects.VoltSceneComponent"
     },
     {
       "id": "0xFC0AB7DF",
@@ -745,14 +755,92 @@
       ]
     },
     {
+      "id": "0x69C2AAF4",
+      "name": "ParelVR.Volt.Players.VoltFinger",
+      "docId": "T:ParelVR.Volt.Players.VoltFinger",
+      "namespace": "ParelVR.Volt.Players",
+      "kind": "enum",
+      "host": "Platform",
+      "doc": "A player in the current instance. A script only ever sees what ParelVR chooses to share about a player: never an account, a session or anything that identifies the device.",
+      "values": [
+        {
+          "name": "Thumb",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "value": 1
+        },
+        {
+          "name": "Middle",
+          "value": 2
+        },
+        {
+          "name": "Ring",
+          "value": 3
+        },
+        {
+          "name": "Little",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "id": "0x64C4371C",
+      "name": "ParelVR.Volt.Players.VoltGesture",
+      "docId": "T:ParelVR.Volt.Players.VoltGesture",
+      "namespace": "ParelVR.Volt.Players",
+      "kind": "enum",
+      "host": "Platform",
+      "doc": "A hand shape read from the fingers.",
+      "values": [
+        {
+          "name": "None",
+          "value": 0,
+          "doc": "No shape this list knows, or the fingers are not known."
+        },
+        {
+          "name": "Open",
+          "value": 1
+        },
+        {
+          "name": "Fist",
+          "value": 2
+        },
+        {
+          "name": "Point",
+          "value": 3,
+          "doc": "Index finger out, the rest curled."
+        },
+        {
+          "name": "Victory",
+          "value": 4,
+          "doc": "Index and middle fingers out."
+        },
+        {
+          "name": "ThumbsUp",
+          "value": 5
+        },
+        {
+          "name": "RockAndRoll",
+          "value": 6,
+          "doc": "Index and little fingers out."
+        },
+        {
+          "name": "HandGun",
+          "value": 7,
+          "doc": "Thumb and index finger out."
+        }
+      ]
+    },
+    {
       "id": "0x135D5878",
       "name": "ParelVR.Volt.Players.VoltPlayer",
       "docId": "T:ParelVR.Volt.Players.VoltPlayer",
       "namespace": "ParelVR.Volt.Players",
       "kind": "class",
       "host": "Platform",
-      "hostType": "ParelVR.VoltHost.VoltPlayerHandle",
-      "doc": "A player in the current instance. A script only ever sees what ParelVR chooses to share about a player: never an account, a session or anything that identifies the device."
+      "hostType": "ParelVR.VoltHost.VoltPlayerHandle"
     },
     {
       "id": "0xD9C5079A",
@@ -832,6 +920,24 @@
       "doc": "The objects of the world scene."
     },
     {
+      "id": "0xD65B09D0",
+      "name": "ParelVR.Volt.Storage.VoltAchievements",
+      "docId": "T:ParelVR.Volt.Storage.VoltAchievements",
+      "namespace": "ParelVR.Volt.Storage",
+      "kind": "static",
+      "host": "Platform",
+      "doc": "Achievements of this world for the local player, kept in their storage for the world."
+    },
+    {
+      "id": "0xF7F1488B",
+      "name": "ParelVR.Volt.Storage.VoltLeaderboard",
+      "docId": "T:ParelVR.Volt.Storage.VoltLeaderboard",
+      "namespace": "ParelVR.Volt.Storage",
+      "kind": "static",
+      "host": "Platform",
+      "doc": "High score boards of this world, kept in its world storage. The answer arrives as OnStorageResult; its Value is the board as JSON: {\u0022lowerIsBetter\u0022, \u0022entries\u0022: [{\u0022id\u0022, \u0022name\u0022, \u0022score\u0022}]}, best first, at most 100 entries, one per player."
+    },
+    {
       "id": "0x32A4FECD",
       "name": "ParelVR.Volt.Storage.VoltStorage",
       "docId": "T:ParelVR.Volt.Storage.VoltStorage",
@@ -902,6 +1008,15 @@
       "hostType": "UnityEngine.Canvas",
       "base": "ParelVR.Volt.Objects.VoltComponent",
       "doc": "A canvas in the world."
+    },
+    {
+      "id": "0x72FFB96A",
+      "name": "ParelVR.Volt.UI.VoltDialogs",
+      "docId": "T:ParelVR.Volt.UI.VoltDialogs",
+      "namespace": "ParelVR.Volt.UI",
+      "kind": "static",
+      "host": "Platform",
+      "doc": "Messages and questions for the local player, shown by ParelVR\u0027s own interface so they work on desktop and in VR."
     },
     {
       "id": "0xC6B4512E",
@@ -1130,6 +1245,15 @@
       ]
     },
     {
+      "id": "0xDE990314",
+      "name": "ParelVR.Volt.VoltEvents",
+      "docId": "T:ParelVR.Volt.VoltEvents",
+      "namespace": "ParelVR.Volt",
+      "kind": "static",
+      "host": "Core",
+      "doc": "A world-wide event bus: one call reaches every script without holding references to them."
+    },
+    {
       "id": "0x08E159A4",
       "name": "ParelVR.Volt.VoltProfiler",
       "docId": "T:ParelVR.Volt.VoltProfiler",
@@ -1137,6 +1261,15 @@
       "kind": "static",
       "host": "Core",
       "doc": "What the world\u0027s scripts cost, for scripts that want to adapt to it."
+    },
+    {
+      "id": "0x88E64EF2",
+      "name": "ParelVR.Volt.VoltRandom",
+      "docId": "T:ParelVR.Volt.VoltRandom",
+      "namespace": "ParelVR.Volt",
+      "kind": "static",
+      "host": "Core",
+      "doc": "Random numbers that are the same on every client. The result depends only on the seed and the index, so players who share a seed (a synced field, or VoltRandom.Hash of the instance id) draw the same values without sending them."
     },
     {
       "id": "0x51A5191B",
@@ -4475,6 +4608,27 @@
       "doc": "True when the local player is in VR."
     },
     {
+      "id": "0x9744EA19",
+      "sig": "M:ParelVR.Volt.Instance.VoltInstance.Ban(ParelVR.Volt.Players.VoltPlayer)",
+      "type": "ParelVR.Volt.Instance.VoltInstance",
+      "name": "Ban",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 36,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "player",
+          "type": "ParelVR.Volt.Players.VoltPlayer"
+        }
+      ],
+      "doc": "Kicks a player and keeps them out for as long as the instance lives. Master only."
+    },
+    {
       "id": "0x31370D2E",
       "sig": "M:ParelVR.Volt.Instance.VoltInstance.GetProperty(System.String)",
       "type": "ParelVR.Volt.Instance.VoltInstance",
@@ -4495,6 +4649,69 @@
       "doc": "A property of the instance, such as \u0022region\u0022 or \u0022name\u0022. Empty when there is no such property."
     },
     {
+      "id": "0x9A3D0ED2",
+      "sig": "M:ParelVR.Volt.Instance.VoltInstance.IsBanned(ParelVR.Volt.Players.VoltPlayer)",
+      "type": "ParelVR.Volt.Instance.VoltInstance",
+      "name": "IsBanned",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Boolean",
+      "params": [
+        {
+          "name": "player",
+          "type": "ParelVR.Volt.Players.VoltPlayer"
+        }
+      ],
+      "doc": "True when the player is banned from this instance."
+    },
+    {
+      "id": "0xC5168418",
+      "sig": "M:ParelVR.Volt.Instance.VoltInstance.Kick(ParelVR.Volt.Players.VoltPlayer)",
+      "type": "ParelVR.Volt.Instance.VoltInstance",
+      "name": "Kick",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 36,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "player",
+          "type": "ParelVR.Volt.Players.VoltPlayer"
+        }
+      ],
+      "doc": "Sends a player out of the instance; their client goes back to the hub. Master only."
+    },
+    {
+      "id": "0x8680D955",
+      "sig": "M:ParelVR.Volt.Instance.VoltInstance.Unban(System.String)",
+      "type": "ParelVR.Volt.Instance.VoltInstance",
+      "name": "Unban",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 36,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "displayName",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Lets a banned player back in, by the name they had when banned. Master only."
+    },
+    {
       "id": "0xDB3ED590",
       "sig": "M:ParelVR.Volt.Instance.VoltInstance.get_Authority",
       "type": "ParelVR.Volt.Instance.VoltInstance",
@@ -4509,6 +4726,23 @@
       "returns": "ParelVR.Volt.Players.VoltPlayer",
       "params": [],
       "doc": "The player with authority over shared state that has no owner. In ParelVR this is the master."
+    },
+    {
+      "id": "0xC3533FD9",
+      "sig": "M:ParelVR.Volt.Instance.VoltInstance.get_BannedNames",
+      "type": "ParelVR.Volt.Instance.VoltInstance",
+      "name": "BannedNames",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Instance.VoltInstance.BannedNames",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 0,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.String[]",
+      "params": [],
+      "doc": "Names of the players banned from this instance."
     },
     {
       "id": "0xCC392CDF",
@@ -5039,6 +5273,23 @@
       "doc": "Gives the object to a player. Only its owner or the master can do this, and the owner can refuse a request."
     },
     {
+      "id": "0x8FC0D528",
+      "sig": "M:ParelVR.Volt.Networking.VoltNetworking.get_InterestDistance",
+      "type": "ParelVR.Volt.Networking.VoltNetworking",
+      "name": "InterestDistance",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Networking.VoltNetworking.InterestDistance",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 0,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Single",
+      "params": [],
+      "doc": "Beyond this distance in metres from every other player, synced objects and scripts send their state four times less often. 0, the default, turns it off."
+    },
+    {
       "id": "0xDAE57C54",
       "sig": "M:ParelVR.Volt.Networking.VoltNetworking.get_IsConnected",
       "type": "ParelVR.Volt.Networking.VoltNetworking",
@@ -5149,6 +5400,125 @@
       "returns": "System.Int32",
       "params": [],
       "doc": "A clock in milliseconds that is the same for every player in the instance. Use it to time shared events."
+    },
+    {
+      "id": "0xE7ECC6BC",
+      "sig": "M:ParelVR.Volt.Networking.VoltNetworking.set_InterestDistance(System.Single)",
+      "type": "ParelVR.Volt.Networking.VoltNetworking",
+      "name": "InterestDistance",
+      "kind": "PropertySet",
+      "property": "P:ParelVR.Volt.Networking.VoltNetworking.InterestDistance",
+      "static": true,
+      "host": "Platform",
+      "capability": 16,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "value",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "Beyond this distance in metres from every other player, synced objects and scripts send their state four times less often. 0, the default, turns it off."
+    },
+    {
+      "id": "0x6D1FA626",
+      "sig": "M:ParelVR.Volt.Networking.VoltObjectPool.GetObject(System.Int32)",
+      "type": "ParelVR.Volt.Networking.VoltObjectPool",
+      "name": "GetObject",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Networking.VoltObjectPool",
+      "returns": "ParelVR.Volt.Objects.VoltGameObject",
+      "params": [
+        {
+          "name": "index",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "An object of the pool by position, spawned or not."
+    },
+    {
+      "id": "0xCFEA503F",
+      "sig": "M:ParelVR.Volt.Networking.VoltObjectPool.Return(ParelVR.Volt.Objects.VoltGameObject)",
+      "type": "ParelVR.Volt.Networking.VoltObjectPool",
+      "name": "Return",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 52,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Networking.VoltObjectPool",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "target",
+          "type": "ParelVR.Volt.Objects.VoltGameObject"
+        }
+      ],
+      "doc": "Turns an object of the pool off for everyone. Master only."
+    },
+    {
+      "id": "0xDA9AABD6",
+      "sig": "M:ParelVR.Volt.Networking.VoltObjectPool.TryToSpawn",
+      "type": "ParelVR.Volt.Networking.VoltObjectPool",
+      "name": "TryToSpawn",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 52,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Networking.VoltObjectPool",
+      "returns": "ParelVR.Volt.Objects.VoltGameObject",
+      "params": [],
+      "doc": "Turns on the first object that is off, for everyone, and returns it. Null when all are on. Master only."
+    },
+    {
+      "id": "0xFC443539",
+      "sig": "M:ParelVR.Volt.Networking.VoltObjectPool.get_ActiveCount",
+      "type": "ParelVR.Volt.Networking.VoltObjectPool",
+      "name": "ActiveCount",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Networking.VoltObjectPool.ActiveCount",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Networking.VoltObjectPool",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "How many of them are spawned."
+    },
+    {
+      "id": "0x2F3F4EF7",
+      "sig": "M:ParelVR.Volt.Networking.VoltObjectPool.get_Count",
+      "type": "ParelVR.Volt.Networking.VoltObjectPool",
+      "name": "Count",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Networking.VoltObjectPool.Count",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Networking.VoltObjectPool",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "How many objects the pool has."
     },
     {
       "id": "0x52C205EE",
@@ -8240,6 +8610,28 @@
       "doc": "The transform that was hit."
     },
     {
+      "id": "0x68A2604A",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetAvatarParameter(System.String)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "GetAvatarParameter",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Single",
+      "params": [
+        {
+          "name": "name",
+          "type": "System.String"
+        }
+      ],
+      "doc": "A parameter of the player\u0027s avatar, such as an expression toggle. Zero when the avatar has no such parameter."
+    },
+    {
       "id": "0xE949A3DD",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetBonePosition(ParelVR.Volt.Players.VoltBone)",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -8282,6 +8674,54 @@
       "doc": "Rotation of an avatar bone in world space."
     },
     {
+      "id": "0x87184C97",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetFingerCurl(ParelVR.Volt.Interaction.VoltHand,ParelVR.Volt.Players.VoltFinger)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "GetFingerCurl",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 3,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Single",
+      "params": [
+        {
+          "name": "hand",
+          "type": "ParelVR.Volt.Interaction.VoltHand"
+        },
+        {
+          "name": "finger",
+          "type": "ParelVR.Volt.Players.VoltFinger"
+        }
+      ],
+      "doc": "How far a finger of the player\u0027s avatar is bent: 0 straight, 1 fully curled. Zero when it is not known."
+    },
+    {
+      "id": "0x4D58067E",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetGesture(ParelVR.Volt.Interaction.VoltHand)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "GetGesture",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "ParelVR.Volt.Players.VoltGesture",
+      "params": [
+        {
+          "name": "hand",
+          "type": "ParelVR.Volt.Interaction.VoltHand"
+        }
+      ],
+      "doc": "The hand shape the player is making, read from their avatar\u0027s fingers."
+    },
+    {
       "id": "0x219229F6",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetPosition",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -8312,6 +8752,28 @@
       "returns": "UnityEngine.Quaternion",
       "params": [],
       "doc": "Rotation of the player\u0027s body in world space."
+    },
+    {
+      "id": "0xDCABC582",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetTag(System.String)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "GetTag",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.String",
+      "params": [
+        {
+          "name": "key",
+          "type": "System.String"
+        }
+      ],
+      "doc": "A tag the world\u0027s scripts gave this player, such as a team or a role. Empty when it has none. Tags are local to this client."
     },
     {
       "id": "0xAF885CC7",
@@ -8464,6 +8926,23 @@
       "doc": "Vibrates a controller of the local player. Does nothing on desktop."
     },
     {
+      "id": "0x7E81B1E8",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.ResetVoice",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "ResetVoice",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [],
+      "doc": "Puts this player\u0027s voice back to the local player\u0027s own settings."
+    },
+    {
       "id": "0xD1C91CFD",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.Respawn",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -8478,6 +8957,58 @@
       "returns": "System.Void",
       "params": [],
       "doc": "Moves the local player back to a spawn point."
+    },
+    {
+      "id": "0xB44E730D",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetAvatarParameter(System.String,System.Single)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "SetAvatarParameter",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 513,
+      "argCount": 3,
+      "retCount": 1,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Boolean",
+      "params": [
+        {
+          "name": "name",
+          "type": "System.String"
+        },
+        {
+          "name": "value",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "Changes a parameter of the local player\u0027s own avatar. False when it has no such parameter or it cannot be written."
+    },
+    {
+      "id": "0xAF445D6A",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetTag(System.String,System.String)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "SetTag",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 3,
+      "retCount": 0,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "key",
+          "type": "System.String"
+        },
+        {
+          "name": "value",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Gives this player a tag on this client; an empty value removes it. Tags are cleared when the player leaves."
     },
     {
       "id": "0xC2B3857A",
@@ -8499,6 +9030,50 @@
         }
       ],
       "doc": "Sets the local player\u0027s velocity, for launch pads and knock-back."
+    },
+    {
+      "id": "0xBC5F803A",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetVoiceDistance(System.Single)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "SetVoiceDistance",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "metres",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "How far away, in metres, the local player can still hear this player. Only changes what this client hears."
+    },
+    {
+      "id": "0xE51C2ECE",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetVoiceGain(System.Single)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "SetVoiceGain",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 2,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "gain",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "How loud this player\u0027s voice is for the local player, 0 (muted) to 1 (normal). Only changes what this client hears."
     },
     {
       "id": "0x684A6447",
@@ -9128,6 +9703,102 @@
       "doc": "The objects at the top of the world\u0027s hierarchy."
     },
     {
+      "id": "0x863EF10C",
+      "sig": "M:ParelVR.Volt.Storage.VoltAchievements.Check(System.String)",
+      "type": "ParelVR.Volt.Storage.VoltAchievements",
+      "name": "Check",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 64,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "returns": "ParelVR.Volt.Storage.VoltStorageRequest",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Checks an achievement; the request\u0027s Exists is true when it is unlocked."
+    },
+    {
+      "id": "0xEB0DB66E",
+      "sig": "M:ParelVR.Volt.Storage.VoltAchievements.Unlock(System.String,System.String)",
+      "type": "ParelVR.Volt.Storage.VoltAchievements",
+      "name": "Unlock",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 64,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "returns": "ParelVR.Volt.Storage.VoltStorageRequest",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "title",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Unlocks an achievement; the first time, the player sees a notification with the title."
+    },
+    {
+      "id": "0x6658DB7B",
+      "sig": "M:ParelVR.Volt.Storage.VoltLeaderboard.Load(System.String)",
+      "type": "ParelVR.Volt.Storage.VoltLeaderboard",
+      "name": "Load",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 64,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "returns": "ParelVR.Volt.Storage.VoltStorageRequest",
+      "params": [
+        {
+          "name": "board",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Reads a board."
+    },
+    {
+      "id": "0x35BF4C79",
+      "sig": "M:ParelVR.Volt.Storage.VoltLeaderboard.Submit(System.String,System.Int32,System.Boolean)",
+      "type": "ParelVR.Volt.Storage.VoltLeaderboard",
+      "name": "Submit",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 64,
+      "argCount": 3,
+      "retCount": 1,
+      "since": 2,
+      "returns": "ParelVR.Volt.Storage.VoltStorageRequest",
+      "params": [
+        {
+          "name": "board",
+          "type": "System.String"
+        },
+        {
+          "name": "score",
+          "type": "System.Int32"
+        },
+        {
+          "name": "lowerIsBetter",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "Records the local player\u0027s score on a board, keeping their best one."
+    },
+    {
       "id": "0x225927A2",
       "sig": "M:ParelVR.Volt.Storage.VoltStorage.Delete(ParelVR.Volt.Storage.VoltStorageScope,System.String)",
       "type": "ParelVR.Volt.Storage.VoltStorage",
@@ -9406,6 +10077,81 @@
         }
       ],
       "doc": "Whether the canvas is drawn."
+    },
+    {
+      "id": "0xF3880367",
+      "sig": "M:ParelVR.Volt.UI.VoltDialogs.ShowDialog(System.String,System.String,System.String,System.String)",
+      "type": "ParelVR.Volt.UI.VoltDialogs",
+      "name": "ShowDialog",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 4,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Int32",
+      "params": [
+        {
+          "name": "title",
+          "type": "System.String"
+        },
+        {
+          "name": "message",
+          "type": "System.String"
+        },
+        {
+          "name": "confirmText",
+          "type": "System.String"
+        },
+        {
+          "name": "cancelText",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Asks the local player a yes/no question. Returns an id, or 0 when a dialog of this world is already open; the answer arrives as OnDialogResult(id, confirmed) on the calling script."
+    },
+    {
+      "id": "0xBDF7DB8E",
+      "sig": "M:ParelVR.Volt.UI.VoltDialogs.ShowNotification(System.String,System.String)",
+      "type": "ParelVR.Volt.UI.VoltDialogs",
+      "name": "ShowNotification",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "title",
+          "type": "System.String"
+        },
+        {
+          "name": "text",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Shows a short message to the local player. At most one a second; extra ones are dropped."
+    },
+    {
+      "id": "0xA92BCCD7",
+      "sig": "M:ParelVR.Volt.UI.VoltDialogs.get_IsAvailable",
+      "type": "ParelVR.Volt.UI.VoltDialogs",
+      "name": "IsAvailable",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.UI.VoltDialogs.IsAvailable",
+      "static": true,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 0,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Boolean",
+      "params": [],
+      "doc": "True when the client can show notifications and dialogs."
     },
     {
       "id": "0x0287867F",
@@ -11179,6 +11925,27 @@
       "doc": "Writes a warning."
     },
     {
+      "id": "0xA2499B6D",
+      "sig": "M:ParelVR.Volt.VoltEvents.Broadcast(System.String)",
+      "type": "ParelVR.Volt.VoltEvents",
+      "name": "Broadcast",
+      "kind": "Method",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 2,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "eventName",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Calls the public method with this name and no parameters on every enabled script of the world that has one, in the order the scripts were created. Only on this client; use SendNetworkEvent to reach others."
+    },
+    {
       "id": "0xAFFEDA0F",
       "sig": "M:ParelVR.Volt.VoltProfiler.get_CoroutineCount",
       "type": "ParelVR.Volt.VoltProfiler",
@@ -11243,6 +12010,118 @@
       "doc": "Milliseconds every script of the world took in the last frame."
     },
     {
+      "id": "0x12510A90",
+      "sig": "M:ParelVR.Volt.VoltRandom.Hash(System.String)",
+      "type": "ParelVR.Volt.VoltRandom",
+      "name": "Hash",
+      "kind": "Method",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Int32",
+      "params": [
+        {
+          "name": "text",
+          "type": "System.String"
+        }
+      ],
+      "doc": "A seed made from text, the same on every client and every platform."
+    },
+    {
+      "id": "0xD239952F",
+      "sig": "M:ParelVR.Volt.VoltRandom.Range(System.Int32,System.Int32,System.Single,System.Single)",
+      "type": "ParelVR.Volt.VoltRandom",
+      "name": "Range",
+      "kind": "Method",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 4,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Single",
+      "params": [
+        {
+          "name": "seed",
+          "type": "System.Int32"
+        },
+        {
+          "name": "index",
+          "type": "System.Int32"
+        },
+        {
+          "name": "min",
+          "type": "System.Single"
+        },
+        {
+          "name": "max",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "A number from min (inclusive) to max (exclusive) for the seed and index."
+    },
+    {
+      "id": "0x020C5D02",
+      "sig": "M:ParelVR.Volt.VoltRandom.RangeInt(System.Int32,System.Int32,System.Int32,System.Int32)",
+      "type": "ParelVR.Volt.VoltRandom",
+      "name": "RangeInt",
+      "kind": "Method",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 4,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Int32",
+      "params": [
+        {
+          "name": "seed",
+          "type": "System.Int32"
+        },
+        {
+          "name": "index",
+          "type": "System.Int32"
+        },
+        {
+          "name": "min",
+          "type": "System.Int32"
+        },
+        {
+          "name": "max",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "A whole number from min (inclusive) to max (exclusive) for the seed and index. min when max is not above min."
+    },
+    {
+      "id": "0x12D31667",
+      "sig": "M:ParelVR.Volt.VoltRandom.Value(System.Int32,System.Int32)",
+      "type": "ParelVR.Volt.VoltRandom",
+      "name": "Value",
+      "kind": "Method",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.Single",
+      "params": [
+        {
+          "name": "seed",
+          "type": "System.Int32"
+        },
+        {
+          "name": "index",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "A number from 0 (inclusive) to 1 (exclusive) for the seed and index."
+    },
+    {
       "id": "0xAFB8AC21",
       "sig": "M:ParelVR.Volt.VoltRuntime.get_ApiVersion",
       "type": "ParelVR.Volt.VoltRuntime",
@@ -11289,6 +12168,23 @@
       "returns": "System.Boolean",
       "params": [],
       "doc": "True when the script runs in the Unity editor\u0027s simulator instead of ParelVR."
+    },
+    {
+      "id": "0xF0E840F3",
+      "sig": "M:ParelVR.Volt.VoltRuntime.get_Language",
+      "type": "ParelVR.Volt.VoltRuntime",
+      "name": "Language",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.VoltRuntime.Language",
+      "static": true,
+      "host": "Core",
+      "capability": 0,
+      "argCount": 0,
+      "retCount": 1,
+      "since": 2,
+      "returns": "System.String",
+      "params": [],
+      "doc": "Two-letter code of the player\u0027s language, such as \u0022en\u0022 or \u0022de\u0022. \u0022en\u0022 when it is not known."
     },
     {
       "id": "0x9C7CD25A",
@@ -26904,6 +27800,20 @@
       "doc": "The local player released Use while holding this object."
     },
     {
+      "id": 15,
+      "name": "OnHoverEnter",
+      "returns": false,
+      "params": [],
+      "doc": "The local player started pointing at this object, or looking at it within reach on desktop."
+    },
+    {
+      "id": 16,
+      "name": "OnHoverExit",
+      "returns": false,
+      "params": [],
+      "doc": "The local player stopped pointing at this object."
+    },
+    {
       "id": 20,
       "name": "OnPlayerJoined",
       "returns": false,
@@ -27256,6 +28166,22 @@
         }
       ],
       "doc": "The local player pressed or released an input action."
+    },
+    {
+      "id": 81,
+      "name": "OnDialogResult",
+      "returns": false,
+      "params": [
+        {
+          "name": "dialogId",
+          "type": "System.Int32"
+        },
+        {
+          "name": "confirmed",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "The local player answered a dialog this script opened with VoltDialogs.ShowDialog."
     },
     {
       "id": 90,

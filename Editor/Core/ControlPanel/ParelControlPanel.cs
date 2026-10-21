@@ -83,26 +83,26 @@ namespace ParelVR.SDK.Core.ControlPanel
 
         public static bool IsOpen => HasOpenInstances<ParelControlPanel>();
 
-        /// <summary>The panel is one fixed, tall rectangle: it cannot be resized, maximized or docked.</summary>
-        private static readonly Vector2 WindowSize = new Vector2(520, 700);
+        /// <summary>The smallest the panel's layout works at. It is an ordinary window: it docks next to the Scene and Game views, or floats.</summary>
+        private static readonly Vector2 MinimumSize = new Vector2(420, 560);
+        private static readonly Vector2 OldFixedSize = new Vector2(520, 700);
 
         public static void Open()
         {
             ParelControlPanel window = HasOpenInstances<ParelControlPanel>() ? GetWindow<ParelControlPanel>() : null;
-            // A panel left open from before it had a fixed size is still an ordinary resizable window.
-            if (window != null && (window.docked || window.maxSize != WindowSize))
+            // A panel left open from when it was a fixed-size utility window cannot dock: open it again as a normal one.
+            if (window != null && !window.docked && window.maxSize == OldFixedSize)
             {
                 window.Close();
                 window = null;
             }
             if (window == null)
             {
-                window = CreateInstance<ParelControlPanel>();
-                window.titleContent = new GUIContent("ParelVR SDK");
-                window.minSize = WindowSize;
-                window.maxSize = WindowSize;
-                window.ShowUtility();
+                window = GetWindow<ParelControlPanel>("ParelVR SDK", true, typeof(SceneView));
+                window.minSize = MinimumSize;
+                window.maxSize = new Vector2(4000, 4000);
             }
+            window.Show();
             window.Focus();
         }
 

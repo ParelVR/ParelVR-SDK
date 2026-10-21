@@ -494,6 +494,12 @@
         <member name="M:ParelVR.Volt.VoltBehaviour.OnPickupUseUp">
             <summary>The local player released Use while holding this object.</summary>
         </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnHoverEnter">
+            <summary>The local player started pointing at this object, or looking at it within reach on desktop.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnHoverExit">
+            <summary>The local player stopped pointing at this object.</summary>
+        </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerJoined(ParelVR.Volt.Players.VoltPlayer)">
             <summary>A player joined the instance. Also called once for every player already present when the world loads.</summary>
         </member>
@@ -580,6 +586,9 @@
         </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnInputAction(ParelVR.Volt.Input.VoltInputAction,System.Boolean)">
             <summary>The local player pressed or released an input action.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnDialogResult(System.Int32,System.Boolean)">
+            <summary>The local player answered a dialog this script opened with VoltDialogs.ShowDialog.</summary>
         </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnPurchaseCompleted(System.String,System.Boolean)">
             <summary>A purchase the local player started in this world went through or failed.</summary>
@@ -817,6 +826,12 @@
         <member name="P:ParelVR.Volt.Networking.VoltNetworking.ServerTimeMs">
             <summary>A clock in milliseconds that is the same for every player in the instance. Use it to time shared events.</summary>
         </member>
+        <member name="P:ParelVR.Volt.Networking.VoltNetworking.InterestDistance">
+            <summary>
+            Beyond this distance in metres from every other player, synced objects and scripts send their state four times
+            less often. 0, the default, turns it off.
+            </summary>
+        </member>
         <member name="P:ParelVR.Volt.Networking.VoltNetworking.IsStateReady">
             <summary>True once this client has received the current state of every synced object.</summary>
         </member>
@@ -832,11 +847,29 @@
         <member name="M:ParelVR.Volt.Networking.VoltNetworking.SetOwner(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Objects.VoltGameObject)">
             <summary>Gives the object to a player. Only its owner or the master can do this, and the owner can refuse a request.</summary>
         </member>
-        <member name="T:ParelVR.Volt.Networking.VoltObjectSync">
+        <member name="T:ParelVR.Volt.Networking.VoltObjectPool">
             <summary>
             Keeps the position and rotation of an object the same for every player. The owner's copy decides; the
             others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges.
             </summary>
+        </member>
+        <member name="F:ParelVR.Volt.Networking.VoltObjectPool.objects">
+            <summary>The objects of the pool. They are turned off when the world loads.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltObjectPool.Count">
+            <summary>How many objects the pool has.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Networking.VoltObjectPool.ActiveCount">
+            <summary>How many of them are spawned.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectPool.GetObject(System.Int32)">
+            <summary>An object of the pool by position, spawned or not.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectPool.TryToSpawn">
+            <summary>Turns on the first object that is off, for everyone, and returns it. Null when all are on. Master only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Networking.VoltObjectPool.Return(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>Turns an object of the pool off for everyone. Master only.</summary>
         </member>
         <member name="F:ParelVR.Volt.Networking.VoltObjectSync.syncScale">
             <summary>Sync the object's scale as well as its position and rotation.</summary>
@@ -1360,11 +1393,30 @@
         <member name="T:ParelVR.Volt.Players.VoltBone">
             <summary>A bone of a player's avatar.</summary>
         </member>
-        <member name="T:ParelVR.Volt.Players.VoltPlayer">
+        <member name="T:ParelVR.Volt.Players.VoltFinger">
             <summary>
             A player in the current instance. A script only ever sees what ParelVR chooses to share about a player:
             never an account, a session or anything that identifies the device.
             </summary>
+            <summary>A finger of a hand.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Players.VoltGesture">
+            <summary>A hand shape read from the fingers.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltGesture.None">
+            <summary>No shape this list knows, or the fingers are not known.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltGesture.Point">
+            <summary>Index finger out, the rest curled.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltGesture.Victory">
+            <summary>Index and middle fingers out.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltGesture.RockAndRoll">
+            <summary>Index and little fingers out.</summary>
+        </member>
+        <member name="F:ParelVR.Volt.Players.VoltGesture.HandGun">
+            <summary>Thumb and index finger out.</summary>
         </member>
         <member name="P:ParelVR.Volt.Players.VoltPlayer.PlayerId">
             <summary>Number of the player in this instance. Unique while the player is here; reused after they leave.</summary>
@@ -1413,6 +1465,33 @@
         </member>
         <member name="P:ParelVR.Volt.Players.VoltPlayer.Ping">
             <summary>The player's round trip time to the instance server in milliseconds. Zero until it is known.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetTag(System.String)">
+            <summary>A tag the world's scripts gave this player, such as a team or a role. Empty when it has none. Tags are local to this client.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetTag(System.String,System.String)">
+            <summary>Gives this player a tag on this client; an empty value removes it. Tags are cleared when the player leaves.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetFingerCurl(ParelVR.Volt.Interaction.VoltHand,ParelVR.Volt.Players.VoltFinger)">
+            <summary>How far a finger of the player's avatar is bent: 0 straight, 1 fully curled. Zero when it is not known.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetGesture(ParelVR.Volt.Interaction.VoltHand)">
+            <summary>The hand shape the player is making, read from their avatar's fingers.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.GetAvatarParameter(System.String)">
+            <summary>A parameter of the player's avatar, such as an expression toggle. Zero when the avatar has no such parameter.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetAvatarParameter(System.String,System.Single)">
+            <summary>Changes a parameter of the local player's own avatar. False when it has no such parameter or it cannot be written.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetVoiceGain(System.Single)">
+            <summary>How loud this player's voice is for the local player, 0 (muted) to 1 (normal). Only changes what this client hears.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetVoiceDistance(System.Single)">
+            <summary>How far away, in metres, the local player can still hear this player. Only changes what this client hears.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.ResetVoice">
+            <summary>Puts this player's voice back to the local player's own settings.</summary>
         </member>
         <member name="M:ParelVR.Volt.Players.VoltPlayer.GetPosition">
             <summary>Position of the player in world space.</summary>
@@ -1542,6 +1621,21 @@
         </member>
         <member name="M:ParelVR.Volt.Instance.VoltInstance.GetProperty(System.String)">
             <summary>A property of the instance, such as "region" or "name". Empty when there is no such property.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Instance.VoltInstance.Kick(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Sends a player out of the instance; their client goes back to the hub. Master only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Instance.VoltInstance.Ban(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>Kicks a player and keeps them out for as long as the instance lives. Master only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Instance.VoltInstance.Unban(System.String)">
+            <summary>Lets a banned player back in, by the name they had when banned. Master only.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Instance.VoltInstance.IsBanned(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>True when the player is banned from this instance.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Instance.VoltInstance.BannedNames">
+            <summary>Names of the players banned from this instance.</summary>
         </member>
         <member name="T:ParelVR.Volt.Input.VoltInputAction">
             <summary>An action a player can perform, whatever device they use for it.</summary>
@@ -1699,6 +1793,21 @@
         <member name="M:ParelVR.Volt.UI.VoltUI.ColorToHex(UnityEngine.Color)">
             <summary>Turns a colour into text such as "#FF8800FF", for rich text.</summary>
         </member>
+        <member name="T:ParelVR.Volt.UI.VoltDialogs">
+            <summary>Messages and questions for the local player, shown by ParelVR's own interface so they work on desktop and in VR.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltDialogs.IsAvailable">
+            <summary>True when the client can show notifications and dialogs.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltDialogs.ShowNotification(System.String,System.String)">
+            <summary>Shows a short message to the local player. At most one a second; extra ones are dropped.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltDialogs.ShowDialog(System.String,System.String,System.String,System.String)">
+            <summary>
+            Asks the local player a yes/no question. Returns an id, or 0 when a dialog of this world is already open; the answer
+            arrives as OnDialogResult(id, confirmed) on the calling script.
+            </summary>
+        </member>
         <member name="T:ParelVR.Volt.Video.VoltVideoError">
             <summary>Why a video failed.</summary>
         </member>
@@ -1851,6 +1960,37 @@
         </member>
         <member name="P:ParelVR.Volt.VoltRuntime.Platform">
             <summary>The platform ParelVR runs on: "windows" or "android".</summary>
+        </member>
+        <member name="P:ParelVR.Volt.VoltRuntime.Language">
+            <summary>Two-letter code of the player's language, such as "en" or "de". "en" when it is not known.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltRandom">
+            <summary>
+            Random numbers that are the same on every client. The result depends only on the seed and the index, so
+            players who share a seed (a synced field, or VoltRandom.Hash of the instance id) draw the same values
+            without sending them.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltRandom.Value(System.Int32,System.Int32)">
+            <summary>A number from 0 (inclusive) to 1 (exclusive) for the seed and index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltRandom.Range(System.Int32,System.Int32,System.Single,System.Single)">
+            <summary>A number from min (inclusive) to max (exclusive) for the seed and index.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltRandom.RangeInt(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>A whole number from min (inclusive) to max (exclusive) for the seed and index. min when max is not above min.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltRandom.Hash(System.String)">
+            <summary>A seed made from text, the same on every client and every platform.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.VoltEvents">
+            <summary>A world-wide event bus: one call reaches every script without holding references to them.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltEvents.Broadcast(System.String)">
+            <summary>
+            Calls the public method with this name and no parameters on every enabled script of the world that has
+            one, in the order the scripts were created. Only on this client; use SendNetworkEvent to reach others.
+            </summary>
         </member>
         <member name="T:ParelVR.Volt.VoltProfiler">
             <summary>What the world's scripts cost, for scripts that want to adapt to it.</summary>
@@ -2061,6 +2201,27 @@
         </member>
         <member name="M:ParelVR.Volt.Storage.VoltStorage.Exists(ParelVR.Volt.Storage.VoltStorageScope,System.String)">
             <summary>Checks whether a key has a value.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Storage.VoltLeaderboard">
+            <summary>
+            High score boards of this world, kept in its world storage. The answer arrives as OnStorageResult; its Value is
+            the board as JSON: {"lowerIsBetter", "entries": [{"id", "name", "score"}]}, best first, at most 100 entries, one per player.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltLeaderboard.Submit(System.String,System.Int32,System.Boolean)">
+            <summary>Records the local player's score on a board, keeping their best one.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltLeaderboard.Load(System.String)">
+            <summary>Reads a board.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Storage.VoltAchievements">
+            <summary>Achievements of this world for the local player, kept in their storage for the world.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltAchievements.Unlock(System.String,System.String)">
+            <summary>Unlocks an achievement; the first time, the player sees a notification with the title.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Storage.VoltAchievements.Check(System.String)">
+            <summary>Checks an achievement; the request's Exists is true when it is unlocked.</summary>
         </member>
         <member name="T:ParelVR.Volt.Economy.VoltProduct">
             <summary>Something this world sells. A script sees what the player sees in the shop, never payment details.</summary>

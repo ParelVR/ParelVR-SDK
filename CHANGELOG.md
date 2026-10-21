@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.5.0 (2026-10-21)
+
+Volt API 1.2. Worlds built with this SDK need the ParelVR client update that brings API 1.2; older clients refuse them
+(VLT1003).
+
+### New in VoltCS
+
+- VoltRandom: random numbers that are the same on every client for a seed and an index, plus VoltRandom.Hash.
+- VoltEvents.Broadcast: calls a method by name on every script of the world.
+- VoltRuntime.Language: the player's two-letter language code.
+- VoltPlayer: GetTag/SetTag, GetFingerCurl, GetGesture, GetAvatarParameter, SetAvatarParameter, SetVoiceGain,
+  SetVoiceDistance and ResetVoice.
+- OnHoverEnter and OnHoverExit events for objects the player points at.
+- VoltDialogs: notifications and yes/no questions on the player's HUD, answered through OnDialogResult.
+- VoltObjectPool: scene objects the master spawns and returns for everyone, late joiners included.
+- VoltNetworking.InterestDistance: synced objects and scripts far from every other player send less often.
+- VoltInstance.Kick, Ban, Unban, IsBanned and BannedNames (master only).
+- VoltLeaderboard and VoltAchievements, kept in world and player storage.
+
+### Editor
+
+- Hot reload: saving a script in play mode compiles it and swaps it into the running world, keeping field values
+  (Volt Settings, on by default; ParelVR SDK > Volt > Hot Reload, Ctrl+Alt+R).
+- Volt Graph: a node editor for world scripts (Create > ParelVR > Volt Graph); Generate writes a VoltCS script.
+- Network Cost window: bytes per update and per second for every script's synced fields.
+- Test in VR (ParelVR SDK > Volt > Test in VR): play mode uses a headset through XR Plug-in Management. Grip grabs,
+  trigger uses, left stick moves, right stick turns.
+- The ParelVR SDK panel is an ordinary window now and docks next to the Scene and Game views.
+
+### Fixes
+
+- Play mode: objects no longer vanish and reappear as you look around. The simulator camera ignored a stale occlusion
+  bake the way the client already does.
+- Play mode: pickups and interactables can be clicked through trigger zones; the mouse wheel pushes and pulls a held
+  object.
+- Play mode no longer stalls on big scenes while the scene is prepared, a compiler that hangs is stopped after two
+  minutes, and a simulator that fails to start leaves the world running without scripts instead of taking the editor
+  down.
+
 ## 1.4.0 (2026-10-20)
 
 ### Quest worlds

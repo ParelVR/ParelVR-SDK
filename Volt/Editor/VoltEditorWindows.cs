@@ -108,6 +108,21 @@ public class #SCRIPTNAME# : VoltBehaviour
         [MenuItem("ParelVR SDK/Volt/Console", priority = 61)] private static void Console() => VoltConsoleWindow.Open();
         [MenuItem("ParelVR SDK/Volt/Debugger", priority = 62)] private static void Debugger() => EditorWindow.GetWindow<VoltDebuggerWindow>("Volt Debugger").Show();
         [MenuItem("ParelVR SDK/Volt/Profiler", priority = 63)] private static void Profiler() => EditorWindow.GetWindow<VoltProfilerWindow>("Volt Profiler").Show();
+        [MenuItem("ParelVR SDK/Volt/Test in VR", priority = 23)]
+        private static void ToggleVR()
+        {
+            VoltSettings.instance.testInVR = !VoltSettings.instance.testInVR;
+            VoltSettings.instance.SaveNow();
+            Debug.Log("[Volt] Play mode now tests " + (VoltSettings.instance.testInVR ? "with a headset." : "on desktop."));
+        }
+
+        [MenuItem("ParelVR SDK/Volt/Test in VR", true)]
+        private static bool ToggleVRCheck()
+        {
+            Menu.SetChecked("ParelVR SDK/Volt/Test in VR", VoltSettings.instance.testInVR);
+            return !EditorApplication.isPlayingOrWillChangePlaymode;
+        }
+
         [MenuItem("ParelVR SDK/Volt/Settings", priority = 80)] private static void Settings() => EditorWindow.GetWindow<VoltSettingsWindow>("Volt Settings").Show();
     }
 
@@ -361,6 +376,8 @@ public class #SCRIPTNAME# : VoltBehaviour
             s.webDomains = text.Split('\n').Select(d => d.Trim().ToLowerInvariant()).Where(d => d.Length > 0).Take(16).ToArray();
             EditorGUILayout.Space();
             s.compileOnPlay = EditorGUILayout.ToggleLeft("Compile scripts when entering play mode", s.compileOnPlay);
+            s.hotReload = EditorGUILayout.ToggleLeft("Hot reload: saving a script in play mode swaps it into the running world", s.hotReload);
+            s.testInVR = EditorGUILayout.ToggleLeft("Test in VR: play mode uses a headset (needs XR Plug-in Management, e.g. OpenXR)", s.testInVR);
             if (EditorGUI.EndChangeCheck()) s.SaveNow();
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("SDK " + VoltVersion.Sdk + ", bytecode " + VoltVersion.BytecodeMajor + "." + VoltVersion.BytecodeMinor, EditorStyles.miniLabel);

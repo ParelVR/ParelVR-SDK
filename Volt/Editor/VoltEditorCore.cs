@@ -42,6 +42,10 @@ namespace ParelVR.Volt.EditorTools
         /// <summary>Hosts scripts may reach with web requests and video.</summary>
         public string[] webDomains = Array.Empty<string>();
         public bool compileOnPlay = true;
+        /// <summary>Saving a script in play mode compiles it and swaps it into the running world, keeping field values.</summary>
+        public bool hotReload = true;
+        /// <summary>Play mode tests the world with a headset (XR Plug-in Management) instead of mouse and keyboard.</summary>
+        public bool testInVR;
 
         public void SaveNow() => Save(true);
     }
@@ -107,6 +111,8 @@ namespace ParelVR.Volt.EditorTools
 
         public static bool ProjectHasScripts() => TypeCache.GetTypesDerivedFrom<VoltBehaviour>().Any(t => !t.IsAbstract);
 
+        private const int CompileTimeoutMs = 120000;
+
         public static VoltCompileOutput Compile(bool logToConsole = true)
         {
             var output = new VoltCompileOutput();
@@ -162,8 +168,14 @@ namespace ParelVR.Volt.EditorTools
                 using (var process = System.Diagnostics.Process.Start(start))
                 {
                     var errorTask = process.StandardError.ReadToEndAsync();
-                    stdout = process.StandardOutput.ReadToEnd();
+                    var outputTask = process.StandardOutput.ReadToEndAsync();
+                    if (!process.WaitForExit(CompileTimeoutMs))
+                    {
+                        try { process.Kill(); } catch (Exception) { }
+                        throw new Exception("The VoltCS compiler did not finish within " + CompileTimeoutMs / 1000 + " seconds and was stopped.");
+                    }
                     process.WaitForExit();
+                    stdout = outputTask.Result;
                     stderr = errorTask.Result;
                     if (process.ExitCode == 2 || !File.Exists(json))
                         throw new Exception("The VoltCS compiler could not run:\n" + stderr + stdout);
@@ -252,6 +264,7 @@ namespace ParelVR.Volt.EditorTools
                 data.editorModule = moduleBytes;
                 data.editorCapabilities = VoltSettings.instance.capabilities;
                 data.editorWebDomains = VoltSettings.instance.webDomains ?? Array.Empty<string>();
+                data.editorVR = VoltSettings.instance.testInVR;
             }
 
             // Scene order: the same on every machine that builds this scene, which makes the ids stable.
@@ -465,20 +478,29 @@ namespace ParelVR.Volt.EditorTools
             return typeof(Component).IsAssignableFrom(hostType) ? go.GetComponent(hostType) : null;
         }
 
+        private static bool PlainElements(string elementType) =>
+            elementType.StartsWith("PPtr<", StringComparison.Ordinal) || elementType == "int" || elementType == "float" || elementType == "double" ||
+            elementType == "bool" || elementType == "char" || elementType == "string" || elementType == "UInt8" || elementType == "SInt8" ||
+            elementType == "UInt16" || elementType == "SInt16" || elementType == "UInt32" || elementType == "SInt32" || elementType == "UInt64" ||
+            elementType == "SInt64" || elementType == "Vector2" || elementType == "Vector3" || elementType == "Vector4" || elementType == "Quaternionf" ||
+            elementType == "ColorRGBA" || elementType == "Matrix4x4f" || elementType == "Keyframe";
+
         /// <summary>Buttons and other UnityEvents that called a script method now call the host, which runs the method in the VM.</summary>
         private static void Rewire(Scene scene, Context context)
         {
             string hostType = typeof(VoltBehaviourHost).AssemblyQualifiedName;
             foreach (GameObject root in scene.GetRootGameObjects())
             {
-                foreach (Component component in root.GetComponentsInChildren<Component>(true))
+                foreach (MonoBehaviour component in root.GetComponentsInChildren<MonoBehaviour>(true))
                 {
-                    if (component == null || component is VoltBehaviour || component is VoltBehaviourHost || component is Transform) continue;
+                    if (component == null || component is VoltBehaviour || component is VoltBehaviourHost) continue;
                     var serialized = new SerializedObject(component);
                     SerializedProperty property = serialized.GetIterator();
                     bool changed = false;
-                    while (property.Next(true))
+                    bool enter = true;
+                    while (property.Next(enter))
                     {
+                        enter = property.propertyType == SerializedPropertyType.Generic && !(property.isArray && PlainElements(property.arrayElementType));
                         if (property.propertyType != SerializedPropertyType.Generic || property.type != "PersistentCall") continue;
                         SerializedProperty target = property.FindPropertyRelative("m_Target");
                         var proxy = target != null ? target.objectReferenceValue as VoltBehaviour : null;

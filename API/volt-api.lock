@@ -1,7 +1,7 @@
 # ParelVR Volt API lock. Records the released contract so a later change cannot break it by accident.
 # Updated by 'voltapigen --update-lock' when a release is cut.
-version 1.1
-hash a0f4334bdd362b5119425265d99557d46dbd738fea533bd0a8104fb40c62618e
+version 1.2
+hash e1f6693bea901920c2cacd2f49177a8e336e629bc26c7f9a1223e97ef23ab915
 M 62a2e1ca 0 1 0 F:UnityEngine.Mathf.Epsilon
 M f7ac2aa8 4 0 16 M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)
 M 0aa79038 2 1 0 M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)
@@ -159,8 +159,13 @@ M 8bc72ac0 1 1 1024 M:ParelVR.Volt.Input.VoltVRInput.GetStick(ParelVR.Volt.Inter
 M 24d0da40 1 1 1024 M:ParelVR.Volt.Input.VoltVRInput.GetTrigger(ParelVR.Volt.Interaction.VoltHand)
 M 7329f16a 3 0 1025 M:ParelVR.Volt.Input.VoltVRInput.PlayHaptics(ParelVR.Volt.Interaction.VoltHand,System.Single,System.Single)
 M 24cfe323 0 1 1024 M:ParelVR.Volt.Input.VoltVRInput.get_IsVR
+M 9744ea19 1 0 36 M:ParelVR.Volt.Instance.VoltInstance.Ban(ParelVR.Volt.Players.VoltPlayer)
 M 31370d2e 1 1 0 M:ParelVR.Volt.Instance.VoltInstance.GetProperty(System.String)
+M 9a3d0ed2 1 1 0 M:ParelVR.Volt.Instance.VoltInstance.IsBanned(ParelVR.Volt.Players.VoltPlayer)
+M c5168418 1 0 36 M:ParelVR.Volt.Instance.VoltInstance.Kick(ParelVR.Volt.Players.VoltPlayer)
+M 8680d955 1 0 36 M:ParelVR.Volt.Instance.VoltInstance.Unban(System.String)
 M db3ed590 0 1 0 M:ParelVR.Volt.Instance.VoltInstance.get_Authority
+M c3533fd9 0 1 0 M:ParelVR.Volt.Instance.VoltInstance.get_BannedNames
 M cc392cdf 0 1 0 M:ParelVR.Volt.Instance.VoltInstance.get_Capacity
 M 6e9054a5 0 1 0 M:ParelVR.Volt.Instance.VoltInstance.get_InstanceId
 M ba29c1d3 0 1 0 M:ParelVR.Volt.Instance.VoltInstance.get_LocalPlayer
@@ -190,6 +195,7 @@ M ed3c74bb 1 1 0 M:ParelVR.Volt.Networking.VoltNetworking.GetOwner(ParelVR.Volt.
 M a8a63d7f 1 1 0 M:ParelVR.Volt.Networking.VoltNetworking.IsOwner(ParelVR.Volt.Objects.VoltGameObject)
 M 4a73c528 2 1 0 M:ParelVR.Volt.Networking.VoltNetworking.IsOwner(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Objects.VoltGameObject)
 M bd349b10 2 0 32 M:ParelVR.Volt.Networking.VoltNetworking.SetOwner(ParelVR.Volt.Players.VoltPlayer,ParelVR.Volt.Objects.VoltGameObject)
+M 8fc0d528 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_InterestDistance
 M dae57c54 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_IsConnected
 M ec9b516f 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_IsMaster
 M a65d0141 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_IsStateReady
@@ -197,6 +203,12 @@ M 1553fa21 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_LocalPlayer
 M c6486f4f 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_Master
 M 67ba068d 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_Ping
 M ee257a87 0 1 0 M:ParelVR.Volt.Networking.VoltNetworking.get_ServerTimeMs
+M e7ecc6bc 1 0 16 M:ParelVR.Volt.Networking.VoltNetworking.set_InterestDistance(System.Single)
+M 6d1fa626 2 1 0 M:ParelVR.Volt.Networking.VoltObjectPool.GetObject(System.Int32)
+M cfea503f 2 0 52 M:ParelVR.Volt.Networking.VoltObjectPool.Return(ParelVR.Volt.Objects.VoltGameObject)
+M da9aabd6 1 1 52 M:ParelVR.Volt.Networking.VoltObjectPool.TryToSpawn
+M fc443539 1 1 0 M:ParelVR.Volt.Networking.VoltObjectPool.get_ActiveCount
+M 2f3f4ef7 1 1 0 M:ParelVR.Volt.Networking.VoltObjectPool.get_Count
 M 52c205ee 1 0 48 M:ParelVR.Volt.Networking.VoltObjectSync.Respawn
 M 4b4a743e 2 0 48 M:ParelVR.Volt.Networking.VoltObjectSync.SetGravity(System.Boolean)
 M 9ca9dbb1 2 0 48 M:ParelVR.Volt.Networking.VoltObjectSync.SetKinematic(System.Boolean)
@@ -349,10 +361,14 @@ M 53178e1d 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Normal
 M 59103d37 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Player
 M 3ad0d500 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Point
 M c9e6bb06 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Transform
+M 68a2604a 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetAvatarParameter(System.String)
 M e949a3dd 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetBonePosition(ParelVR.Volt.Players.VoltBone)
 M 2882c616 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetBoneRotation(ParelVR.Volt.Players.VoltBone)
+M 87184c97 3 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetFingerCurl(ParelVR.Volt.Interaction.VoltHand,ParelVR.Volt.Players.VoltFinger)
+M 4d58067e 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetGesture(ParelVR.Volt.Interaction.VoltHand)
 M 219229f6 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetPosition
 M 66a3de93 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetRotation
+M dcabc582 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetTag(System.String)
 M af885cc7 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetTrackingPosition(ParelVR.Volt.Players.VoltTrackingPoint)
 M cbd17c5e 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetTrackingRotation(ParelVR.Volt.Players.VoltTrackingPoint)
 M e29e8286 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetVelocity
@@ -360,8 +376,13 @@ M 6078a890 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.Immobilize(System.Boolean)
 M 3e9629b8 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.IsOwner(ParelVR.Volt.Objects.VoltGameObject)
 M a3ec7595 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.IsTrackingAvailable(ParelVR.Volt.Players.VoltTrackingPoint)
 M c2143687 4 0 513 M:ParelVR.Volt.Players.VoltPlayer.PlayHaptics(ParelVR.Volt.Players.VoltTrackingPoint,System.Single,System.Single)
+M 7e81b1e8 1 0 1 M:ParelVR.Volt.Players.VoltPlayer.ResetVoice
 M d1c91cfd 1 0 513 M:ParelVR.Volt.Players.VoltPlayer.Respawn
+M b44e730d 3 1 513 M:ParelVR.Volt.Players.VoltPlayer.SetAvatarParameter(System.String,System.Single)
+M af445d6a 3 0 0 M:ParelVR.Volt.Players.VoltPlayer.SetTag(System.String,System.String)
 M c2b3857a 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.SetVelocity(UnityEngine.Vector3)
+M bc5f803a 2 0 1 M:ParelVR.Volt.Players.VoltPlayer.SetVoiceDistance(System.Single)
+M e51c2ece 2 0 1 M:ParelVR.Volt.Players.VoltPlayer.SetVoiceGain(System.Single)
 M 684a6447 3 0 513 M:ParelVR.Volt.Players.VoltPlayer.Teleport(UnityEngine.Vector3,UnityEngine.Quaternion)
 M 30b60ec7 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_AvatarEyeHeight
 M b4a4a6f6 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_AvatarId
@@ -395,6 +416,10 @@ M 8dca9ea8 1 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Object
 M 3b1631f8 2 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,ParelVR.Volt.Objects.VoltTransform)
 M b998c4aa 3 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,UnityEngine.Vector3,UnityEngine.Quaternion)
 M b8fbac69 0 1 0 M:ParelVR.Volt.Scene.VoltScene.get_RootObjects
+M 863ef10c 1 1 64 M:ParelVR.Volt.Storage.VoltAchievements.Check(System.String)
+M eb0db66e 2 1 64 M:ParelVR.Volt.Storage.VoltAchievements.Unlock(System.String,System.String)
+M 6658db7b 1 1 64 M:ParelVR.Volt.Storage.VoltLeaderboard.Load(System.String)
+M 35bf4c79 3 1 64 M:ParelVR.Volt.Storage.VoltLeaderboard.Submit(System.String,System.Int32,System.Boolean)
 M 225927a2 2 1 64 M:ParelVR.Volt.Storage.VoltStorage.Delete(ParelVR.Volt.Storage.VoltStorageScope,System.String)
 M 5018129b 2 1 64 M:ParelVR.Volt.Storage.VoltStorage.Exists(ParelVR.Volt.Storage.VoltStorageScope,System.String)
 M 71ab1a97 2 1 64 M:ParelVR.Volt.Storage.VoltStorage.Get(ParelVR.Volt.Storage.VoltStorageScope,System.String)
@@ -409,6 +434,9 @@ M 056cb589 1 1 0 M:ParelVR.Volt.UI.VoltButton.get_Interactable
 M 8e2b7bdf 2 0 16 M:ParelVR.Volt.UI.VoltButton.set_Interactable(System.Boolean)
 M 39517198 1 1 0 M:ParelVR.Volt.UI.VoltCanvas.get_Enabled
 M 6ce23386 2 0 16 M:ParelVR.Volt.UI.VoltCanvas.set_Enabled(System.Boolean)
+M f3880367 4 1 1 M:ParelVR.Volt.UI.VoltDialogs.ShowDialog(System.String,System.String,System.String,System.String)
+M bdf7db8e 2 0 1 M:ParelVR.Volt.UI.VoltDialogs.ShowNotification(System.String,System.String)
+M a92bccd7 0 1 1 M:ParelVR.Volt.UI.VoltDialogs.get_IsAvailable
 M 0287867f 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_Color
 M 99b0c539 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_Enabled
 M a7f117d5 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_FillAmount
@@ -499,13 +527,19 @@ M d6025f95 2 0 0 M:ParelVR.Volt.VoltDebug.Assert(System.Boolean,System.String)
 M a2e97ee2 1 0 0 M:ParelVR.Volt.VoltDebug.Log(System.Object)
 M abab6eae 1 0 0 M:ParelVR.Volt.VoltDebug.LogError(System.Object)
 M a64e11b4 1 0 0 M:ParelVR.Volt.VoltDebug.LogWarning(System.Object)
+M a2499b6d 1 0 0 M:ParelVR.Volt.VoltEvents.Broadcast(System.String)
 M affeda0f 0 1 0 M:ParelVR.Volt.VoltProfiler.get_CoroutineCount
 M ab6786f0 0 1 0 M:ParelVR.Volt.VoltProfiler.get_InstructionsLastFrame
 M dcab3248 0 1 0 M:ParelVR.Volt.VoltProfiler.get_MemoryBytes
 M 026b4f36 0 1 0 M:ParelVR.Volt.VoltProfiler.get_ScriptMsLastFrame
+M 12510a90 1 1 0 M:ParelVR.Volt.VoltRandom.Hash(System.String)
+M d239952f 4 1 0 M:ParelVR.Volt.VoltRandom.Range(System.Int32,System.Int32,System.Single,System.Single)
+M 020c5d02 4 1 0 M:ParelVR.Volt.VoltRandom.RangeInt(System.Int32,System.Int32,System.Int32,System.Int32)
+M 12d31667 2 1 0 M:ParelVR.Volt.VoltRandom.Value(System.Int32,System.Int32)
 M afb8ac21 0 1 0 M:ParelVR.Volt.VoltRuntime.get_ApiVersion
 M dcaad14a 0 1 0 M:ParelVR.Volt.VoltRuntime.get_BytecodeVersion
 M a8d860b0 0 1 0 M:ParelVR.Volt.VoltRuntime.get_IsEditor
+M f0e840f3 0 1 0 M:ParelVR.Volt.VoltRuntime.get_Language
 M 9c7cd25a 0 1 0 M:ParelVR.Volt.VoltRuntime.get_Platform
 M 901876b5 0 1 0 M:ParelVR.Volt.VoltTime.get_DeltaTime
 M 4f04b71b 0 1 0 M:ParelVR.Volt.VoltTime.get_FixedDeltaTime
@@ -1297,6 +1331,7 @@ T 33b5df9d ParelVR.Volt.Interaction.VoltStation
 T 2ab6718c ParelVR.Volt.Interaction.VoltStationMobility
 T fce30860 ParelVR.Volt.Networking.VoltNetworkTarget
 T 03bf2003 ParelVR.Volt.Networking.VoltNetworking
+T 5a406060 ParelVR.Volt.Networking.VoltObjectPool
 T d67eaf09 ParelVR.Volt.Networking.VoltObjectSync
 T fc0ab7df ParelVR.Volt.Objects.VoltCollider
 T 3a206c1e ParelVR.Volt.Objects.VoltComponent
@@ -1314,14 +1349,19 @@ T 313bf2d8 ParelVR.Volt.Physics.VoltCollision
 T 9e39cc81 ParelVR.Volt.Physics.VoltPhysics
 T 0a75569c ParelVR.Volt.Physics.VoltRaycastHit
 T 182e4be7 ParelVR.Volt.Players.VoltBone
+T 69c2aaf4 ParelVR.Volt.Players.VoltFinger
+T 64c4371c ParelVR.Volt.Players.VoltGesture
 T 135d5878 ParelVR.Volt.Players.VoltPlayer
 T d9c5079a ParelVR.Volt.Players.VoltTrackingPoint
 T 31386215 ParelVR.Volt.Scene.VoltScene
+T d65b09d0 ParelVR.Volt.Storage.VoltAchievements
+T f7f1488b ParelVR.Volt.Storage.VoltLeaderboard
 T 32a4fecd ParelVR.Volt.Storage.VoltStorage
 T 65c7022a ParelVR.Volt.Storage.VoltStorageRequest
 T 74b48fb3 ParelVR.Volt.Storage.VoltStorageScope
 T b0e4e57d ParelVR.Volt.UI.VoltButton
 T c41612a5 ParelVR.Volt.UI.VoltCanvas
+T 72ffb96a ParelVR.Volt.UI.VoltDialogs
 T c6b4512e ParelVR.Volt.UI.VoltImage
 T ab817191 ParelVR.Volt.UI.VoltInputField
 T 13d48249 ParelVR.Volt.UI.VoltPanel
@@ -1336,7 +1376,9 @@ T c13b79c4 ParelVR.Volt.VoltBehaviour
 T a8dea5f5 ParelVR.Volt.VoltCoroutine
 T 7cab0608 ParelVR.Volt.VoltDebug
 T dc4659c1 ParelVR.Volt.VoltError
+T de990314 ParelVR.Volt.VoltEvents
 T 08e159a4 ParelVR.Volt.VoltProfiler
+T 88e64ef2 ParelVR.Volt.VoltRandom
 T 51a5191b ParelVR.Volt.VoltRuntime
 T fa315ab4 ParelVR.Volt.VoltTime
 T cdb27150 ParelVR.Volt.VoltWait
@@ -1359,6 +1401,8 @@ E 11 0 0 OnPickup
 E 12 0 0 OnDrop
 E 13 0 0 OnPickupUseDown
 E 14 0 0 OnPickupUseUp
+E 15 0 0 OnHoverEnter
+E 16 0 0 OnHoverExit
 E 20 1 0 OnPlayerJoined
 E 21 1 0 OnPlayerLeft
 E 22 1 0 OnPlayerRespawned
@@ -1388,4 +1432,5 @@ E 72 1 0 OnVideoPaused
 E 73 1 0 OnVideoEnded
 E 74 2 0 OnVideoError
 E 80 2 0 OnInputAction
+E 81 2 0 OnDialogResult
 E 90 2 0 OnPurchaseCompleted
