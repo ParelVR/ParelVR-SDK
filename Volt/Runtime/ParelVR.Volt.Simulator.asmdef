@@ -1,7 +1,9 @@
 {
     "name": "ParelVR.Volt.Simulator",
     "rootNamespace": "ParelVR.Volt.Simulator",
-    "references": [],
+    "references": [
+        "ParelVR.WorldSDK"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

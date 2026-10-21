@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.1 (2026-10-21)
+
+- Play mode takes the mouse when the simulator starts, so you look around by moving it. Esc frees the mouse; a click
+  on the Game view takes it again.
+- Play mode puts you at the world's ParelVR Spawn Point (the enabled one with the highest priority, facing as set),
+  as the client does, instead of only at an object named Spawn.
+
 ## 1.5.0 (2026-10-21)
 
 Volt API 1.2. Worlds built with this SDK need the ParelVR client update that brings API 1.2; older clients refuse them

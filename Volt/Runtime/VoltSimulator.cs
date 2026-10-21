@@ -8,6 +8,7 @@ using ParelVR.Volt.Interaction;
 using ParelVR.Volt.Players;
 using ParelVR.Volt.Storage;
 using ParelVR.VoltHost;
+using ParelVR.WorldSDK;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 #if VOLT_SIM_XR
@@ -230,9 +231,7 @@ namespace ParelVR.Volt.Simulator
             _local = new VoltPlayerHandle(1, "editor", "Editor Player", true) { PlatformObject = this };
             _players.Add(_local);
 
-            GameObject spawn = GameObject.Find("Spawn") ?? GameObject.Find("SpawnPoint");
-            _spawnPosition = spawn != null ? spawn.transform.position : Vector3.zero;
-            _spawnRotation = spawn != null ? Quaternion.Euler(0f, spawn.transform.eulerAngles.y, 0f) : Quaternion.identity;
+            FindSpawn(scene, out _spawnPosition, out _spawnRotation);
 
             _body = gameObject.AddComponent<CharacterController>();
             _body.height = 1.8f;
@@ -253,6 +252,120 @@ namespace ParelVR.Volt.Simulator
             if (options.VR) StartVR();
 #endif
             Teleport(_spawnPosition, _spawnRotation);
+            _wantLock = !InVR;
+        }
+
+        /// <summary>
+        /// Where the client would put the player: the enabled ParelVR Spawn Point with the highest priority, preferring
+        /// the world's own scene; then the game's SpawnPoint or an object named Spawn; then the scene origin.
+        /// </summary>
+        private static void FindSpawn(Scene scene, out Vector3 position, out Quaternion rotation)
+        {
+            ParelVRSpawnPoint best = null;
+            bool bestHere = false;
+            foreach (ParelVRSpawnPoint marker in FindObjectsByType<ParelVRSpawnPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (marker == null || !marker.EnabledForRuntime) continue;
+                bool here = marker.gameObject.scene == scene;
+                if (best == null || (here && !bestHere) || (here == bestHere && marker.Priority > best.Priority))
+                {
+                    best = marker;
+                    bestHere = here;
+                }
+            }
+            Transform point = best != null ? best.transform : null;
+            if (point == null)
+            {
+                foreach (MonoBehaviour behaviour in FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                    if (behaviour != null && behaviour.GetType().Name == "SpawnPoint") { point = behaviour.transform; break; }
+            }
+            if (point == null)
+            {
+                GameObject named = GameObject.Find("Spawn") ?? GameObject.Find("SpawnPoint");
+                if (named != null) point = named.transform;
+            }
+            if (point == null)
+            {
+                position = Vector3.zero;
+                rotation = Quaternion.identity;
+                return;
+            }
+            position = point.position;
+            float yaw = point.eulerAngles.y;
+            if (best != null && best.FacingMode == ParelVRSpawnFacingMode.FaceWorldForward) yaw = 0f;
+            else if (best != null && best.FacingMode == ParelVRSpawnFacingMode.FaceWorldCenter)
+            {
+                Vector3 toCenter = -new Vector3(position.x, 0f, position.z);
+                if (toCenter.sqrMagnitude > 0.0001f) yaw = Quaternion.LookRotation(toCenter).eulerAngles.y;
+            }
+            rotation = Quaternion.Euler(0f, yaw, 0f);
+        }
+
+        // ── mouse look ───────────────────────────────────────────────────────
+
+        // Play mode takes the mouse, as in the client: no dragging to look around. Esc gives it back, a click takes it again.
+        private const float LookDegrees = 2f;
+        private bool _wantLock, _locked, _legacyMouseMissing;
+        private Func<Vector2> _inputSystemDelta;
+
+        private void LockCursor()
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            _locked = true;
+        }
+
+        private void UnlockCursor()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            _locked = false;
+        }
+
+        /// <summary>Mouse movement this frame in the old input manager's units, read from whichever input backend the project uses.</summary>
+        private Vector2 MouseDelta()
+        {
+            if (!_legacyMouseMissing)
+            {
+                try { return new Vector2(UnityEngine.Input.GetAxisRaw("Mouse X"), UnityEngine.Input.GetAxisRaw("Mouse Y")); }
+                catch (InvalidOperationException) { _legacyMouseMissing = true; } // "Input System Package (New)" only
+                catch (ArgumentException) { _legacyMouseMissing = true; }         // the axes were removed
+            }
+            if (_inputSystemDelta == null) _inputSystemDelta = InputSystemDelta();
+            return _inputSystemDelta();
+        }
+
+        // The Input System package, found by name so the simulator works in projects without it.
+        private static Func<Vector2> InputSystemDelta()
+        {
+            Type mouse = Type.GetType("UnityEngine.InputSystem.Mouse, Unity.InputSystem");
+            System.Reflection.PropertyInfo current = mouse?.GetProperty("current", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            System.Reflection.PropertyInfo delta = mouse?.GetProperty("delta");
+            System.Reflection.MethodInfo read = delta?.PropertyType.GetMethod("ReadValue", Type.EmptyTypes);
+            if (current == null || read == null) return () => Vector2.zero;
+            return () =>
+            {
+                object device = current.GetValue(null);
+                object control = device != null ? delta.GetValue(device) : null;
+                return control != null ? (Vector2)read.Invoke(control, null) * 0.1f : Vector2.zero; // pixels to the old units
+            };
+        }
+
+        private void UpdateMouseLook()
+        {
+            // At the start the Game view may not have focus yet; the lock waits for it.
+            if (_wantLock && Application.isFocused)
+            {
+                _wantLock = false;
+                LockCursor();
+            }
+            // The editor frees the cursor on Esc and when the Game view loses focus.
+            if (_locked && Cursor.lockState != CursorLockMode.Locked) UnlockCursor();
+            if (!_locked) return;
+            Vector2 look = MouseDelta();
+            if (float.IsNaN(look.x) || float.IsNaN(look.y)) return;
+            _yaw += look.x * LookDegrees;
+            _pitch = Mathf.Clamp(_pitch - look.y * LookDegrees, -89f, 89f);
         }
 
         // ── players ──────────────────────────────────────────────────────────
@@ -586,6 +699,8 @@ namespace ParelVR.Volt.Simulator
             }
             HideRays();
 #endif
+            UpdateMouseLook();
+            transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
             _camera.transform.localPosition = new Vector3(0f, EyeHeight, 0f);
             _camera.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
             // The pickup may have been taken away or dropped by a script.
@@ -609,6 +724,12 @@ namespace ParelVR.Volt.Simulator
                     if (_keys.Remove(e.keyCode) && e.keyCode == KeyCode.F && _held != null) World?.PickupUse(_held, false);
                     break;
                 case EventType.MouseDown:
+                    // A click on the Game view while the mouse is free only takes the mouse back.
+                    if (e.button == 0 && !_locked && !InVR)
+                    {
+                        LockCursor();
+                        break;
+                    }
                     if (e.button == 0)
                     {
                         _mouseLeft = true;
@@ -640,10 +761,11 @@ namespace ParelVR.Volt.Simulator
             if (e.type != EventType.Repaint) return;
 
             var hint = new Rect(10f, Screen.height - 26f, Screen.width - 20f, 20f);
+            string mouse = _locked ? "Esc free mouse" : "click to look around";
             GUI.Label(hint, InVR ? "VR: grip grab    trigger use    left stick move    right stick turn    A jump"
-                : _held != null ? "Click / F use    G drop    wheel push / pull    WASD move    right mouse look"
-                : _seat != null ? "Space stand up    right mouse look"
-                : "WASD move    Space jump    Shift run    right mouse look    click / E use and pick up");
+                : _held != null ? "Click / F use    G drop    wheel push / pull    WASD move    " + mouse
+                : _seat != null ? "Space stand up    " + mouse
+                : "WASD move    Space jump    Shift run    click / E use and pick up    " + mouse);
             if (InVR) return;
             GUI.Label(new Rect(Screen.width / 2f - 4f, Screen.height / 2f - 10f, 20f, 20f), "+");
             if (_aim != null)
@@ -655,7 +777,8 @@ namespace ParelVR.Volt.Simulator
 
         private void Pressed(KeyCode key)
         {
-            if (key == KeyCode.Space) _jumpQueued = true;
+            if (key == KeyCode.Escape) UnlockCursor();
+            else if (key == KeyCode.Space) _jumpQueued = true;
             else if (key == KeyCode.E && _held == null) _held = Use(_aim, VoltHand.Right);
             else if (key == KeyCode.F && _held != null) World?.PickupUse(_held, true);
             else if (key == KeyCode.G && _held != null)
@@ -675,6 +798,7 @@ namespace ParelVR.Volt.Simulator
 
         private void OnDestroy()
         {
+            if (_locked) UnlockCursor();
 #if VOLT_SIM_XR
             StopVR();
 #endif
