@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.PackageManager;
 using UnityEngine;
@@ -122,6 +124,7 @@ namespace ParelVR.SDK.Core
             }
 
             string project = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            string packageName = package != null ? package.name : "com.parelvrsdk.pvr";
             var failed = new List<string>();
 
             foreach (string folder in new[] { "Assets/ParelVR_Avatar_Build", "Assets/ParelVR_Volt_Build" })
@@ -132,23 +135,44 @@ namespace ParelVR.SDK.Core
                          Path.Combine(project, "Library", "ParelVR"),
                          Path.Combine(project, "Library", "BuildKit"),
                          Path.Combine(project, "Temp", "ParelVRAvatarBuild"),
+                         Path.Combine(project, "Temp", "ParelSdkUpdate"),
                          Path.Combine(project, "ProjectSettings", "ParelVRVolt.asset"),
+                         Path.Combine(project, "ProjectSettings", "ParelSdkInstall.json"),
                      })
                 if (!DeletePath(path)) failed.Add(ProjectRelative(path));
 
+            int waiting = 0;
             if (embedded)
             {
-                if (packageFolder != null && !DeletePath(packageFolder)) failed.Add(ProjectRelative(packageFolder));
+                // The updater puts the SDK in Packages/ ahead of a Git or registry install. Without the manifest entry
+                // gone too, Package Manager downloads the SDK again the moment the copy is deleted.
+                RemoveFromManifest(project, packageName);
+                if (packageFolder != null)
+                {
+                    // File by file: Unity keeps the SDK's DLLs open, and one locked file must not stop the rest going.
+                    var locked = new List<string>();
+                    DeleteEverythingPossible(packageFolder, locked);
+                    DeletePath(packageFolder + ".meta");
+                    if (locked.Count > 0)
+                    {
+                        waiting = locked.Count;
+                        DeleteAfterUnityCloses(packageFolder);
+                    }
+                }
                 Client.Resolve();
             }
             else
             {
-                Client.Remove(package.name);
+                Client.Remove(packageName);
             }
 
             AssetDatabase.Refresh();
-            if (failed.Count == 0)
+            if (failed.Count == 0 && waiting == 0)
                 Debug.Log("[ParelVR SDK] The SDK was removed from this project.");
+            else if (failed.Count == 0)
+                EditorUtility.DisplayDialog("Remove ParelVR SDK",
+                    "The SDK was removed. Unity still has " + waiting + " of its files open (its DLLs); they are deleted as soon as you close Unity.\n\n" +
+                    "If anything is left after that, delete " + ProjectRelative(packageFolder) + " by hand.", "OK");
             else
                 EditorUtility.DisplayDialog("Remove ParelVR SDK",
                     "Some files are in use and could not be deleted. Close Unity and delete them by hand:\n\n" + string.Join("\n", failed), "OK");
@@ -169,6 +193,80 @@ namespace ParelVR.SDK.Core
             {
                 Debug.LogWarning("[ParelVR SDK] Could not delete " + path + ": " + ex.Message);
                 return false;
+            }
+        }
+
+        /// <summary>Deletes every file and folder under a folder that can be deleted; what is open goes into <paramref name="locked"/>.</summary>
+        private static void DeleteEverythingPossible(string folder, List<string> locked)
+        {
+            if (!Directory.Exists(folder)) return;
+            foreach (string file in Directory.GetFiles(folder))
+            {
+                try
+                {
+                    File.SetAttributes(file, FileAttributes.Normal);
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    locked.Add(file);
+                }
+            }
+            foreach (string sub in Directory.GetDirectories(folder)) DeleteEverythingPossible(sub, locked);
+            try { if (Directory.GetFileSystemEntries(folder).Length == 0) Directory.Delete(folder); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { }
+        }
+
+        /// <summary>Takes the SDK out of Packages/manifest.json, where a Git or registry install of it is listed.</summary>
+        private static void RemoveFromManifest(string project, string packageName)
+        {
+            string manifest = Path.Combine(project, "Packages", "manifest.json");
+            try
+            {
+                if (!File.Exists(manifest)) return;
+                string text = File.ReadAllText(manifest);
+                string name = Regex.Escape(packageName);
+                string edited = Regex.Replace(text, "^[ \\t]*\"" + name + "\"[ \\t]*:[ \\t]*\"[^\"]*\"[ \\t]*,?[ \\t]*\\r?\\n", string.Empty, RegexOptions.Multiline);
+                if (edited == text) edited = Regex.Replace(text, "\"" + name + "\"\\s*:\\s*\"[^\"]*\"\\s*,?", string.Empty);
+                if (edited == text) return;
+                // If it was the last dependency, the one before it now ends in a comma that JSON does not allow.
+                edited = Regex.Replace(edited, ",(\\s*})", "$1");
+                File.WriteAllText(manifest, edited);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Debug.LogWarning("[ParelVR SDK] Could not take the SDK out of Packages/manifest.json; remove the \"" + packageName + "\" line by hand: " + ex.Message);
+            }
+        }
+
+        /// <summary>Starts a small hidden process that waits for this editor to close and then deletes what it kept open.</summary>
+        private static void DeleteAfterUnityCloses(string folder)
+        {
+            int editor = System.Diagnostics.Process.GetCurrentProcess().Id;
+            try
+            {
+                System.Diagnostics.ProcessStartInfo start;
+                if (Application.platform == RuntimePlatform.WindowsEditor)
+                {
+                    string script = "Wait-Process -Id " + editor + " -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2; " +
+                                    "Remove-Item -LiteralPath '" + folder.Replace("'", "''") + "' -Recurse -Force -ErrorAction SilentlyContinue";
+                    start = new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                        "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(script)));
+                }
+                else
+                {
+                    start = new System.Diagnostics.ProcessStartInfo("/bin/sh");
+                    start.ArgumentList.Add("-c");
+                    start.ArgumentList.Add("while kill -0 " + editor + " 2>/dev/null; do sleep 1; done; rm -rf \"$0\"");
+                    start.ArgumentList.Add(folder);
+                }
+                start.UseShellExecute = false;
+                start.CreateNoWindow = true;
+                System.Diagnostics.Process.Start(start);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[ParelVR SDK] Could not arrange for the rest of the SDK to be deleted when Unity closes; delete " + folder + " by hand: " + ex.Message);
             }
         }
 

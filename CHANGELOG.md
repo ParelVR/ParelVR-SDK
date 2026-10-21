@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.2 (2026-10-21)
+
+- Remove SDK removes all of it. It also takes the SDK out of Packages/manifest.json, so Package Manager no longer
+  downloads it again when it was installed from Git and then updated. Files Unity still has open (its DLLs) no
+  longer stop the rest from being deleted, and are deleted as soon as Unity closes. It also clears the updater's
+  ProjectSettings/ParelSdkInstall.json and Temp/ParelSdkUpdate.
+
 ## 1.5.1 (2026-10-21)
 
 - Play mode takes the mouse when the simulator starts, so you look around by moving it. Esc frees the mouse; a click
