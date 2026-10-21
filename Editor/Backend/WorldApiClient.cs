@@ -24,9 +24,12 @@ namespace ParelVR.SDK.Backend
         public List<string> contentWarnings;
         public string createdAt;
         public string updatedAt;
-        
-        // Note: 'platforms' is omitted here because JsonUtility does not natively 
-        // support dictionaries with dynamic keys (like "windows", "android").
+
+        /// <summary>The builds the world has: "windows" for PC / PCVR, "android" for Meta / Standalone VR.</summary>
+        public AvatarPlatformsRecord platforms;
+        /// <summary>"pc" and/or "standalone"; empty for worlds published before platforms could be picked (both).</summary>
+        public List<string> targetPlatforms;
+        public ParelQuestConversionRecord questConversion;
     }
 
     [Serializable]

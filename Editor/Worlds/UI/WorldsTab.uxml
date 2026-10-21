@@ -85,6 +85,14 @@
                 <ui:VisualElement name="monetization-host"/>
             </ui:Foldout>
 
+            <!-- Platforms -->
+            <ui:Foldout text="Platforms" value="true" class="bk-section">
+                <ui:Label text="You build on PC. For Meta / Standalone VR, ParelVR converts shaders, textures and performance settings on its servers." class="bk-hint" style="margin-top: 0;"/>
+                <ui:Toggle name="platform-pc" label="PC / PCVR" value="true"/>
+                <ui:Toggle name="platform-standalone" label="Meta / Standalone VR" value="true"/>
+                <ui:Label name="platform-status" class="bk-hint" style="white-space: normal;"/>
+            </ui:Foldout>
+
             <!-- Validations -->
             <ui:Foldout text="Validations" value="true" class="bk-section">
                 <ui:Label text="The scene is checked when you build. Anything that has to be fixed first is listed here." class="bk-hint" style="margin-top: 0;"/>
@@ -97,12 +105,6 @@
             <!-- Build: moved by the tab into the bar docked at the bottom of the window -->
             <ui:VisualElement name="build-section" class="bk-card">
                 <ui:Label text="Build" class="bk-card-title"/>
-                <ui:VisualElement class="bk-prop">
-                    <ui:Label text="Selected Platform" class="bk-prop-label"/>
-                    <ui:VisualElement class="bk-prop-value">
-                        <ui:DropdownField name="selected-platform" style="margin-left: 0; margin-right: 0;"/>
-                    </ui:VisualElement>
-                </ui:VisualElement>
                 <ui:Button name="btn-build-publish" text="Build &amp; Publish New World" class="bk-btn bk-btn-primary" style="height: 30px; font-size: 13px; margin-left: 0; margin-right: 0;"/>
             </ui:VisualElement>
         </ui:VisualElement>

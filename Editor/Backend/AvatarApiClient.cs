@@ -44,12 +44,14 @@ namespace ParelVR.SDK.Backend
         public string authorName;
         /// <summary>"private", "public", "friends-only" or "user-list".</summary>
         public string releaseStatus;
-        public bool cloneable;
         public List<string> contentWarnings;
         public List<string> tags;
         public string thumbnailUrl;
         public AvatarPerformanceRecord performance;
         public AvatarPlatformsRecord platforms;
+        /// <summary>"pc" and/or "standalone"; empty for avatars published before platforms could be picked (both).</summary>
+        public List<string> targetPlatforms;
+        public ParelQuestConversionRecord questConversion;
         public string createdAt;
         public string updatedAt;
         public bool isOwner;
@@ -89,7 +91,6 @@ namespace ParelVR.SDK.Backend
             public string description;
             public string authorName;
             public string releaseStatus = "private";
-            public bool cloneable;
             public List<string> tags = new List<string>();
             public List<string> contentWarnings = new List<string>();
             public AvatarPerformanceRecord performance = new AvatarPerformanceRecord();

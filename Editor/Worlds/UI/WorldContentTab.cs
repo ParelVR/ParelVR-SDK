@@ -144,7 +144,17 @@ namespace ParelVR.SDK.Worlds.UI
             pills.Add(Pill(string.IsNullOrEmpty(world.releaseStatus) ? "Private" : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(world.releaseStatus), isPublic ? "bk-pill-good" : "bk-pill-neutral"));
             bool inScene = descriptor != null && descriptor.blueprintId == world.id;
             if (inScene) pills.Add(Pill("In this scene", "bk-pill-accent"));
+            AddPlatformPills(pills, world);
             info.Add(pills);
+            ParelQuestConversionRecord quest = world.questConversion;
+            if (quest != null && quest.Failed && !string.IsNullOrEmpty(quest.message) && ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone))
+            {
+                var why = new Label("Meta / Standalone VR: " + quest.message);
+                why.AddToClassList("bk-hint");
+                why.AddToClassList("bk-text-bad");
+                why.style.whiteSpace = WhiteSpace.Normal;
+                info.Add(why);
+            }
 
             string updated = Date(string.IsNullOrEmpty(world.updatedAt) ? world.createdAt : world.updatedAt);
             if (updated != null)
@@ -285,6 +295,19 @@ namespace ParelVR.SDK.Worlds.UI
             button.AddToClassList("bk-btn");
             button.style.marginBottom = 4;
             return button;
+        }
+
+        /// <summary>PC when it has a PC build; the Meta / Standalone VR version with where its conversion is at.</summary>
+        private static void AddPlatformPills(VisualElement pills, WorldRecord world)
+        {
+            bool pc = !string.IsNullOrEmpty(world.platforms?.windows?.bundleUrl);
+            bool standalone = !string.IsNullOrEmpty(world.platforms?.android?.bundleUrl);
+            if (pc && ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Pc)) pills.Add(Pill("PC", "bk-pill-accent"));
+            if (!ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone)) return;
+            ParelQuestConversionRecord quest = world.questConversion;
+            if (quest != null && quest.InProgress) pills.Add(Pill("Standalone: " + quest.Label, "bk-pill-neutral"));
+            else if (quest != null && quest.Failed) pills.Add(Pill("Standalone failed", "bk-pill-bad"));
+            else if (standalone) pills.Add(Pill("Standalone", "bk-pill-accent"));
         }
 
         private static Label Pill(string text, string modifier)

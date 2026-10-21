@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ParelVR.SDK.Backend;
 using ParelVR.SDK.Build;
+using ParelVR.SDK.Build.Quest;
 using ParelVR.SDK.Core.ControlPanel;
 using ParelVR.SDK.Core.Settings;
 using ParelVR.SDK.Core.Auth;
@@ -53,7 +54,11 @@ namespace ParelVR.SDK.Worlds.UI
         private Button _btnCaptureThumbnail;
         private Button _btnSelectImage;
         private Button _btnBuildPublish;
-        private DropdownField _selectedPlatform;
+        private Toggle _platformPc;
+        private Toggle _platformStandalone;
+        private Label _platformStatus;
+        /// <summary>The Meta / Standalone VR conversion of the world in the scene, as last fetched.</summary>
+        private ParelQuestConversionRecord _questStatus;
 
         private VisualElement _validationErrorsContainer;
         private Label _validationHeader;
@@ -117,16 +122,13 @@ namespace ParelVR.SDK.Worlds.UI
             _btnCaptureThumbnail = tree.Q<Button>("btn-capture-thumbnail");
             _btnSelectImage = tree.Q<Button>("btn-select-image");
             _btnBuildPublish = tree.Q<Button>("btn-build-publish");
-            _selectedPlatform = tree.Q<DropdownField>("selected-platform");
-            if (_selectedPlatform != null)
-            {
-                _selectedPlatform.choices = new List<string>
-                {
-                    WorldBuilder.DisplayName(BuildTarget.StandaloneWindows64),
-                    WorldBuilder.DisplayName(BuildTarget.Android)
-                };
-                _selectedPlatform.RegisterValueChangedCallback(evt => SwitchPlatform(evt.newValue));
-            }
+            _platformPc = tree.Q<Toggle>("platform-pc");
+            _platformStandalone = tree.Q<Toggle>("platform-standalone");
+            _platformStatus = tree.Q<Label>("platform-status");
+            _platformPc?.RegisterValueChangedCallback(_ => RenderPlatformStatus());
+            _platformStandalone?.RegisterValueChangedCallback(_ => RenderPlatformStatus());
+            // While the standalone version is being made, its status is fetched again now and then (only while the window shows it).
+            _platformStatus?.schedule.Execute(PollQuestStatus).Every(20000);
 
             // Validation
             _validationErrorsContainer = tree.Q<VisualElement>("validation-errors-container");
@@ -178,39 +180,84 @@ namespace ParelVR.SDK.Worlds.UI
             });
 
             RefreshState();
-            // Switching platform reloads scripts, so the Quest check also runs when the window comes back on Android.
-            if (QuestCompatibilityValidator.Applies) _ = RunValidationAsync();
         }
 
         private void OnBuildTargetChanged()
         {
             RefreshState();
-            _ = RunValidationAsync();
         }
 
-        /// <summary>Switches Unity's build target to the platform picked in the Build bar.</summary>
-        private void SwitchPlatform(string displayName)
+        /// <summary>
+        /// Worlds are built on PC. A project left on another platform (the SDK used to switch it to Android for Quest
+        /// builds) is offered the switch back; false when the build can't start yet.
+        /// </summary>
+        private static bool EnsureEditorOnPc()
         {
-            BuildTarget target = displayName == WorldBuilder.DisplayName(BuildTarget.Android) ? BuildTarget.Android : BuildTarget.StandaloneWindows64;
-            if (WorldBuilder.PlatformName(target) == WorldBuilder.PlatformName(EditorUserBuildSettings.activeBuildTarget)) return;
-
+            if (WorldBuilder.EditorOnPc) return true;
+            BuildTarget target = WorldBuilder.Target;
             BuildTargetGroup group = BuildPipeline.GetBuildTargetGroup(target);
             if (!BuildPipeline.IsBuildTargetSupported(group, target))
             {
-                EditorUtility.DisplayDialog("Platform Not Installed",
-                    $"{displayName} build support isn't installed in this Unity Editor.\n\n" +
-                    "Add it in Unity Hub > Installs > this version > Add Modules, then try again.", "OK");
-                RefreshState();
-                return;
+                EditorUtility.DisplayDialog("Windows Build Support Missing",
+                    "Worlds are built on PC, and this Unity Editor has no Windows build support.\n\n" +
+                    "Add it in Unity Hub > Installs > this version > Add Modules, then publish again.", "OK");
+                return false;
             }
-            if (!EditorUtility.DisplayDialog("Switch Platform",
-                    $"Switch the project to {displayName}? Unity reimports the project's assets for it, which can take a while the first time.",
+            if (EditorUtility.DisplayDialog("Switch to PC",
+                    $"This project is set to build for {EditorUserBuildSettings.activeBuildTarget}. Worlds are built on PC; the Meta / Standalone VR " +
+                    "version is made by ParelVR's servers.\n\nSwitch the project to Windows? Unity reimports the project's assets, which can take a while. Publish again when it's done.",
                     "Switch", "Cancel"))
+                EditorUserBuildSettings.SwitchActiveBuildTargetAsync(group, target);
+            return false;
+        }
+
+        private bool _pollingQuest;
+
+        private async void PollQuestStatus()
+        {
+            string worldId = _currentDescriptor != null ? _currentDescriptor.blueprintId : null;
+            if (_pollingQuest || _questStatus == null || !_questStatus.InProgress || string.IsNullOrEmpty(worldId) || !ParelSession.IsLoggedIn) return;
+            _pollingQuest = true;
+            try
             {
-                RefreshState();
-                return;
+                var answer = await ParelQuestApiClient.GetStatusAsync(ParelQuestApiClient.Worlds, worldId);
+                if (_currentDescriptor != null && _currentDescriptor.blueprintId == worldId)
+                {
+                    _questStatus = answer?.questConversion;
+                    RenderPlatformStatus();
+                }
             }
-            EditorUserBuildSettings.SwitchActiveBuildTargetAsync(group, target);
+            catch (Exception)
+            {
+                // Offline or signed out: the next tick tries again.
+            }
+            finally
+            {
+                _pollingQuest = false;
+            }
+        }
+
+        private List<string> SelectedTargets() => ParelPlatformTargets.From(_platformPc == null || _platformPc.value, _platformStandalone != null && _platformStandalone.value);
+
+        /// <summary>The line under the platform toggles: where the standalone version is at, or what turning it on does.</summary>
+        private void RenderPlatformStatus()
+        {
+            if (_platformStatus == null) return;
+            bool pc = _platformPc == null || _platformPc.value;
+            bool standalone = _platformStandalone != null && _platformStandalone.value;
+            string text;
+            if (!pc && !standalone) text = "Pick at least one platform.";
+            else if (!standalone) text = "Meta / Standalone VR players won't be able to join this world.";
+            else if (_questStatus != null && !string.IsNullOrEmpty(_questStatus.status))
+            {
+                text = "Meta / Standalone VR version: " + _questStatus.Label + ".";
+                if (!string.IsNullOrEmpty(_questStatus.Failed ? _questStatus.message : _questStatus.summary))
+                    text += " " + (_questStatus.Failed ? _questStatus.message : _questStatus.summary);
+            }
+            else text = "The Meta / Standalone VR version is made after each publish and usually takes a few minutes.";
+            if (!WorldBuilder.EditorOnPc) text += "\nThis project is set to " + EditorUserBuildSettings.activeBuildTarget + "; publishing switches it back to Windows.";
+            _platformStatus.text = text;
+            _platformStatus.EnableInClassList("bk-text-bad", (!pc && !standalone) || (_questStatus != null && _questStatus.Failed && standalone));
         }
 
         public void OnShown()
@@ -226,15 +273,7 @@ namespace ParelVR.SDK.Worlds.UI
         {
             if (_progressContainer == null) return; // Prevent errors during window teardown
 
-            // The bundle is built for Unity's active build target, so that is the platform it publishes to.
-            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-            string platformName = WorldBuilder.DisplayName(target);
-            if (_selectedPlatform != null)
-            {
-                bool supported = WorldBuilder.PlatformName(target) != null;
-                _selectedPlatform.SetValueWithoutNotify(supported ? platformName : platformName + " (not supported)");
-                _selectedPlatform.EnableInClassList("bk-text-bad", !supported);
-            }
+            RenderPlatformStatus();
 
             if (!ParelSession.IsLoggedIn)
             {
@@ -290,8 +329,8 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _publishTitle.text = "Publish New World";
                     _blueprintIdLabel.text = "Blueprint ID: None (will be assigned on publish)";
-                    _btnBuildPublish.text = $"Build & Publish New World for {platformName}";
-                    
+                    _btnBuildPublish.text = "Build & Publish New World";
+
                     if (isNewDescriptor)
                     {
                         _worldName.value = "";
@@ -300,6 +339,7 @@ namespace ParelVR.SDK.Worlds.UI
                         _currentTags.Clear();
                         RenderTags();
                         ClearWarnings();
+                        ResetPlatforms();
                         _pendingThumbnailBytes = null;
                         if (_thumbnailPreview != null) _thumbnailPreview.image = null;
                     }
@@ -308,8 +348,8 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _publishTitle.text = "Update Existing World";
                     _blueprintIdLabel.text = $"Blueprint ID: {_currentDescriptor.blueprintId}";
-                    _btnBuildPublish.text = $"Build & Update World for {platformName}";
-                    
+                    _btnBuildPublish.text = "Build & Update World";
+
                     if (isNewDescriptor)
                     {
                         _worldName.value = "";
@@ -318,6 +358,7 @@ namespace ParelVR.SDK.Worlds.UI
                         _currentTags.Clear();
                         RenderTags();
                         ClearWarnings();
+                        ResetPlatforms();
                         _pendingThumbnailBytes = null;
                         if (_thumbnailPreview != null) _thumbnailPreview.image = null;
                         _ = FetchExistingWorldDataAsync(_currentDescriptor.blueprintId);
@@ -349,6 +390,14 @@ namespace ParelVR.SDK.Worlds.UI
         private void ShowBuild(bool show)
         {
             if (_buildSection != null) _buildSection.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void ResetPlatforms()
+        {
+            _platformPc?.SetValueWithoutNotify(true);
+            _platformStandalone?.SetValueWithoutNotify(true);
+            _questStatus = null;
+            RenderPlatformStatus();
         }
 
         private void ClearWarnings()
@@ -491,6 +540,11 @@ namespace ParelVR.SDK.Worlds.UI
                         if (warningsLower.Contains("excessive gore")) _warningGore.value = true;
                         if (warningsLower.Contains("extreme horror")) _warningHorror.value = true;
                     }
+
+                    _platformPc?.SetValueWithoutNotify(ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Pc));
+                    _platformStandalone?.SetValueWithoutNotify(ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone));
+                    _questStatus = world.questConversion;
+                    RenderPlatformStatus();
                 }
             }
             catch (Exception ex)
@@ -555,7 +609,6 @@ namespace ParelVR.SDK.Worlds.UI
             _validationErrorsList.Clear();
 
             var report = await new WorldValidator().ValidateAsync();
-            report.Merge(await new QuestCompatibilityValidator().ValidateAsync());
 
             // Warnings don't stop the build, but they are listed so they can be fixed.
             if (report.Issues.All(i => i.Level == Core.Validation.ValidationIssueLevel.Info))
@@ -571,7 +624,7 @@ namespace ParelVR.SDK.Worlds.UI
                 _validationErrorsList.Add(new Button(() =>
                 {
                     if (!EditorUtility.DisplayDialog("Auto Fix All",
-                            $"Apply all {fixable.Count} fixes? Shader fixes also change how those materials look on Windows.", "Fix All", "Cancel"))
+                            $"Apply all {fixable.Count} fixes?", "Fix All", "Cancel"))
                         return;
                     foreach (var issue in fixable) issue.AutoFix();
                     _ = RunValidationAsync();
@@ -638,14 +691,15 @@ namespace ParelVR.SDK.Worlds.UI
                 return;
             }
 
-            BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-            if (WorldBuilder.PlatformName(target) == null)
+            List<string> targets = SelectedTargets();
+            bool forPc = targets.Contains(ParelPlatformTargets.Pc);
+            bool forStandalone = targets.Contains(ParelPlatformTargets.Standalone);
+            if (targets.Count == 0)
             {
-                EditorUtility.DisplayDialog("Unsupported Platform",
-                    $"The project is set to build for {target}. ParelVR worlds publish for Windows or Android (Quest).\n\n" +
-                    "Switch the platform in File > Build Profiles, then publish again.", "OK");
+                EditorUtility.DisplayDialog("Platforms", "Pick at least one platform under Platforms.", "OK");
                 return;
             }
+            if (!EnsureEditorOnPc()) return;
 
             // ── 1. Validate ──
             _progressContainer.style.display = DisplayStyle.Flex;
@@ -707,6 +761,10 @@ namespace ParelVR.SDK.Worlds.UI
 
                 blueprintId = worldRecord.id;
 
+                // A platform left out stops being offered (the server keeps its last build aside).
+                var targetsAnswer = await ParelQuestApiClient.SetTargetsAsync(ParelQuestApiClient.Worlds, blueprintId, targets, _uploadCts.Token);
+                if (targetsAnswer?.questConversion != null) _questStatus = targetsAnswer.questConversion;
+
                 // ── 3b. Credits, shop theme and monetization ──
                 _progressStatus.text = "Saving credits and store...";
                 _progressBar.value = 15;
@@ -725,75 +783,109 @@ namespace ParelVR.SDK.Worlds.UI
                 _progressStatus.text = "Building AssetBundle (this may take a while)...";
                 _progressBar.value = 20;
 
+                // One PC build. With Meta / Standalone VR on, what it was built from is packed for ParelVR's servers too.
+                WorldBuilder.ExportQuestSource = forStandalone;
                 string bundlePath = await OutsidePlayerLoop.Run(WorldBuilder.BuildWorldBundle);
                 if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
                     throw new Exception("AssetBundle build failed. Check the Unity Console.");
-
-                // The bundle is filed under the platform it was built for, so it never replaces another platform's build.
+                ParelQuestSourceResult questSource = WorldBuilder.QuestSource;
+                string questSourceError = WorldBuilder.QuestSourceError;
                 string platform = WorldBuilder.BuiltPlatform;
-                if (platform != WorldBuilder.PlatformName(target))
-                    throw new Exception($"The build target changed during the build ({WorldBuilder.DisplayName(target)} to {platform}). Nothing was uploaded; publish again.");
-                string platformName = WorldBuilder.DisplayName(target);
-
-                byte[] bundleBytes = File.ReadAllBytes(bundlePath);
-                _progressBar.value = 50;
+                string voltPackage = WorldBuilder.VoltPackagePathFor(bundlePath);
+                _progressBar.value = 45;
 
                 // ── 5. Upload Thumbnail (if captured) ──
                 if (_pendingThumbnailBytes != null)
                 {
                     _progressStatus.text = "Uploading thumbnail...";
-                    _progressBar.value = 55;
+                    _progressBar.value = 50;
                     await WorldApiClient.UploadImageAsync(
                         blueprintId, _pendingThumbnailBytes, _uploadCts.Token);
                     _pendingThumbnailBytes = null;
                 }
 
-                // ── 6. Upload Bundle ──
-                _progressStatus.text = $"Uploading {platformName} bundle...";
-                var progress = new Progress<float>(p =>
+                // ── 6. Upload the PC bundle ──
+                float pcEnd = forStandalone ? 75f : 95f;
+                if (forPc)
                 {
-                    float overall = 60f + (p * 40f); // 60% to 100%
-                    _progressBar.value = overall;
-                    _progressStatus.text = $"Uploading {platformName} bundle... {(int)(p * 100)}%";
-                });
+                    byte[] bundleBytes = File.ReadAllBytes(bundlePath);
+                    _progressStatus.text = "Uploading PC / PCVR bundle...";
+                    var progress = new Progress<float>(p =>
+                    {
+                        _progressBar.value = 55f + p * (pcEnd - 55f);
+                        _progressStatus.text = $"Uploading PC / PCVR bundle... {(int)(p * 100)}%";
+                    });
+                    var response = await WorldApiClient.UploadBundleAsync(blueprintId, platform, bundleBytes, progress, _uploadCts.Token);
+                    if (response == null || !response.success)
+                        throw new Exception(response?.message ?? "Unknown upload error.");
 
-                var response = await WorldApiClient.UploadBundleAsync(
-                    blueprintId, platform, bundleBytes, progress, _uploadCts.Token);
-
-                if (response != null && response.success)
-                {
                     if (WorldBuilder.AfterBundleUploaded != null)
                     {
                         _progressStatus.text = "Uploading scripts...";
                         await WorldBuilder.AfterBundleUploaded(blueprintId, platform, bundlePath, _uploadCts.Token);
                     }
+                }
 
-                    // The bundle cannot be turned back into a project, so the project itself is saved for Import World.
-                    _progressStatus.text = "Saving the project for Import World...";
-                    try
+                // ── 7. Send what the Meta / Standalone VR version is built from; the server queues the conversion ──
+                string questNote = null;
+                if (forStandalone)
+                {
+                    if (questSource == null)
                     {
-                        WorldSourceStore.Info source = WorldSourceStore.Save(blueprintId, worldRecord.name, _currentDescriptor.gameObject.scene.path);
-                        if (source != null)
+                        questNote = "The Meta / Standalone VR version wasn't sent: " + (questSourceError ?? "the package wasn't made") + ". Publish again to retry.";
+                    }
+                    else
+                    {
+                        try
                         {
-                            _progressStatus.text = "Uploading the project...";
-                            await WorldSourceStore.UploadAsync(source, _uploadCts.Token);
+                            var questProgress = new Progress<float>(p =>
+                            {
+                                _progressBar.value = pcEnd + p * (95f - pcEnd);
+                                _progressStatus.text = $"Sending to ParelVR for Meta / Standalone VR... {(int)(p * 100)}%";
+                            });
+                            var queued = await ParelQuestApiClient.UploadSourceAsync(ParelQuestApiClient.Worlds, blueprintId,
+                                questSource.PackagePath, File.Exists(voltPackage) ? voltPackage : null, ParelQuestSource.SdkVersion(),
+                                questProgress, _uploadCts.Token);
+                            if (queued?.questConversion != null) _questStatus = queued.questConversion;
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception questError)
+                        {
+                            questNote = "The Meta / Standalone VR version wasn't sent: " + questError.Message + " Publish again to retry.";
+                            Debug.LogWarning("[WorldsTab] " + questNote);
+                        }
+                        finally
+                        {
+                            TryDelete(questSource.PackagePath);
                         }
                     }
-                    catch (OperationCanceledException) { throw; }
-                    catch (Exception sourceError)
-                    {
-                        // The world itself is published; only Import World misses this version.
-                        Debug.LogWarning($"[WorldsTab] The project was not saved for Import World: {sourceError.Message}");
-                    }
-                    _progressBar.value = 100;
-                    _progressStatus.text = "Done!";
-                    EditorUtility.DisplayDialog("Success",
-                        $"World '{worldRecord.name}' published for {platformName}.", "OK");
                 }
-                else
+
+                // The bundle cannot be turned back into a project, so the project itself is saved for Import World.
+                _progressStatus.text = "Saving the project for Import World...";
+                try
                 {
-                    throw new Exception(response?.message ?? "Unknown upload error.");
+                    WorldSourceStore.Info source = WorldSourceStore.Save(blueprintId, worldRecord.name, _currentDescriptor.gameObject.scene.path);
+                    if (source != null)
+                    {
+                        _progressStatus.text = "Uploading the project...";
+                        await WorldSourceStore.UploadAsync(source, _uploadCts.Token);
+                    }
                 }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception sourceError)
+                {
+                    // The world itself is published; only Import World misses this version.
+                    Debug.LogWarning($"[WorldsTab] The project was not saved for Import World: {sourceError.Message}");
+                }
+                _progressBar.value = 100;
+                _progressStatus.text = "Done!";
+
+                string message = forPc ? $"World '{worldRecord.name}' published for PC / PCVR." : $"World '{worldRecord.name}' saved.";
+                if (forStandalone && questNote == null)
+                    message += "\n\nParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes; the Builder and the Content Manager show when it's ready.";
+                if (questNote != null) message += "\n\n" + questNote;
+                EditorUtility.DisplayDialog("Success", message, "OK");
             }
             catch (OperationCanceledException)
             {
@@ -815,6 +907,16 @@ namespace ParelVR.SDK.Worlds.UI
                 }
                 RefreshState();
             }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path)) File.Delete(path);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
     }
 }

@@ -18,6 +18,9 @@ namespace ParelVR.SDK.Avatars.Build
         public List<string> RemovedComponents = new List<string>();
         /// <summary>What Avatar Tools did (merged clothing, generated toggles...), for the summary dialog.</summary>
         public List<string> Notes = new List<string>();
+        /// <summary>What the Meta / Standalone VR version is built from, when asked for (null otherwise or when it failed).</summary>
+        public ParelVR.SDK.Build.Quest.ParelQuestSourceResult QuestSource;
+        public string QuestSourceError;
     }
 
     /// <summary>
@@ -30,7 +33,8 @@ namespace ParelVR.SDK.Avatars.Build
     public static class ParelAvatarBuilder
     {
         private const string TempFolder = "Assets/ParelVR_Avatar_Build";
-        private const string TempPrefabPath = TempFolder + "/avatar.prefab";
+        /// <summary>The build copy's path; ParelAvatarBundleFormat.PrefabAssetName is this, lower-cased, inside the bundle.</summary>
+        public const string TempPrefabPath = TempFolder + "/avatar.prefab";
         private const string GeneratedFolder = TempFolder + "/Generated";
 
         public static string PlatformName(BuildTarget target) => target == BuildTarget.Android ? "android" : "windows";
@@ -41,8 +45,12 @@ namespace ParelVR.SDK.Avatars.Build
             return BuildPipeline.IsBuildTargetSupported(group, target);
         }
 
-        /// <summary>Builds <paramref name="descriptor"/>'s avatar for <paramref name="target"/> into <paramref name="outputFile"/>.</summary>
-        public static ParelAvatarBuildResult Build(ParelAvatarDescriptor descriptor, BuildTarget target, string outputFile)
+        /// <summary>
+        /// Builds <paramref name="descriptor"/>'s avatar for <paramref name="target"/> into <paramref name="outputFile"/>. With
+        /// <paramref name="questSourceFile"/>, the cleaned copy the bundle was built from is also packed there for ParelVR's
+        /// servers, which make the Meta / Standalone VR version from it.
+        /// </summary>
+        public static ParelAvatarBuildResult Build(ParelAvatarDescriptor descriptor, BuildTarget target, string outputFile, string questSourceFile = null)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
             if (string.IsNullOrEmpty(outputFile)) throw new ArgumentNullException(nameof(outputFile));
@@ -98,6 +106,22 @@ namespace ParelVR.SDK.Avatars.Build
                 result.BundlePath = outputFile;
                 result.BundleBytes = new FileInfo(outputFile).Length;
                 if (result.Performance == null) result.Performance = ParelAvatarPerformance.Measure(descriptor.gameObject);
+
+                // The build copy (Avatar Tools applied, disallowed components out) is what the standalone version starts from.
+                if (!string.IsNullOrEmpty(questSourceFile))
+                {
+                    try
+                    {
+                        result.QuestSource = ParelVR.SDK.Build.Quest.ParelQuestSource.Export(
+                            ParelVR.SDK.Build.Quest.ParelQuestSource.AvatarKind, TempPrefabPath, questSourceFile,
+                            new[] { AssetDatabase.LoadAssetAtPath<GameObject>(TempPrefabPath) });
+                    }
+                    catch (Exception ex)
+                    {
+                        result.QuestSourceError = ex.Message;
+                        Debug.LogError("[ParelVR SDK] Could not pack the avatar for Meta / Standalone VR: " + ex);
+                    }
+                }
                 return result;
             }
             finally

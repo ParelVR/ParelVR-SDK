@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.8.0 (2026-10-21)
+
+### Platforms: build once, ParelVR makes the standalone version
+
+- The world and avatar Builders have a Platforms section: PC / PCVR and Meta / Standalone VR. You build on PC only;
+  with Meta / Standalone VR on, each publish also sends ParelVR what the PC bundle was built from (the scene or avatar
+  and the assets it uses, never scripts), and ParelVR's servers make the standalone build from it: shaders moved to
+  mobile ones, textures compressed and sized for a headset, sound compressed, realtime shadows, realtime probes and
+  post-processing turned off, particles capped, and on avatars no lights, cloth or cameras. It usually takes a few
+  minutes; the Builder and the Content Manager show where it is (queued, converting, ready or why it failed).
+- Removed: the platform dropdown on the world Builder (which switched the project to Android) and "Also publish an
+  Android (Quest) build" on the avatar Builder. The Quest Compatibility checks and their auto-fixes are gone too; they
+  changed your PC materials, and the server now does that work on its own copy.
+- A project still set to Android is offered the switch back to Windows when you publish a world.
+- Turning a platform off stops offering the world or avatar there; turning it back on brings the last build back
+  until the next one is ready.
+- New mobile shaders in Runtime/Shaders/Mobile: ParelVR/Mobile/Toon Lit, Standard Lite, Unlit and Particles.
+
 ## 1.7.0 (2026-10-21)
 
 Volt API 1.4. Worlds built with this SDK need the ParelVR client update that brings API 1.4.
