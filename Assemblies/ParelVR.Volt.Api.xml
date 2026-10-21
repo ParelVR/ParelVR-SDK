@@ -1493,6 +1493,19 @@
         <member name="M:ParelVR.Volt.Players.VoltPlayer.ResetVoice">
             <summary>Puts this player's voice back to the local player's own settings.</summary>
         </member>
+        <member name="P:ParelVR.Volt.Players.VoltPlayer.NameplatePosition">
+            <summary>Where a badge goes for this player: just above their nameplate, in world space.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.SetBadge(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>
+            Keeps an object of the world just above this player's nameplate, turned toward whoever is looking, until it is
+            cleared, destroyed or the player leaves. One badge per player: a new one replaces the old. Only on this client;
+            call it on every client (for example from OnPlayerJoined) so everyone sees it.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Players.VoltPlayer.ClearBadge">
+            <summary>Stops moving this player's badge; the object stays where it is.</summary>
+        </member>
         <member name="M:ParelVR.Volt.Players.VoltPlayer.GetPosition">
             <summary>Position of the player in world space.</summary>
         </member>

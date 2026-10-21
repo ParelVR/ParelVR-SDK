@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.6.0 (2026-10-21)
+
+Volt API 1.3. Worlds built with this SDK need the ParelVR client update that brings API 1.3.
+
+### Mirrors
+
+- ParelVR Mirror (GameObject > ParelVR > Mirror, or add the component to a quad): a mirror that renders itself, one
+  picture per eye in VR, in ParelVR and in play mode alike. Layers, resolution, anti-aliasing, distance and tint are
+  set on the component.
+- Custom mirrors: give the component your own material. Its shader receives the reflection as _ReflectionTexLeft and
+  _ReflectionTexRight (see the SDK Mirror shader for how to sample them), so frames, tints and effects are yours.
+  Mirror scripts of your own do not run in uploaded worlds; this is the way to make one.
+
+### Nameplate badges
+
+- VoltPlayer.SetBadge(object) keeps a world object above that player's nameplate, facing the viewer;
+  VoltPlayer.ClearBadge and VoltPlayer.NameplatePosition go with it.
+
+### Play mode
+
+- You have a body: ParelVR's loading avatar stands in for yours (body, head, hands that follow the view or the
+  controllers) with your nameplate above it and its loading bar, so mirrors and badges can be tried.
+- World UI works: the crosshair (or a VR hand) hovers, clicks, drags sliders and scrolls on world-space canvases. The
+  scene's own input modules are switched off while it runs, so nothing clicks twice.
+- Typing: selecting a text field (legacy or TextMeshPro) opens an on-screen keyboard in front of you, usable in VR
+  and with the crosshair; the physical keyboard types too, and walking keys do not move you while you type. Esc stops
+  typing.
+- Video players work: YouTube links play as in ParelVR, a scene with a Volt Video Player turns the Video capability on
+  and allows the domain of its start address, and a scene with Volt components but no scripts (video players,
+  pickups, seats) now gets the world runtime it needs, in play mode and in the uploaded world.
+
 ## 1.5.2 (2026-10-21)
 
 - Remove SDK removes all of it. It also takes the SDK out of Packages/manifest.json, so Package Manager no longer

@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 2
+    "minor": 3
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.5.0",
-  "hash": "e1f6693bea901920c2cacd2f49177a8e336e629bc26c7f9a1223e97ef23ab915",
+  "sdkVersion": "1.6.0",
+  "hash": "ce161e17bed21582d7fabeaa8c32da93d9ed72275ee708caac9d40cfdce13b0f",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -8610,6 +8610,23 @@
       "doc": "The transform that was hit."
     },
     {
+      "id": "0x4ACC9023",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.ClearBadge",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "ClearBadge",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 16,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 3,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [],
+      "doc": "Stops moving this player\u0027s badge; the object stays where it is."
+    },
+    {
       "id": "0x68A2604A",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.GetAvatarParameter(System.String)",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -8985,6 +9002,28 @@
       "doc": "Changes a parameter of the local player\u0027s own avatar. False when it has no such parameter or it cannot be written."
     },
     {
+      "id": "0xDE59885E",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetBadge(ParelVR.Volt.Objects.VoltGameObject)",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "SetBadge",
+      "kind": "Method",
+      "static": false,
+      "host": "Platform",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 3,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "badge",
+          "type": "ParelVR.Volt.Objects.VoltGameObject"
+        }
+      ],
+      "doc": "Keeps an object of the world just above this player\u0027s nameplate, turned toward whoever is looking, until it is cleared, destroyed or the player leaves. One badge per player: a new one replaces the old. Only on this client; call it on every client (for example from OnPlayerJoined) so everyone sees it."
+    },
+    {
       "id": "0xAF445D6A",
       "sig": "M:ParelVR.Volt.Players.VoltPlayer.SetTag(System.String,System.String)",
       "type": "ParelVR.Volt.Players.VoltPlayer",
@@ -9304,6 +9343,24 @@
       "returns": "System.Single",
       "params": [],
       "doc": "Upward speed the local player gets from a jump. Zero disables jumping."
+    },
+    {
+      "id": "0x98ED2BCC",
+      "sig": "M:ParelVR.Volt.Players.VoltPlayer.get_NameplatePosition",
+      "type": "ParelVR.Volt.Players.VoltPlayer",
+      "name": "NameplatePosition",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Players.VoltPlayer.NameplatePosition",
+      "static": false,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 3,
+      "receiver": "ParelVR.Volt.Players.VoltPlayer",
+      "returns": "UnityEngine.Vector3",
+      "params": [],
+      "doc": "Where a badge goes for this player: just above their nameplate, in world space."
     },
     {
       "id": "0x1B31FAE2",

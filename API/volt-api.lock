@@ -1,7 +1,7 @@
 # ParelVR Volt API lock. Records the released contract so a later change cannot break it by accident.
 # Updated by 'voltapigen --update-lock' when a release is cut.
-version 1.2
-hash e1f6693bea901920c2cacd2f49177a8e336e629bc26c7f9a1223e97ef23ab915
+version 1.3
+hash ce161e17bed21582d7fabeaa8c32da93d9ed72275ee708caac9d40cfdce13b0f
 M 62a2e1ca 0 1 0 F:UnityEngine.Mathf.Epsilon
 M f7ac2aa8 4 0 16 M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)
 M 0aa79038 2 1 0 M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)
@@ -361,6 +361,7 @@ M 53178e1d 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Normal
 M 59103d37 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Player
 M 3ad0d500 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Point
 M c9e6bb06 1 1 0 M:ParelVR.Volt.Physics.VoltRaycastHit.get_Transform
+M 4acc9023 1 0 16 M:ParelVR.Volt.Players.VoltPlayer.ClearBadge
 M 68a2604a 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetAvatarParameter(System.String)
 M e949a3dd 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetBonePosition(ParelVR.Volt.Players.VoltBone)
 M 2882c616 2 1 0 M:ParelVR.Volt.Players.VoltPlayer.GetBoneRotation(ParelVR.Volt.Players.VoltBone)
@@ -379,6 +380,7 @@ M c2143687 4 0 513 M:ParelVR.Volt.Players.VoltPlayer.PlayHaptics(ParelVR.Volt.Pl
 M 7e81b1e8 1 0 1 M:ParelVR.Volt.Players.VoltPlayer.ResetVoice
 M d1c91cfd 1 0 513 M:ParelVR.Volt.Players.VoltPlayer.Respawn
 M b44e730d 3 1 513 M:ParelVR.Volt.Players.VoltPlayer.SetAvatarParameter(System.String,System.Single)
+M de59885e 2 0 16 M:ParelVR.Volt.Players.VoltPlayer.SetBadge(ParelVR.Volt.Objects.VoltGameObject)
 M af445d6a 3 0 0 M:ParelVR.Volt.Players.VoltPlayer.SetTag(System.String,System.String)
 M c2b3857a 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.SetVelocity(UnityEngine.Vector3)
 M bc5f803a 2 0 1 M:ParelVR.Volt.Players.VoltPlayer.SetVoiceDistance(System.Single)
@@ -396,6 +398,7 @@ M cf3cd414 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsMaster
 M ccb8ee92 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsSeated
 M 502d6030 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_IsValid
 M aeb47e15 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_JumpImpulse
+M 98ed2bcc 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_NameplatePosition
 M 1b31fae2 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Ping
 M 743d1b0e 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_PlayerId
 M f2dad775 1 1 0 M:ParelVR.Volt.Players.VoltPlayer.get_Position

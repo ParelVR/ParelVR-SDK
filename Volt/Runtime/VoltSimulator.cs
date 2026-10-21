@@ -78,6 +78,7 @@ namespace ParelVR.Volt.Simulator
                 Input = _player,
                 Interaction = _player,
                 Dialogs = new SimulatedDialogs(),
+                Nameplates = _player,
                 Transport = new VoltOfflineTransport(),
                 Storage = new SimulatedStorage(options.StorageFolder ?? Path.Combine(Application.dataPath, "..", "Library", "ParelVR", "VoltStorage"))
             };
@@ -200,7 +201,7 @@ namespace ParelVR.Volt.Simulator
     /// The stand-in player: a capsule you walk around with on desktop, or a headset and two controllers when the world
     /// is tested in VR (Volt Settings), and every service that concerns the player.
     /// </summary>
-    internal sealed class SimulatedPlayer : MonoBehaviour, IVoltPlayerService, IVoltWorldInfo, IVoltInputService, IVoltInteractionService
+    internal sealed class SimulatedPlayer : MonoBehaviour, IVoltPlayerService, IVoltWorldInfo, IVoltInputService, IVoltInteractionService, IVoltNameplateService
     {
         private const float EyeHeight = 1.6f;
         // As in the client: from the head, a desktop player reaches about an arm's length past what a hand could touch.
@@ -253,6 +254,135 @@ namespace ParelVR.Volt.Simulator
 #endif
             Teleport(_spawnPosition, _spawnRotation);
             _wantLock = !InVR;
+            BuildAvatar();
+            SimulatedUIPointer.EventSystemFor();
+            SimulatedVideoResolver.InstallIfMissing();
+        }
+
+        // ── the stand-in avatar ──────────────────────────────────────────────
+        // ParelVR's loading avatar stands in for the player's own: a body, a head and hands that follow the view and the
+        // controllers, and the nameplate above, so mirrors, badges and anything placed on players can be tried.
+
+        private const float PlateHeight = 0.42f, PlateWidth = 0.56f, PlateDepth = 0.12f, LoadSeconds = 1.4f;
+        private Transform _avatar, _head, _leftHandModel, _rightHandModel, _plate, _loadBar;
+        private readonly List<Material> _materials = new List<Material>();
+        private float _loadStart;
+
+        private Material Flat(Color colour, bool unlit)
+        {
+            bool srp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null;
+            Shader shader = srp ? Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit")
+                                : Shader.Find(unlit ? "Unlit/Color" : "Standard");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            var material = new Material(shader) { color = colour, hideFlags = HideFlags.DontSave };
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", colour);
+            _materials.Add(material);
+            return material;
+        }
+
+        private Transform Part(PrimitiveType shape, string name, Transform parent, Vector3 at, Vector3 size, Material material)
+        {
+            GameObject go = GameObject.CreatePrimitive(shape);
+            go.name = name;
+            Destroy(go.GetComponent<Collider>());
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = at;
+            go.transform.localScale = size;
+            go.GetComponent<Renderer>().sharedMaterial = material;
+            return go.transform;
+        }
+
+        private void BuildAvatar()
+        {
+            Material skin = Flat(new Color(0.62f, 0.66f, 0.76f), false);
+            _avatar = new GameObject("Avatar (loading avatar)").transform;
+            _avatar.SetParent(transform, false);
+            Part(PrimitiveType.Capsule, "Body", _avatar, new Vector3(0f, 0.78f, 0f), new Vector3(0.34f, 0.62f, 0.24f), skin);
+            // Seen from inside, the head's back faces are culled: it shows in mirrors, not in your own view.
+            _head = Part(PrimitiveType.Sphere, "Head", _avatar, new Vector3(0f, EyeHeight, 0f), Vector3.one * 0.24f, skin);
+            _leftHandModel = Part(PrimitiveType.Sphere, "Left Hand", _avatar, Vector3.zero, Vector3.one * 0.08f, skin);
+            _rightHandModel = Part(PrimitiveType.Sphere, "Right Hand", _avatar, Vector3.zero, Vector3.one * 0.08f, skin);
+
+            // The nameplate: a dark plate with the name, and the thin bar that fills while an avatar loads.
+            _plate = new GameObject("Nameplate").transform;
+            _plate.SetParent(_avatar, false);
+            Part(PrimitiveType.Quad, "Plate", _plate, Vector3.zero, new Vector3(PlateWidth, PlateDepth, 1f), Flat(new Color(0.08f, 0.08f, 0.1f), true));
+            _loadBar = Part(PrimitiveType.Quad, "Loading", _plate, new Vector3(0f, -PlateDepth / 2f + 0.008f, -0.001f), new Vector3(0f, 0.012f, 1f),
+                Flat(new Color(0.36f, 0.42f, 0.95f), true));
+            var label = new GameObject("Name").AddComponent<TextMesh>();
+            label.transform.SetParent(_plate, false);
+            label.transform.localPosition = new Vector3(0f, 0.008f, -0.002f);
+            label.text = _local.DisplayName;
+            label.anchor = TextAnchor.MiddleCenter;
+            label.alignment = TextAlignment.Center;
+            label.fontSize = 64;
+            label.characterSize = 0.0085f;
+            label.color = Color.white;
+            Font font = null;
+            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch (Exception) { }
+            if (font == null) try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch (Exception) { }
+            if (font != null)
+            {
+                label.font = font;
+                label.GetComponent<MeshRenderer>().sharedMaterial = font.material;
+            }
+            _loadStart = Time.time;
+        }
+
+        private void UpdateAvatar()
+        {
+            if (_avatar == null) return;
+            Transform eye = _camera.transform;
+            // The body stands under the head, turned the way the head faces.
+            Vector3 head = eye.position;
+            _avatar.SetPositionAndRotation(new Vector3(head.x, transform.position.y, head.z), Quaternion.Euler(0f, eye.eulerAngles.y, 0f));
+            _head.SetPositionAndRotation(head, eye.rotation);
+            if (TryGetTracking(_local, VoltTrackingPoint.LeftHand, out Vector3 left, out _)) _leftHandModel.position = left;
+            if (TryGetTracking(_local, VoltTrackingPoint.RightHand, out Vector3 right, out _)) _rightHandModel.position = right;
+            // Readable from in front of the player, as in a mirror.
+            _plate.SetPositionAndRotation(head + Vector3.up * PlateHeight, Quaternion.Euler(0f, eye.eulerAngles.y + 180f, 0f));
+            float loaded = Mathf.Clamp01((Time.time - _loadStart) / LoadSeconds);
+            bool loading = Time.time - _loadStart < LoadSeconds + 0.4f;
+            _loadBar.gameObject.SetActive(loading);
+            if (loading)
+            {
+                _loadBar.localScale = new Vector3(PlateWidth * loaded, 0.012f, 1f);
+                _loadBar.localPosition = new Vector3(-PlateWidth / 2f + PlateWidth * loaded / 2f, -PlateDepth / 2f + 0.008f, -0.001f);
+            }
+        }
+
+        public bool TryGetNameplateTop(VoltPlayerHandle player, out Vector3 top)
+        {
+            top = _plate != null ? _plate.position + Vector3.up * (PlateDepth / 2f) : default;
+            return _plate != null && player == _local;
+        }
+
+        // ── world UI and the keyboard ────────────────────────────────────────
+
+        private readonly SimulatedUIPointer _ui = new SimulatedUIPointer(-1);
+        private readonly SimulatedKeyboard _keyboard = new SimulatedKeyboard();
+        private bool _uiKeyWas;
+        private Vector2 _scroll;
+
+        private bool Typing => _keyboard.Field != null;
+
+        /// <summary>
+        /// Points at world UI. Keys of the on-screen keyboard are pressed here rather than through the EventSystem, so
+        /// the text field keeps its focus.
+        /// </summary>
+        private void PointUI(SimulatedUIPointer pointer, Ray ray, bool down, ref bool keyWas, Vector2 scroll)
+        {
+            pointer.Cast(ray, RayLength, out GameObject target, out _, out _);
+            if (_keyboard.Owns(target))
+            {
+                _keyboard.Hover(target);
+                if (down && !keyWas) _keyboard.Press(target);
+                keyWas = down;
+                pointer.Process(ray, false, RayLength, Vector2.zero);
+                return;
+            }
+            keyWas = down;
+            pointer.Process(ray, down, RayLength, scroll);
         }
 
         /// <summary>
@@ -594,7 +724,7 @@ namespace ParelVR.Volt.Simulator
         /// volumes that are not targets are looked through (a player trigger zone must not swallow every click); the
         /// first solid collider ends the search.
         /// </summary>
-        private VoltInteractionTarget Aim(Vector3 origin, Vector3 direction, float extraReach, out Vector3 point)
+        private VoltInteractionTarget Aim(Vector3 origin, Vector3 direction, float extraReach, out Vector3 point, float limit = float.PositiveInfinity)
         {
             point = origin + direction * 2f;
             int count = Physics.RaycastNonAlloc(origin, direction, _hits, RayLength, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
@@ -602,6 +732,7 @@ namespace ParelVR.Volt.Simulator
             for (int i = 0; i < count; i++)
             {
                 RaycastHit hit = _hits[i];
+                if (hit.distance > limit) break; // UI in front of it gets the pointer
                 if (hit.collider == null || hit.collider == _body) continue;
                 VoltInteractionTarget target = TargetOf(hit.collider.transform);
                 if (target != null && SafeEnabled(target) && hit.distance <= Mathf.Max(0.1f, SafeProximity(target)) + extraReach)
@@ -695,6 +826,9 @@ namespace ParelVR.Volt.Simulator
                 UpdateHand(_rightHand, 2);
                 _aim = null;
                 World?.SetHover(0, null);
+                _ui.Process(new Ray(_camera.transform.position, _camera.transform.forward), false, 0f, Vector2.zero);
+                UpdateAvatar();
+                _keyboard.Update(_camera.transform);
                 return;
             }
             HideRays();
@@ -706,8 +840,17 @@ namespace ParelVR.Volt.Simulator
             // The pickup may have been taken away or dropped by a script.
             if (_held != null && (World == null || !World.IsLoaded || !World.IsHeldLocally(_held))) _held = null;
             Transform eye = _camera.transform;
-            _aim = _held == null ? Aim(eye.position, eye.forward, DesktopReach, out _) : null;
+            var ray = new Ray(eye.position, eye.forward);
+            // World UI in front of what the crosshair would use gets the mouse instead.
+            float ui = _held == null ? _ui.Cast(ray, RayLength, out _, out _, out _) : float.PositiveInfinity;
+            _aim = _held == null ? Aim(eye.position, eye.forward, DesktopReach, out _, ui) : null;
+            bool onUI = _aim == null && !float.IsInfinity(ui);
+            PointUI(_ui, ray, onUI && _mouseLeft, ref _uiKeyWas, onUI ? _scroll : Vector2.zero);
+            _scroll = Vector2.zero;
             World?.SetHover(0, _aim != null ? _aim.Object : null);
+            UpdateAvatar();
+            _keyboard.Update(eye);
+            if (Typing) _keys.Clear(); // keys typed into a field do not walk
         }
 
         // IMGUI events work with either input backend, so the simulator needs nothing from the project's input settings.
@@ -718,6 +861,12 @@ namespace ParelVR.Volt.Simulator
             {
                 case EventType.KeyDown:
                     if (e.keyCode == KeyCode.None) break;
+                    if (Typing)
+                    {
+                        if (e.keyCode == KeyCode.Escape && UnityEngine.EventSystems.EventSystem.current != null)
+                            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(null);
+                        break;
+                    }
                     if (_keys.Add(e.keyCode)) Pressed(e.keyCode);
                     break;
                 case EventType.KeyUp:
@@ -752,7 +901,8 @@ namespace ParelVR.Volt.Simulator
                     _pitch = Mathf.Clamp(_pitch + e.delta.y * 0.2f, -89f, 89f);
                     break;
                 case EventType.ScrollWheel:
-                    // The wheel pushes a held object away or pulls it in, as in the client.
+                    // Over UI the wheel scrolls it (three IMGUI units a notch); with a held object it pushes or pulls it, as in the client.
+                    if (_held == null) _scroll += new Vector2(e.delta.x, -e.delta.y) / 3f;
                     if (_held == null || World == null || Mathf.Abs(e.delta.y) < 0.01f) break;
                     Transform eye = _camera.transform;
                     World.PushHeld(_held, eye.position, eye.forward, -Mathf.Sign(e.delta.y) * HoldStep, HoldNearest, HoldFurthest);
@@ -799,6 +949,8 @@ namespace ParelVR.Volt.Simulator
         private void OnDestroy()
         {
             if (_locked) UnlockCursor();
+            _keyboard.Destroy();
+            foreach (Material material in _materials) if (material != null) Destroy(material);
 #if VOLT_SIM_XR
             StopVR();
 #endif
@@ -820,11 +972,13 @@ namespace ParelVR.Volt.Simulator
             public Quaternion Rotation = Quaternion.identity;
             public VoltInteractionTarget Aim;
             public VoltPickup Held;
+            public SimulatedUIPointer UI;
+            public bool KeyWas, OnUI;
             public LineRenderer Ray;
         }
 
-        private readonly Hand _leftHand = new Hand { Side = VoltHand.Left, Node = XRNode.LeftHand };
-        private readonly Hand _rightHand = new Hand { Side = VoltHand.Right, Node = XRNode.RightHand };
+        private readonly Hand _leftHand = new Hand { Side = VoltHand.Left, Node = XRNode.LeftHand, UI = new SimulatedUIPointer(-2) };
+        private readonly Hand _rightHand = new Hand { Side = VoltHand.Right, Node = XRNode.RightHand, UI = new SimulatedUIPointer(-3) };
         private bool _vrWanted, _xrStartedHere, _turned;
         private Material _rayMaterial;
 
@@ -914,7 +1068,7 @@ namespace ParelVR.Volt.Simulator
             ReadHand(_rightHand);
             if (_rightHand.Primary && !_rightHand.PrimaryWas) _jumpQueued = true;
             // Snap turn around the head, so the view does not swing sideways.
-            float x = _rightHand.Stick.x;
+            float x = _rightHand.OnUI ? 0f : _rightHand.Stick.x;
             if (Mathf.Abs(x) < 0.3f) _turned = false;
             else if (!_turned && Mathf.Abs(x) > 0.7f && _seat == null)
             {
@@ -973,15 +1127,27 @@ namespace ParelVR.Volt.Simulator
             }
             else if (hand.Tracked)
             {
-                hand.Aim = Aim(hand.Position, hand.Rotation * Vector3.forward, 0f, out end);
+                var ray = new Ray(hand.Position, hand.Rotation * Vector3.forward);
+                float ui = hand.UI.Cast(ray, RayLength, out _, out _, out _);
+                hand.Aim = Aim(hand.Position, ray.direction, 0f, out end, ui);
                 bool grabbed = hand.Grip && !hand.GripWas, pressed = hand.Trigger && !hand.TriggerWas;
                 if (hand.Aim != null && (grabbed || pressed))
                 {
                     if (hand.Aim.Kind == VoltInteractionKind.Pickup) hand.Held = Use(hand.Aim, hand.Side);
                     else if (pressed) Use(hand.Aim, hand.Side);
                 }
+                // The trigger clicks UI the hand points at; the right stick scrolls it.
+                hand.OnUI = hand.Aim == null && !float.IsInfinity(ui);
+                PointUI(hand.UI, hand.OnUI ? ray : new Ray(ray.origin, Vector3.zero), hand.OnUI && hand.Trigger, ref hand.KeyWas,
+                    hand.OnUI && hand.Side == VoltHand.Right ? new Vector2(0f, hand.Stick.y) * 0.25f : Vector2.zero);
+                if (hand.OnUI) end = hand.UI.Point;
             }
             else hand.Aim = null;
+            if (!hand.Tracked || hand.Held != null)
+            {
+                hand.OnUI = false;
+                hand.UI.Process(new Ray(hand.Position, Vector3.zero), false, 0f, Vector2.zero);
+            }
             World?.SetHover(hoverSource, hand.Aim != null ? hand.Aim.Object : null);
             DrawRay(hand, end);
         }
@@ -1004,10 +1170,11 @@ namespace ParelVR.Volt.Simulator
             bool show = hand.Tracked && hand.Held == null;
             hand.Ray.enabled = show;
             if (!show) return;
-            Color colour = hand.Aim != null ? new Color(0.45f, 0.75f, 1f, 0.9f) : new Color(1f, 1f, 1f, 0.25f);
+            bool pointing = hand.Aim != null || hand.OnUI;
+            Color colour = pointing ? new Color(0.45f, 0.75f, 1f, 0.9f) : new Color(1f, 1f, 1f, 0.25f);
             hand.Ray.startColor = hand.Ray.endColor = colour;
             hand.Ray.SetPosition(0, hand.Position);
-            hand.Ray.SetPosition(1, hand.Aim != null ? end : hand.Position + hand.Rotation * Vector3.forward * 2f);
+            hand.Ray.SetPosition(1, pointing ? end : hand.Position + hand.Rotation * Vector3.forward * 2f);
         }
 
         private void HideRays()

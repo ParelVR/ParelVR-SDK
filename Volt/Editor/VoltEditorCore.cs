@@ -119,7 +119,10 @@ namespace ParelVR.Volt.EditorTools
             try
             {
                 var scriptAssemblies = new HashSet<string>(TypeCache.GetTypesDerivedFrom<VoltBehaviour>().Select(t => t.Assembly.GetName().Name));
-                if (scriptAssemblies.Count == 0)
+                // Video players, pickups and the other Volt components run in the world runtime too: a scene with them and
+                // no scripts gets an empty module.
+                bool componentsOnly = scriptAssemblies.Count == 0 && VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene());
+                if (scriptAssemblies.Count == 0 && !componentsOnly)
                 {
                     output.success = true;
                     output.nothingToCompile = true;
@@ -140,6 +143,11 @@ namespace ParelVR.Volt.EditorTools
                 }
                 string data = EditorApplication.applicationContentsPath;
                 references.Add(Path.Combine(data, "NetStandard", "ref", "2.1.0", "netstandard.dll"));
+                if (componentsOnly)
+                {
+                    references.Add(Path.GetFullPath(typeof(VoltBehaviour).Assembly.Location));
+                    references.Add(Path.GetFullPath(typeof(UnityEngine.Object).Assembly.Location));
+                }
 
                 Directory.CreateDirectory(WorkFolder);
                 string json = Path.Combine(WorkFolder, "compile.json");
@@ -245,8 +253,44 @@ namespace ParelVR.Volt.EditorTools
             public Result Result = new Result();
         }
 
+        /// <summary>True when the scene needs the Volt world runtime: it has scripts, or Volt components (video players, pickups, seats, synced objects, pools).</summary>
         public static bool HasScripts(Scene scene) =>
-            scene.GetRootGameObjects().Any(root => root.GetComponentInChildren<VoltBehaviour>(true) != null);
+            scene.GetRootGameObjects().Any(root => root.GetComponentInChildren<VoltBehaviour>(true) != null || root.GetComponentInChildren<VoltSceneComponent>(true) != null);
+
+        /// <summary>
+        /// A Volt Video Player needs the Video capability, and the domain of the address it starts with. Both are added to
+        /// the Volt settings here, so the player works in play mode and in the uploaded world without a trip to the settings.
+        /// Video sites the platform plays itself (YouTube) need no domain.
+        /// </summary>
+        public static void DeclareSceneNeeds(Scene scene)
+        {
+            VoltSettings settings = VoltSettings.instance;
+            var domains = new List<string>(settings.webDomains ?? Array.Empty<string>());
+            bool changed = false;
+            const uint video = (uint)ParelVR.Volt.Core.VoltCapability.Video;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (ParelVR.Volt.Video.VoltVideoPlayer player in root.GetComponentsInChildren<ParelVR.Volt.Video.VoltVideoPlayer>(true))
+                {
+                    if ((settings.capabilities & video) == 0)
+                    {
+                        settings.capabilities |= video;
+                        changed = true;
+                        Debug.Log("[Volt] Turned on the Video capability: the scene has a Volt Video Player (" + player.name + ").");
+                    }
+                    if (!Uri.TryCreate(player.startUrl ?? string.Empty, UriKind.Absolute, out Uri uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)) continue;
+                    string host = uri.Host.ToLowerInvariant();
+                    if (host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal)) continue;
+                    if (domains.Any(d => string.Equals(d, host, StringComparison.OrdinalIgnoreCase) || host.EndsWith("." + d, StringComparison.OrdinalIgnoreCase))) continue;
+                    domains.Add(host);
+                    changed = true;
+                    Debug.Log("[Volt] Allowed the domain " + host + " for " + player.name + "'s start address.");
+                }
+            }
+            if (!changed) return;
+            settings.webDomains = domains.ToArray();
+            settings.SaveNow();
+        }
 
         public static Result Process(Scene scene, byte[] moduleBytes, bool playMode)
         {
@@ -537,6 +581,7 @@ namespace ParelVR.Volt.EditorTools
         {
             if (change != PlayModeStateChange.ExitingEditMode || !VoltSettings.instance.compileOnPlay) return;
             if (!VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene())) return;
+            VoltSceneProcessor.DeclareSceneNeeds(SceneManager.GetActiveScene());
             VoltCompileOutput output = VoltCompilerService.Compile();
             if (output.success) return;
             EditorApplication.isPlaying = false;
@@ -572,6 +617,7 @@ namespace ParelVR.Volt.EditorTools
                     Debug.LogWarning("[Volt] The scene has pickups or interactables but no VoltBehaviour script. They only work in a world built with scripts: add a VoltBehaviour to an object in the scene.");
                 return scenePath;
             }
+            VoltSceneProcessor.DeclareSceneNeeds(SceneManager.GetActiveScene());
             VoltCompileOutput output = VoltCompilerService.Compile();
             if (!output.success || output.bytes == null) throw new Exception("The world scripts have errors. See the Console.");
 
