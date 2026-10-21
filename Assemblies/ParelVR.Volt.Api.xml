@@ -199,6 +199,47 @@
         <member name="M:ParelVR.Volt.Cameras.VoltCamera.WorldToViewportPoint(UnityEngine.Vector3)">
             <summary>Where a world position appears in the camera's picture: x and y from 0 to 1, z the distance.</summary>
         </member>
+        <member name="P:ParelVR.Volt.Cameras.VoltCamera.TargetTexture">
+            <summary>
+            The render texture the camera draws into, for screens, monitors and portals: put the same texture on a
+            renderer with <see cref="M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(System.String,ParelVR.Volt.Rendering.VoltTexture)"/>.
+            Setting it to null also switches the camera off, since a world camera never draws onto a player's screen.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Cameras.VoltCamera.Render">
+            <summary>
+            Draws one picture into the target texture now, for a camera that is switched off and updated only when
+            something changes (a photo, a slow security monitor). At most once a frame per camera, and four cameras a frame.
+            </summary>
+        </member>
+        <member name="T:ParelVR.Volt.Rendering.VoltTexture">
+            <summary>A picture: a texture that is part of the world, or a render texture a camera draws into.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Rendering.VoltTexture.Width">
+            <summary>Width in pixels.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Rendering.VoltTexture.Height">
+            <summary>Height in pixels.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Rendering.VoltRenderTexture">
+            <summary>
+            A texture a camera draws into. Give it to <see cref="P:ParelVR.Volt.Cameras.VoltCamera.TargetTexture"/> and show it
+            on any renderer or raw image of the world. One can be part of the world (assigned in the inspector) or made by a
+            script with <see cref="M:ParelVR.Volt.Rendering.VoltRenderTexture.Create(System.Int32,System.Int32)"/>.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Rendering.VoltRenderTexture.Create(System.Int32,System.Int32)">
+            <summary>
+            Makes a render texture with a depth buffer. Sides from 16 to 2048 pixels; a world can have 16 of them at once
+            and 16 million pixels in all. They are freed when the world unloads, or earlier with <see cref="M:ParelVR.Volt.Rendering.VoltRenderTexture.Release"/>.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Rendering.VoltRenderTexture.Clear(UnityEngine.Color)">
+            <summary>Fills the texture with one colour.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Rendering.VoltRenderTexture.Release">
+            <summary>Frees a texture made with <see cref="M:ParelVR.Volt.Rendering.VoltRenderTexture.Create(System.Int32,System.Int32)"/>. Textures that are part of the world cannot be released.</summary>
+        </member>
         <member name="T:ParelVR.Volt.Contract.VoltHostKind">
             <summary>Which layer implements an API. Mirrors the runtime's own enumeration value for value.</summary>
         </member>
@@ -1162,6 +1203,19 @@
         <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetBlendShapeWeight(System.Int32,System.Single)">
             <summary>Sets the weight of a blend shape on a skinned mesh, 0 to 100.</summary>
         </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(System.String,ParelVR.Volt.Rendering.VoltTexture)">
+            <summary>
+            Puts a texture into a texture property of this renderer only, for example "_MainTex", "_BaseMap" or
+            "_EmissionMap": a render texture a camera draws into, or any texture of the world. Null gives the property
+            back to the material.
+            </summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(ParelVR.Volt.Rendering.VoltTexture)">
+            <summary>Puts a texture into the main texture of this renderer only (_MainTex and _BaseMap).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Objects.VoltRenderer.GetTexture(System.String)">
+            <summary>Reads a texture property: what this renderer was given, or the material's own texture. Null when there is none.</summary>
+        </member>
         <member name="T:ParelVR.Volt.Objects.VoltLight">
             <summary>A light.</summary>
         </member>
@@ -1748,6 +1802,9 @@
         </member>
         <member name="P:ParelVR.Volt.UI.VoltImage.Enabled">
             <summary>Whether the picture is drawn.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltImage.Texture">
+            <summary>The texture a raw image shows, for example a render texture a camera draws into. A sprite image keeps its sprite.</summary>
         </member>
         <member name="T:ParelVR.Volt.UI.VoltSlider">
             <summary>A slider.</summary>

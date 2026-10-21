@@ -455,6 +455,19 @@ namespace ParelVR.SDK.Avatars.UI
             }));
             build.Add(testRow);
 
+            VisualElement simulatorRow = Row();
+            simulatorRow.style.marginTop = 6;
+            Label simulatorHint = Hint("Avatar Simulator: wear this avatar in play mode in the ParelVR Home Hub, with its Expressions Menu on the radial menu (R), gestures, Motion Bones and contacts. Nothing is uploaded.");
+            simulatorHint.style.flexShrink = 1;
+            simulatorHint.style.flexGrow = 1;
+            simulatorRow.Add(simulatorHint);
+            simulatorRow.Add(SmallButton("Test in Simulator", () =>
+            {
+                if (_current != null) Selection.activeGameObject = _current.gameObject;
+                EditorApplication.ExecuteMenuItem("ParelVR SDK/Avatar Simulator/Test Avatar in Home Hub");
+            }));
+            build.Add(simulatorRow);
+
             // ---- Progress (outside the body so it stays enabled while busy) ---------------------
             _progressCard = Card(page);
             _progressCard.style.display = DisplayStyle.None;

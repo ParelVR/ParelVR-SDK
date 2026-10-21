@@ -123,7 +123,63 @@ public class #SCRIPTNAME# : VoltBehaviour
             return !EditorApplication.isPlayingOrWillChangePlaymode;
         }
 
+        [MenuItem("ParelVR SDK/Volt/Multi-Client Play Mode", priority = 24)]
+        private static void ToggleMultiClient()
+        {
+            VoltSettings s = VoltSettings.instance;
+            s.multiClient = !s.multiClient;
+            s.SaveNow();
+            VoltPlayMode.PushMultiClient();
+            if (!s.multiClient)
+            {
+                Debug.Log("[Volt] Multi-client play mode is off: play mode tests one player.");
+                return;
+            }
+            Debug.Log("[Volt] Multi-client play mode is on: every window of this project in play mode is another player of the same instance. " +
+                      "Add a second player with Window > Multiplayer > Multiplayer Play Mode (an editor instance), then press Play.");
+            VoltMultiClient.OpenPlayers();
+        }
+
+        [MenuItem("ParelVR SDK/Volt/Multi-Client Play Mode", true)]
+        private static bool ToggleMultiClientCheck()
+        {
+            Menu.SetChecked("ParelVR SDK/Volt/Multi-Client Play Mode", VoltSettings.instance.multiClient);
+            return !EditorApplication.isPlayingOrWillChangePlaymode;
+        }
+
+        [MenuItem("ParelVR SDK/Volt/Add Players (Multiplayer Play Mode)", priority = 25)]
+        private static void AddPlayers() => VoltMultiClient.OpenPlayers();
+
         [MenuItem("ParelVR SDK/Volt/Settings", priority = 80)] private static void Settings() => EditorWindow.GetWindow<VoltSettingsWindow>("Volt Settings").Show();
+    }
+
+    /// <summary>
+    /// The second, third and fourth players of multi-client play mode are editor instances of Unity's Multiplayer Play
+    /// Mode: each is its own window with its own Game view, entering and leaving play mode with this one.
+    /// </summary>
+    public static class VoltMultiClient
+    {
+        // The window's place in the menu moved between Unity versions and package releases.
+        private static readonly string[] PlayerWindows =
+        {
+            "Window/Multiplayer/Multiplayer Play Mode",
+            "Window/Multiplayer/Play Mode Scenarios",
+            "Window/Multiplayer Play Mode",
+        };
+
+        public static void OpenPlayers()
+        {
+            foreach (string path in PlayerWindows)
+                if (EditorApplication.ExecuteMenuItem(path)) return;
+            if (EditorUtility.DisplayDialog("Multi-client play mode",
+                    "The other players run in Multiplayer Play Mode editor instances, which come with Unity's Multiplayer Play Mode package. Install it now?\n\n" +
+                    "Without it, a second Unity editor opened on this project works too: press Play in both.",
+                    "Install", "Not now"))
+            {
+                UnityEditor.PackageManager.Client.Add("com.unity.multiplayer.playmode");
+                Debug.Log("[Volt] Installing Multiplayer Play Mode. Once it is in, open ParelVR SDK > Volt > Add Players and add an editor instance.");
+            }
+        }
     }
 
     /// <summary>Compile diagnostics and what the scripts log while playing.</summary>
@@ -378,7 +434,21 @@ public class #SCRIPTNAME# : VoltBehaviour
             s.compileOnPlay = EditorGUILayout.ToggleLeft("Compile scripts when entering play mode", s.compileOnPlay);
             s.hotReload = EditorGUILayout.ToggleLeft("Hot reload: saving a script in play mode swaps it into the running world", s.hotReload);
             s.testInVR = EditorGUILayout.ToggleLeft("Test in VR: play mode uses a headset (needs XR Plug-in Management, e.g. OpenXR)", s.testInVR);
-            if (EditorGUI.EndChangeCheck()) s.SaveNow();
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Multi-client play mode", EditorStyles.boldLabel);
+            s.multiClient = EditorGUILayout.ToggleLeft("Every window of this project in play mode is another player of the same instance", s.multiClient);
+            using (new EditorGUI.DisabledScope(!s.multiClient))
+            {
+                s.multiClientPort = Mathf.Clamp(EditorGUILayout.IntField("Port", s.multiClientPort), 1024, 65535);
+                s.multiClientLatencyMs = EditorGUILayout.IntSlider("Added delay (ms)", s.multiClientLatencyMs, 0, 1000);
+                s.multiClientLossPercent = EditorGUILayout.Slider("Dropped unreliable (%)", s.multiClientLossPercent, 0f, 50f);
+                if (GUILayout.Button("Add players (Multiplayer Play Mode)")) VoltMultiClient.OpenPlayers();
+            }
+            if (EditorGUI.EndChangeCheck())
+            {
+                s.SaveNow();
+                VoltPlayMode.PushMultiClient();
+            }
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("SDK " + VoltVersion.Sdk + ", bytecode " + VoltVersion.BytecodeMajor + "." + VoltVersion.BytecodeMinor, EditorStyles.miniLabel);
         }

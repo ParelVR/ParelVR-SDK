@@ -46,6 +46,16 @@ namespace ParelVR.Volt.EditorTools
         public bool hotReload = true;
         /// <summary>Play mode tests the world with a headset (XR Plug-in Management) instead of mouse and keyboard.</summary>
         public bool testInVR;
+        /// <summary>
+        /// Multi-client play mode: every window of this project in play mode (Unity's Multiplayer Play Mode editor
+        /// instances, or a second editor) is another player of the same instance.
+        /// </summary>
+        public bool multiClient;
+        public int multiClientPort = ParelVR.Volt.Simulator.VoltMultiClientOptions.DefaultPort;
+        /// <summary>Extra one-way delay for every message between the clients, in milliseconds.</summary>
+        public int multiClientLatencyMs;
+        /// <summary>Share of unreliable messages dropped between the clients, 0 to 50 percent.</summary>
+        public float multiClientLossPercent;
 
         public void SaveNow() => Save(true);
     }
@@ -569,6 +579,7 @@ namespace ParelVR.Volt.EditorTools
     {
         static VoltPlayMode()
         {
+            PushMultiClient();
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
             WorldBuilder.PrepareScene = VoltWorldBuild.Prepare;
             WorldBuilder.Finished = VoltWorldBuild.Finished;
@@ -577,8 +588,24 @@ namespace ParelVR.Volt.EditorTools
 
         public int callbackOrder => 0;
 
+        /// <summary>
+        /// Hands the multi-client settings to the simulator. Runs after every domain reload (also the one entering play
+        /// mode) and when play mode starts without one, so the runtime always sees the current settings.
+        /// </summary>
+        internal static void PushMultiClient()
+        {
+            VoltSettings s = VoltSettings.instance;
+            ParelVR.Volt.Simulator.VoltSimulator.MultiClientDefaults = !s.multiClient ? null : new ParelVR.Volt.Simulator.VoltMultiClientOptions
+            {
+                Port = Mathf.Clamp(s.multiClientPort, 1024, 65535),
+                LatencyMs = Mathf.Clamp(s.multiClientLatencyMs, 0, 2000),
+                LossPercent = Mathf.Clamp(s.multiClientLossPercent, 0f, 50f)
+            };
+        }
+
         private static void OnPlayModeChanged(PlayModeStateChange change)
         {
+            if (change == PlayModeStateChange.ExitingEditMode) PushMultiClient();
             if (change != PlayModeStateChange.ExitingEditMode || !VoltSettings.instance.compileOnPlay) return;
             if (!VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene())) return;
             VoltSceneProcessor.DeclareSceneNeeds(SceneManager.GetActiveScene());

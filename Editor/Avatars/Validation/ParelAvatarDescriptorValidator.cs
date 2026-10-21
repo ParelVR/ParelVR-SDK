@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using ParelVR.AvatarSDK;
@@ -443,10 +444,48 @@ namespace ParelVR.SDK.Avatars.Validation
                 foreach (string issue in issues) report.AddWarning($"Motion Bone on '{motionBone.name}': {issue}", null, motionBone);
             }
 
+            CheckContacts(root, report);
+        }
+
+        private static void CheckContacts(GameObject root, ValidationReport report)
+        {
+            ParelAvatarDescriptor descriptor = root.GetComponent<ParelAvatarDescriptor>();
+            var fx = descriptor != null ? descriptor.FxController as UnityEditor.Animations.AnimatorController : null;
+            var known = new HashSet<string>(StringComparer.Ordinal);
+            if (descriptor != null)
+                foreach (ParelAvatarLayer layer in (ParelAvatarLayer[])Enum.GetValues(typeof(ParelAvatarLayer)))
+                    if (descriptor.GetLayer(layer) is UnityEditor.Animations.AnimatorController controller)
+                        foreach (AnimatorControllerParameter p in controller.parameters) known.Add(p.name);
+
+            int localOnly = 0;
+            foreach (ParelContactBase contact in root.GetComponentsInChildren<ParelContactBase>(true))
+            {
+                if (contact.localOnly) localOnly++;
+                if (contact.collisionTags != null && contact.collisionTags.Count > ParelContactBase.MaxTags)
+                    report.AddWarning($"Contact on '{contact.name}' has {contact.collisionTags.Count} tags; only the first {ParelContactBase.MaxTags} are used.", null, contact);
+                if (!string.IsNullOrEmpty(contact.activeWhen) && known.Count > 0 && !known.Contains(contact.activeWhen))
+                    report.AddWarning($"Contact on '{contact.name}' is switched on by '{contact.activeWhen}', which no playable layer has, so it is never on.", null, contact);
+            }
+            if (localOnly > 256) report.AddError($"The avatar has {localOnly} Local Only contacts; at most 256 are allowed.");
+
             foreach (ParelContactReceiver receiver in root.GetComponentsInChildren<ParelContactReceiver>(true))
             {
-                if (string.IsNullOrEmpty(receiver.parameter)) report.AddWarning($"Contact Receiver on '{receiver.name}' has no parameter, so it does nothing.");
-                if (receiver.collisionTags == null || receiver.collisionTags.Count == 0) report.AddWarning($"Contact Receiver on '{receiver.name}' has no collision tags, so nothing can touch it.");
+                bool hasOutputs = receiver.outputs != null && receiver.outputs.Exists(o => o != null && !string.IsNullOrEmpty(o.parameter));
+                if (string.IsNullOrEmpty(receiver.parameter) && !hasOutputs) report.AddWarning($"Contact Receiver on '{receiver.name}' sets no parameter, so it does nothing.", null, receiver);
+                if (receiver.collisionTags == null || receiver.collisionTags.Count == 0) report.AddWarning($"Contact Receiver on '{receiver.name}' has no collision tags, so nothing can touch it.", null, receiver);
+                if (!receiver.allowSelf && !receiver.allowOthers) report.AddWarning($"Contact Receiver on '{receiver.name}' allows neither you nor others, so nothing can touch it.", null, receiver);
+                if (receiver.onContactEnter.GetPersistentEventCount() > 0 || receiver.onContactExit.GetPersistentEventCount() > 0)
+                    report.AddInfo($"Contact Receiver on '{receiver.name}' has events; events only run in worlds and are ignored on avatars.", null, receiver);
+
+                if (known.Count == 0) continue;
+                var missing = new List<string>();
+                if (!string.IsNullOrEmpty(receiver.parameter) && !known.Contains(receiver.parameter)) missing.Add(receiver.parameter);
+                if (receiver.outputs != null)
+                    foreach (ParelContactReceiver.Output output in receiver.outputs)
+                        if (output != null && !string.IsNullOrEmpty(output.parameter) && !known.Contains(output.parameter)) missing.Add(output.parameter);
+                if (missing.Count > 0)
+                    report.AddWarning($"Contact Receiver on '{receiver.name}' sets {string.Join(", ", missing)}, which no playable layer has" +
+                                      (fx != null ? " (the receiver's \"Add these parameters to the FX controller\" button adds them)." : "."), null, receiver);
             }
         }
 

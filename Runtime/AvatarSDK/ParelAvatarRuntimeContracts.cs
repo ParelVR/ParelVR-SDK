@@ -112,6 +112,12 @@ namespace ParelVR.AvatarSDK
     /// <summary>Finds the parameter sink that owns a transform (the avatar runtime on its root).</summary>
     public static class ParelAvatarSinks
     {
+        /// <summary>Goes up each time an avatar runtime is attached, so components that looked for their sink too early look again.</summary>
+        public static int Generation { get; private set; }
+
+        /// <summary>Call after putting a parameter sink on an avatar that was already in play.</summary>
+        public static void Changed() => Generation++;
+
         public static IParelAvatarParameterSink Find(Component component)
         {
             if (component == null) return null;

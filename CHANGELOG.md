@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.7.0 (2026-10-21)
+
+Volt API 1.4. Worlds built with this SDK need the ParelVR client update that brings API 1.4.
+
+### Multi-client play mode
+
+- ParelVR SDK > Volt > Multi-Client Play Mode: every window of the project in play mode is another player of the same
+  instance, each with its own Game view, its own copy of the world and its own network session, so synced fields,
+  ownership, network events and master hand-over can be tested in the editor. Add players with Unity's Multiplayer
+  Play Mode (ParelVR SDK > Volt > Add Players); a second editor on the same project works too.
+- Other players show as the loading avatar with their nameplate, posed from their head and hands, and world triggers,
+  raycasts and OverlapSpherePlayers find them as players.
+- Volt Settings: port, an added delay for every message and a share of unreliable messages to drop, to see how scripts
+  cope with a poor connection. The top of the Game view shows who you are, who is master and how many are in.
+
+### Render textures (Volt API 1.4)
+
+- VoltRenderTexture.Create(width, height) makes a render texture (16 to 2048 px a side, 16 per world, 16 million
+  pixels in all), freed with the world or with Release(); Clear(color) fills it. Render textures that are part of the
+  world can be assigned in the inspector as VoltTexture / VoltRenderTexture fields.
+- VoltCamera.TargetTexture sets what a world camera draws into; VoltCamera.Render() draws one picture on request.
+- VoltRenderer.SetTexture(property, texture) and SetTexture(texture) put a texture on one renderer (screens, monitors,
+  portals); GetTexture reads it. VoltImage.Texture shows one on a raw image.
+
+### Avatar simulator
+
+- ParelVR SDK > Avatar Simulator > Test Avatar in Home Hub (or Test in Simulator on the Builder tab): play mode puts
+  you in the ParelVR Home Hub, fetched from the backend with its scripts, wearing the selected avatar. The world is
+  cached and only downloaded again when the backend has a newer build. Without a connection: a plain floor.
+- The avatar runs as in ParelVR: Base layer, Additive, Gesture, Action, FX and Sitting layers, Expression Parameters
+  (saved ones are remembered), built-in parameters (velocity, grounded, seated, gestures, VR mode ...), Parameter
+  Driver, Locomotion Control and layer controls, Motion Bones and contacts.
+- R opens the radial menu with the avatar's Expressions Menu: toggles, buttons, sub menus and the radial, two-axis and
+  four-axis puppets. Left / Right Shift + F1-F8 set hand gestures. In VR the left menu button opens it.
+- V switches to third person; your head shows in mirrors and third person and hides in your own view.
+- T brings out a test hand: someone else's hand that follows the mouse, touches your receivers, bumps Motion Bones and
+  grabs them while the mouse button is held.
+- Humanoid avatars without a Base layer get a simple idle and walk instead of their import pose.
+- World scripts can read the avatar's parameters and fingers (VoltPlayer avatar members).
+
+### Contacts
+
+- Box shape, besides sphere and capsule.
+- One receiver, many parameters: besides its main parameter, a receiver can set Touching, Entered, Exited, Proximity,
+  Count (how many touch it), Taps (a counter that goes up every touch), Speed, Direction X / Y / Z (where it was
+  touched from) and From Self / From Others. A headpat or a boop is one component.
+- Pulses are held (Hold, default 0.1 s) so animators and other players never miss them; Smoothing glides proximity,
+  speed and direction; Min touch speed applies to taps too; Value sets what Constant and On Enter write.
+- Haptics: the controller of the wearer's hand that touches a receiver vibrates.
+- Active When: a contact exists only while an avatar parameter is on, instead of animating the component.
+- From: react to other avatars, the world's own senders, or both. Box receivers can measure proximity from the front.
+- In worlds, a receiver calls On Contact Enter / On Contact Exit, wired to a Volt script's method like a UI button.
+- The inspector: presets (Headpat, Boop, Hug, High Five, Stomp, Hand Touch) that place the receiver on the right
+  bone, body-part buttons instead of typing tags, "+ Also set" for outputs, a button that adds the parameters to the FX
+  controller, a radius handle in the Scene view and live values in play mode.
+- Validation: parameters no playable layer has, tags past 16, receivers nothing can touch, events on avatars (ignored).
+  Local Only contacts no longer count toward the performance rank.
+
 ## 1.6.0 (2026-10-21)
 
 Volt API 1.3. Worlds built with this SDK need the ParelVR client update that brings API 1.3.

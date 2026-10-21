@@ -1,7 +1,7 @@
 # ParelVR Volt API lock. Records the released contract so a later change cannot break it by accident.
 # Updated by 'voltapigen --update-lock' when a release is cut.
-version 1.3
-hash ce161e17bed21582d7fabeaa8c32da93d9ed72275ee708caac9d40cfdce13b0f
+version 1.4
+hash b301b1ce46b8e728cf77a3775055e38b83822b507af24041e79fb52e003800c0
 M 62a2e1ca 0 1 0 F:UnityEngine.Mathf.Epsilon
 M f7ac2aa8 4 0 16 M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)
 M 0aa79038 2 1 0 M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)
@@ -57,6 +57,7 @@ M 8fb5556c 2 0 16 M:ParelVR.Volt.Audio.VoltAudioSource.set_Spatial(System.Single
 M a482efbf 2 0 16 M:ParelVR.Volt.Audio.VoltAudioSource.set_Time(System.Single)
 M c43c8c9a 2 0 16 M:ParelVR.Volt.Audio.VoltAudioSource.set_Volume(System.Single)
 M 9834b0ef 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.LookAt(UnityEngine.Vector3)
+M 6d16001f 1 0 16 M:ParelVR.Volt.Cameras.VoltCamera.Render
 M 249225f8 2 1 0 M:ParelVR.Volt.Cameras.VoltCamera.WorldToViewportPoint(UnityEngine.Vector3)
 M 9cef2beb 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_Enabled
 M d38d7ccd 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_FarClip
@@ -64,12 +65,14 @@ M aa8cddbe 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_FieldOfView
 M 0f96e4be 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_NearClip
 M 15ccdbc9 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_Position
 M c3a864b4 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_Rotation
+M 7ac55abe 1 1 0 M:ParelVR.Volt.Cameras.VoltCamera.get_TargetTexture
 M 2e578ce5 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_Enabled(System.Boolean)
 M 2965eb93 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_FarClip(System.Single)
 M 0ca46496 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_FieldOfView(System.Single)
 M 12410b1e 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_NearClip(System.Single)
 M 36c65ebf 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_Position(UnityEngine.Vector3)
 M 5b1f39ea 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_Rotation(UnityEngine.Quaternion)
+M bd3b563a 2 0 16 M:ParelVR.Volt.Cameras.VoltCamera.set_TargetTexture(ParelVR.Volt.Rendering.VoltRenderTexture)
 M 462db350 2 1 0 M:ParelVR.Volt.Contract.VoltCompilerServices.BoxEnum``1(System.Int32)
 M a48a2f40 2 1 0 M:ParelVR.Volt.Contract.VoltCompilerServices.EnumName``1(System.Int32)
 M 93fc12bb 0 1 0 M:ParelVR.Volt.Data.VoltData.#ctor
@@ -259,10 +262,13 @@ M 5266c22b 1 1 0 M:ParelVR.Volt.Objects.VoltObjectReference.get_IsValid
 M 57c3f5b5 1 0 16 M:ParelVR.Volt.Objects.VoltRenderer.ClearProperties
 M 7c6c154f 2 1 0 M:ParelVR.Volt.Objects.VoltRenderer.GetColor(System.String)
 M 49a17094 2 1 0 M:ParelVR.Volt.Objects.VoltRenderer.GetFloat(System.String)
+M cf951cdb 2 1 0 M:ParelVR.Volt.Objects.VoltRenderer.GetTexture(System.String)
 M 83537304 3 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetBlendShapeWeight(System.Int32,System.Single)
 M 4e868e69 3 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetColor(System.String,UnityEngine.Color)
 M 193df755 2 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetColor(UnityEngine.Color)
 M 999b5b27 3 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetFloat(System.String,System.Single)
+M 59f98eec 2 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(ParelVR.Volt.Rendering.VoltTexture)
+M e2807070 3 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(System.String,ParelVR.Volt.Rendering.VoltTexture)
 M 6a1f567d 3 0 16 M:ParelVR.Volt.Objects.VoltRenderer.SetVector(System.String,UnityEngine.Vector4)
 M 29b3577f 1 1 0 M:ParelVR.Volt.Objects.VoltRenderer.get_Enabled
 M 59ed7208 1 1 0 M:ParelVR.Volt.Objects.VoltRenderer.get_IsVisible
@@ -411,6 +417,11 @@ M 3d817657 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.set_GravityStrength(System.
 M e182c753 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.set_JumpImpulse(System.Single)
 M 4b70445e 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.set_RunSpeed(System.Single)
 M 7f2db44e 2 0 513 M:ParelVR.Volt.Players.VoltPlayer.set_WalkSpeed(System.Single)
+M 34c6ab31 2 0 16 M:ParelVR.Volt.Rendering.VoltRenderTexture.Clear(UnityEngine.Color)
+M fca4c84c 2 1 16 M:ParelVR.Volt.Rendering.VoltRenderTexture.Create(System.Int32,System.Int32)
+M 438d3920 1 0 16 M:ParelVR.Volt.Rendering.VoltRenderTexture.Release
+M b0827f0d 1 1 0 M:ParelVR.Volt.Rendering.VoltTexture.get_Height
+M d6cb02b2 1 1 0 M:ParelVR.Volt.Rendering.VoltTexture.get_Width
 M a92ca256 1 0 16 M:ParelVR.Volt.Scene.VoltScene.Destroy(ParelVR.Volt.Objects.VoltGameObject)
 M b93080c5 2 0 16 M:ParelVR.Volt.Scene.VoltScene.Destroy(ParelVR.Volt.Objects.VoltGameObject,System.Single)
 M 9e19e394 1 1 0 M:ParelVR.Volt.Scene.VoltScene.Find(System.String)
@@ -443,9 +454,11 @@ M a92bccd7 0 1 1 M:ParelVR.Volt.UI.VoltDialogs.get_IsAvailable
 M 0287867f 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_Color
 M 99b0c539 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_Enabled
 M a7f117d5 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_FillAmount
+M 52da0de3 1 1 0 M:ParelVR.Volt.UI.VoltImage.get_Texture
 M 13073070 2 0 16 M:ParelVR.Volt.UI.VoltImage.set_Color(UnityEngine.Color)
 M 9493c147 2 0 16 M:ParelVR.Volt.UI.VoltImage.set_Enabled(System.Boolean)
 M 7961964b 2 0 16 M:ParelVR.Volt.UI.VoltImage.set_FillAmount(System.Single)
+M 6f707db3 2 0 16 M:ParelVR.Volt.UI.VoltImage.set_Texture(ParelVR.Volt.Rendering.VoltTexture)
 M 0553060d 1 1 0 M:ParelVR.Volt.UI.VoltInputField.get_Interactable
 M 19c7cc10 1 1 0 M:ParelVR.Volt.UI.VoltInputField.get_Text
 M a2559f33 2 0 16 M:ParelVR.Volt.UI.VoltInputField.set_Interactable(System.Boolean)
@@ -1356,6 +1369,8 @@ T 69c2aaf4 ParelVR.Volt.Players.VoltFinger
 T 64c4371c ParelVR.Volt.Players.VoltGesture
 T 135d5878 ParelVR.Volt.Players.VoltPlayer
 T d9c5079a ParelVR.Volt.Players.VoltTrackingPoint
+T c4bd961a ParelVR.Volt.Rendering.VoltRenderTexture
+T 0d410b46 ParelVR.Volt.Rendering.VoltTexture
 T 31386215 ParelVR.Volt.Scene.VoltScene
 T d65b09d0 ParelVR.Volt.Storage.VoltAchievements
 T f7f1488b ParelVR.Volt.Storage.VoltLeaderboard

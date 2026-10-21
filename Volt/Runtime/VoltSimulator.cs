@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using ParelVR.Volt.Core;
+using ParelVR.Volt.Core.Net;
 using ParelVR.Volt.Core.Runtime;
 using ParelVR.Volt.Input;
 using ParelVR.Volt.Interaction;
@@ -23,8 +24,18 @@ namespace ParelVR.Volt.Simulator
 
     public sealed class VoltSimulatorOptions
     {
-        /// <summary>The compiled module.</summary>
+        /// <summary>The compiled module. Null runs the player without scripts (a world that has none).</summary>
         public byte[] Module;
+        /// <summary>The world's scene. The active scene when it is left unset.</summary>
+        public Scene Scene;
+        /// <summary>The local player's name; "Editor Player", or "Player n" in multi-client play mode, when unset.</summary>
+        public string PlayerName;
+        /// <summary>Play together with the other clients of this world on this machine. Null plays alone.</summary>
+        public VoltMultiClientOptions MultiClient;
+        /// <summary>Avatar parameters and fingers for scripts that read them (set by the avatar simulator).</summary>
+        public IVoltAvatarService Avatar;
+        /// <summary>The avatar the local player wears instead of the stand-in (the avatar simulator).</summary>
+        internal SimulatedAvatar Body;
         /// <summary>VoltCapability bits the world is granted.</summary>
         public uint Capabilities;
         public string[] WebDomains;
@@ -51,25 +62,51 @@ namespace ParelVR.Volt.Simulator
         private static VoltPlatformServices _services;
 
         public static bool IsRunning => World != null && World.IsLoaded;
+        /// <summary>True while the stand-in player is in play mode, with or without scripts.</summary>
+        public static bool HasPlayer => _player != null;
         public static VoltWorld World { get; private set; }
         public static VoltSimulatorOptions Options { get; private set; }
         /// <summary>Set before play mode starts by tooling that wants to attach a debugger to the next run.</summary>
         public static VoltDebugger NextDebugger;
+        /// <summary>Set by the editor from the Volt settings: play mode joins the other clients of the world on this machine.</summary>
+        public static VoltMultiClientOptions MultiClientDefaults;
+        /// <summary>Set by tooling that starts the simulator itself (the avatar simulator), so play mode does not start it for the open scene.</summary>
+        public static bool SuppressAutoStart;
         public static event Action Started;
         public static event Action Stopped;
 
-        /// <summary>Starts the scripts of the active scene. Call it in play mode.</summary>
+        /// <summary>Starts the scripts of a scene (the active one unless the options name another). Call it in play mode.</summary>
         public static void Start(VoltSimulatorOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (!Application.isPlaying) throw new InvalidOperationException("The Volt simulator runs in play mode.");
             Stop();
 
-            Scene scene = SceneManager.GetActiveScene();
+            Scene scene = options.Scene.IsValid() ? options.Scene : SceneManager.GetActiveScene();
+            SimulatedNetwork network = null;
+            if (options.MultiClient != null)
+            {
+                try
+                {
+                    network = SimulatedNetwork.Connect(options.MultiClient, options.PlayerName);
+                    if (!string.IsNullOrEmpty(network.RemoteModuleHash) && !string.IsNullOrEmpty(options.MultiClient.ModuleHash) &&
+                        !string.Equals(network.RemoteModuleHash, options.MultiClient.ModuleHash, StringComparison.OrdinalIgnoreCase))
+                        Debug.LogWarning("[Volt] Multi-client: the other clients run a different build of the scripts. Save the scene and the scripts, then enter play mode again in every window.");
+                    Debug.Log("[Volt] Multi-client: joined as player " + network.LocalId + (network.IsRelayHost ? " (this window holds the meeting point)." : "."));
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[Volt] Multi-client play mode could not connect on port " + options.MultiClient.Port + " (" + e.Message + "). This client plays alone.");
+                    network = null;
+                }
+            }
+            int localId = network != null ? network.LocalId : 1;
+            string name = !string.IsNullOrEmpty(options.PlayerName) ? options.PlayerName : network != null ? "Player " + localId : "Editor Player";
+
             var go = new GameObject("[Volt Player]");
             UnityEngine.Object.DontDestroyOnLoad(go); // outside the world's scene, so scripts cannot reach it, as in the client
             _player = go.AddComponent<SimulatedPlayer>();
-            _player.Setup(scene, options);
+            _player.Setup(scene, options, localId, name, network);
 
             var services = new VoltPlatformServices
             {
@@ -79,35 +116,42 @@ namespace ParelVR.Volt.Simulator
                 Interaction = _player,
                 Dialogs = new SimulatedDialogs(),
                 Nameplates = _player,
-                Transport = new VoltOfflineTransport(),
+                Avatar = options.Avatar,
+                Transport = network != null ? (IVoltNetTransport)network : new VoltOfflineTransport(),
                 Storage = new SimulatedStorage(options.StorageFolder ?? Path.Combine(Application.dataPath, "..", "Library", "ParelVR", "VoltStorage"))
             };
             Options = options;
             _services = services;
-            try
+            if (options.Module != null && options.Module.Length > 0)
             {
-                World = VoltWorld.Load(new VoltWorldOptions
+                try
                 {
-                    Module = options.Module,
-                    Scene = scene,
-                    Services = services,
-                    Granted = (ParelVR.Volt.Core.VoltCapability)options.Capabilities,
-                    WebDomains = options.WebDomains ?? Array.Empty<string>(),
-                    IsEditor = true,
-                    PlatformName = "editor",
-                    Debugger = options.Debugger
-                });
+                    World = VoltWorld.Load(new VoltWorldOptions
+                    {
+                        Module = options.Module,
+                        Scene = scene,
+                        Services = services,
+                        Granted = (ParelVR.Volt.Core.VoltCapability)options.Capabilities,
+                        WebDomains = options.WebDomains ?? Array.Empty<string>(),
+                        IsEditor = true,
+                        PlatformName = "editor",
+                        Debugger = options.Debugger
+                    });
+                }
+                catch
+                {
+                    _player.ShutdownNetwork();
+                    _player.ReleaseBody();
+                    UnityEngine.Object.Destroy(go);
+                    _player = null;
+                    throw;
+                }
+                if (options.Error != null) World.ErrorReported += options.Error;
+                if (options.Log != null) World.Logged += (level, text, context) => options.Log((int)level, text, context);
+                _player.World = World;
+                World.PlayerJoined(_player.LocalPlayer);
             }
-            catch
-            {
-                UnityEngine.Object.Destroy(go);
-                _player = null;
-                throw;
-            }
-            if (options.Error != null) World.ErrorReported += options.Error;
-            if (options.Log != null) World.Logged += (level, text, context) => options.Log((int)level, text, context);
-            _player.World = World;
-            World.PlayerJoined(_player.LocalPlayer);
+            _player.JoinExisting();
             Started?.Invoke();
         }
 
@@ -126,7 +170,7 @@ namespace ParelVR.Volt.Simulator
             World = VoltWorld.Load(new VoltWorldOptions
             {
                 Module = module,
-                Scene = SceneManager.GetActiveScene(),
+                Scene = Options.Scene.IsValid() ? Options.Scene : SceneManager.GetActiveScene(),
                 Services = _services,
                 Granted = (ParelVR.Volt.Core.VoltCapability)Options.Capabilities,
                 WebDomains = Options.WebDomains ?? Array.Empty<string>(),
@@ -140,6 +184,7 @@ namespace ParelVR.Volt.Simulator
             int kept = World.RestoreFields(saved);
             _player.World = World;
             World.PlayerJoined(_player.LocalPlayer);
+            _player.RejoinRemotes();
             return kept;
         }
 
@@ -152,7 +197,13 @@ namespace ParelVR.Volt.Simulator
                 world.Unload();
                 Stopped?.Invoke();
             }
-            if (_player != null) UnityEngine.Object.Destroy(_player.gameObject);
+            if (_player != null)
+            {
+                // Now, not at the end of the frame: a new start right after must be able to take the port.
+                _player.ShutdownNetwork();
+                _player.ReleaseBody();
+                UnityEngine.Object.Destroy(_player.gameObject);
+            }
             _player = null;
         }
 
@@ -163,7 +214,7 @@ namespace ParelVR.Volt.Simulator
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoStart()
         {
-            if (!Application.isEditor) return;
+            if (!Application.isEditor || SuppressAutoStart) return;
             // With domain reload off in the Enter Play Mode settings, the last session's world is still here.
             try { Stop(); } catch (Exception) { }
             try { VoltWorld.Current?.Unload(); } catch (Exception) { }
@@ -179,7 +230,10 @@ namespace ParelVR.Volt.Simulator
             VoltDebugger debugger = NextDebugger;
             try
             {
-                Start(new VoltSimulatorOptions { Module = data.editorModule, Capabilities = data.editorCapabilities, WebDomains = data.editorWebDomains, Debugger = debugger, VR = data.editorVR });
+                VoltMultiClientOptions multi = MultiClientDefaults;
+                if (multi != null)
+                    multi = new VoltMultiClientOptions { Port = multi.Port, LatencyMs = multi.LatencyMs, LossPercent = multi.LossPercent, ModuleHash = data.moduleSha256 };
+                Start(new VoltSimulatorOptions { Module = data.editorModule, Capabilities = data.editorCapabilities, WebDomains = data.editorWebDomains, Debugger = debugger, VR = data.editorVR, MultiClient = multi });
             }
             catch (VoltFormatException e)
             {
@@ -203,11 +257,17 @@ namespace ParelVR.Volt.Simulator
     /// </summary>
     internal sealed class SimulatedPlayer : MonoBehaviour, IVoltPlayerService, IVoltWorldInfo, IVoltInputService, IVoltInteractionService, IVoltNameplateService
     {
-        private const float EyeHeight = 1.6f;
+        private float EyeHeight = 1.6f;
         // As in the client: from the head, a desktop player reaches about an arm's length past what a hand could touch.
         private const float DesktopReach = 0.9f, RayLength = 15f, HoldNearest = 0.35f, HoldFurthest = 3f, HoldStep = 0.15f;
+        private const float PoseInterval = 0.05f;
 
         internal VoltWorld World;
+        internal SimulatedAvatar Body;
+        private SimulatedNetwork _network;
+        private VoltPlayerHandle _master;
+        private float _poseClock;
+        private readonly Dictionary<int, SimulatedRemotePlayer> _remotes = new Dictionary<int, SimulatedRemotePlayer>();
         private readonly List<VoltPlayerHandle> _players = new List<VoltPlayerHandle>();
         private readonly List<VoltInteractionTarget> _targets = new List<VoltInteractionTarget>();
         private readonly HashSet<KeyCode> _keys = new HashSet<KeyCode>();
@@ -226,11 +286,15 @@ namespace ParelVR.Volt.Simulator
         private VoltInteractionTarget _aim;
         private VoltPickup _held;
 
-        public void Setup(Scene scene, VoltSimulatorOptions options)
+        public void Setup(Scene scene, VoltSimulatorOptions options, int localId, string displayName, SimulatedNetwork network)
         {
             _options = options;
-            _local = new VoltPlayerHandle(1, "editor", "Editor Player", true) { PlatformObject = this };
+            _network = network;
+            _local = new VoltPlayerHandle(localId, "editor-" + localId, displayName, true) { PlatformObject = this };
             _players.Add(_local);
+            _master = _local;
+            Body = options.Body;
+            if (Body != null) EyeHeight = Mathf.Clamp(Body.EyeHeight, 0.2f, 5f);
 
             FindSpawn(scene, out _spawnPosition, out _spawnRotation);
 
@@ -254,107 +318,172 @@ namespace ParelVR.Volt.Simulator
 #endif
             Teleport(_spawnPosition, _spawnRotation);
             _wantLock = !InVR;
-            BuildAvatar();
+            // The avatar under test shows itself; the loading avatar stands in otherwise. The nameplate is always there.
+            _look = SimulatedStandIn.Build(transform, displayName, new Color(0.62f, 0.66f, 0.76f), Body == null, EyeHeight);
+            Body?.Attach(this);
             SimulatedUIPointer.EventSystemFor();
             SimulatedVideoResolver.InstallIfMissing();
         }
 
-        // ── the stand-in avatar ──────────────────────────────────────────────
-        // ParelVR's loading avatar stands in for the player's own: a body, a head and hands that follow the view and the
-        // controllers, and the nameplate above, so mirrors, badges and anything placed on players can be tried.
+        // ── the local player's look ──────────────────────────────────────────
 
-        private const float PlateHeight = 0.42f, PlateWidth = 0.56f, PlateDepth = 0.12f, LoadSeconds = 1.4f;
-        private Transform _avatar, _head, _leftHandModel, _rightHandModel, _plate, _loadBar;
-        private readonly List<Material> _materials = new List<Material>();
-        private float _loadStart;
+        private SimulatedStandIn _look;
 
-        private Material Flat(Color colour, bool unlit)
-        {
-            bool srp = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null;
-            Shader shader = srp ? Shader.Find(unlit ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit")
-                                : Shader.Find(unlit ? "Unlit/Color" : "Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            var material = new Material(shader) { color = colour, hideFlags = HideFlags.DontSave };
-            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", colour);
-            _materials.Add(material);
-            return material;
-        }
-
-        private Transform Part(PrimitiveType shape, string name, Transform parent, Vector3 at, Vector3 size, Material material)
-        {
-            GameObject go = GameObject.CreatePrimitive(shape);
-            go.name = name;
-            Destroy(go.GetComponent<Collider>());
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = at;
-            go.transform.localScale = size;
-            go.GetComponent<Renderer>().sharedMaterial = material;
-            return go.transform;
-        }
-
-        private void BuildAvatar()
-        {
-            Material skin = Flat(new Color(0.62f, 0.66f, 0.76f), false);
-            _avatar = new GameObject("Avatar (loading avatar)").transform;
-            _avatar.SetParent(transform, false);
-            Part(PrimitiveType.Capsule, "Body", _avatar, new Vector3(0f, 0.78f, 0f), new Vector3(0.34f, 0.62f, 0.24f), skin);
-            // Seen from inside, the head's back faces are culled: it shows in mirrors, not in your own view.
-            _head = Part(PrimitiveType.Sphere, "Head", _avatar, new Vector3(0f, EyeHeight, 0f), Vector3.one * 0.24f, skin);
-            _leftHandModel = Part(PrimitiveType.Sphere, "Left Hand", _avatar, Vector3.zero, Vector3.one * 0.08f, skin);
-            _rightHandModel = Part(PrimitiveType.Sphere, "Right Hand", _avatar, Vector3.zero, Vector3.one * 0.08f, skin);
-
-            // The nameplate: a dark plate with the name, and the thin bar that fills while an avatar loads.
-            _plate = new GameObject("Nameplate").transform;
-            _plate.SetParent(_avatar, false);
-            Part(PrimitiveType.Quad, "Plate", _plate, Vector3.zero, new Vector3(PlateWidth, PlateDepth, 1f), Flat(new Color(0.08f, 0.08f, 0.1f), true));
-            _loadBar = Part(PrimitiveType.Quad, "Loading", _plate, new Vector3(0f, -PlateDepth / 2f + 0.008f, -0.001f), new Vector3(0f, 0.012f, 1f),
-                Flat(new Color(0.36f, 0.42f, 0.95f), true));
-            var label = new GameObject("Name").AddComponent<TextMesh>();
-            label.transform.SetParent(_plate, false);
-            label.transform.localPosition = new Vector3(0f, 0.008f, -0.002f);
-            label.text = _local.DisplayName;
-            label.anchor = TextAnchor.MiddleCenter;
-            label.alignment = TextAlignment.Center;
-            label.fontSize = 64;
-            label.characterSize = 0.0085f;
-            label.color = Color.white;
-            Font font = null;
-            try { font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); } catch (Exception) { }
-            if (font == null) try { font = Resources.GetBuiltinResource<Font>("Arial.ttf"); } catch (Exception) { }
-            if (font != null)
-            {
-                label.font = font;
-                label.GetComponent<MeshRenderer>().sharedMaterial = font.material;
-            }
-            _loadStart = Time.time;
-        }
+        internal Camera View => _camera;
+        internal bool KeyHeld(KeyCode key) => _keys.Contains(key);
+        internal bool Seated => _seat != null;
+        internal Vector3 Velocity => _body != null ? _body.velocity : Vector3.zero;
+        internal float Pitch => _pitch;
+        internal bool Grounded => _body != null && _body.isGrounded;
+        internal bool InVRNow => InVR;
 
         private void UpdateAvatar()
         {
-            if (_avatar == null) return;
+            if (_look == null) return;
             Transform eye = _camera.transform;
-            // The body stands under the head, turned the way the head faces.
             Vector3 head = eye.position;
-            _avatar.SetPositionAndRotation(new Vector3(head.x, transform.position.y, head.z), Quaternion.Euler(0f, eye.eulerAngles.y, 0f));
-            _head.SetPositionAndRotation(head, eye.rotation);
-            if (TryGetTracking(_local, VoltTrackingPoint.LeftHand, out Vector3 left, out _)) _leftHandModel.position = left;
-            if (TryGetTracking(_local, VoltTrackingPoint.RightHand, out Vector3 right, out _)) _rightHandModel.position = right;
-            // Readable from in front of the player, as in a mirror.
-            _plate.SetPositionAndRotation(head + Vector3.up * PlateHeight, Quaternion.Euler(0f, eye.eulerAngles.y + 180f, 0f));
-            float loaded = Mathf.Clamp01((Time.time - _loadStart) / LoadSeconds);
-            bool loading = Time.time - _loadStart < LoadSeconds + 0.4f;
-            _loadBar.gameObject.SetActive(loading);
-            if (loading)
-            {
-                _loadBar.localScale = new Vector3(PlateWidth * loaded, 0.012f, 1f);
-                _loadBar.localPosition = new Vector3(-PlateWidth / 2f + PlateWidth * loaded / 2f, -PlateDepth / 2f + 0.008f, -0.001f);
-            }
+            Quaternion headRotation = eye.rotation;
+            if (Body != null && Body.TryGetHead(out Vector3 avatarHead)) head = new Vector3(head.x, Mathf.Max(avatarHead.y, transform.position.y + 0.2f), head.z);
+            bool hasLeft = TryGetTracking(_local, VoltTrackingPoint.LeftHand, out Vector3 left, out _);
+            bool hasRight = TryGetTracking(_local, VoltTrackingPoint.RightHand, out Vector3 right, out _);
+            _look.Pose(transform.position, head, headRotation, hasLeft, left, hasRight, right);
         }
 
         public bool TryGetNameplateTop(VoltPlayerHandle player, out Vector3 top)
         {
-            top = _plate != null ? _plate.position + Vector3.up * (PlateDepth / 2f) : default;
-            return _plate != null && player == _local;
+            if (player != null && player.PlatformObject is SimulatedRemotePlayer remote) return remote.TryGetPlateTop(out top);
+            top = default;
+            return player == _local && _look != null && _look.TryGetPlateTop(out top);
+        }
+
+        // ── other clients (multi-client play mode) ───────────────────────────
+
+        internal bool IsMultiClient => _network != null;
+
+        private static SimulatedRemotePlayer RemoteOf(VoltPlayerHandle player) => player?.PlatformObject as SimulatedRemotePlayer;
+
+        /// <summary>Players that were in the instance before this client: they join the world once it is loaded.</summary>
+        internal void JoinExisting()
+        {
+            if (_network == null) return;
+            foreach (KeyValuePair<int, string> existing in _network.Existing) AddRemote(existing.Key, existing.Value);
+            VoltPlayerHandle master = Find(_network.MasterPlayerId);
+            _master = master ?? _local; // who was master already: not a change scripts hear about
+        }
+
+        /// <summary>After a hot reload the new world meets the other players again.</summary>
+        internal void RejoinRemotes()
+        {
+            foreach (SimulatedRemotePlayer remote in _remotes.Values) World?.PlayerJoined(remote.Handle);
+        }
+
+        internal void ShutdownNetwork()
+        {
+            _network?.Dispose();
+        }
+
+        /// <summary>The worn avatar is not the player's to destroy: it is handed back to the scene root first.</summary>
+        internal void ReleaseBody()
+        {
+            if (Body == null) return;
+            Body.Detach();
+            if (Body != null && Body.transform.parent == transform)
+            {
+                Body.transform.SetParent(null, true);
+                DontDestroyOnLoad(Body.gameObject);
+            }
+            Body = null;
+        }
+
+        private void PollNetwork()
+        {
+            if (_network == null) return;
+            _network.Poll(OnNetwork);
+        }
+
+        private void OnNetwork(SimulatedNetwork.Incoming item)
+        {
+            switch (item.Kind)
+            {
+                case SimulatedNetwork.Kind.Joined:
+                    AddRemote(item.Player, item.Name);
+                    break;
+                case SimulatedNetwork.Kind.Left:
+                    RemoveRemote(item.Player);
+                    break;
+                case SimulatedNetwork.Kind.Data:
+                    if (_remotes.ContainsKey(item.Player) && item.Data != null) World?.NetworkReceive(item.Player, item.Data, 0, item.Data.Length);
+                    break;
+                case SimulatedNetwork.Kind.Pose:
+                    if (_remotes.TryGetValue(item.Player, out SimulatedRemotePlayer remote)) remote.Receive(item.Pose);
+                    break;
+                case SimulatedNetwork.Kind.Lost:
+                    Debug.LogWarning("[Volt] Multi-client: the meeting point closed (the window that held it left play mode). This client plays alone now.");
+                    foreach (int id in new List<int>(_remotes.Keys)) RemoveRemote(id);
+                    break;
+            }
+            UpdateMaster();
+        }
+
+        private void AddRemote(int id, string displayName)
+        {
+            if (id == _local.Id || _remotes.ContainsKey(id)) return;
+            var go = new GameObject("[Volt Remote Player " + id + "]");
+            DontDestroyOnLoad(go);
+            var remote = go.AddComponent<SimulatedRemotePlayer>();
+            var handle = new VoltPlayerHandle(id, "editor-" + id, string.IsNullOrEmpty(displayName) ? "Player " + id : displayName, false) { PlatformObject = remote };
+            remote.Setup(handle);
+            remote.PassThrough = _body; // players walk through each other, as in the client
+            _remotes.Add(id, remote);
+            _players.Add(handle);
+            World?.PlayerJoined(handle);
+        }
+
+        private void RemoveRemote(int id)
+        {
+            if (!_remotes.TryGetValue(id, out SimulatedRemotePlayer remote)) return;
+            _remotes.Remove(id);
+            _players.Remove(remote.Handle);
+            if (_held != null && World != null && !World.IsHeldLocally(_held)) _held = null;
+            World?.PlayerLeft(remote.Handle);
+            remote.Handle.IsValid = false;
+            if (remote != null) Destroy(remote.gameObject);
+        }
+
+        private void UpdateMaster()
+        {
+            if (_network == null) return;
+            VoltPlayerHandle master = Find(_network.MasterPlayerId) ?? _local;
+            if (master == _master) return;
+            _master = master;
+            World?.MasterChanged(master);
+        }
+
+        private void SendPose()
+        {
+            if (_network == null || !_network.Online) return;
+            _poseClock -= Time.unscaledDeltaTime;
+            if (_poseClock > 0f) return;
+            _poseClock = PoseInterval;
+            TryGetTracking(_local, VoltTrackingPoint.Head, out Vector3 head, out Quaternion headRotation);
+            TryGetTracking(_local, VoltTrackingPoint.LeftHand, out Vector3 left, out Quaternion leftRotation);
+            TryGetTracking(_local, VoltTrackingPoint.RightHand, out Vector3 right, out Quaternion rightRotation);
+            _network.SendPose(new SimulatedPose
+            {
+                Feet = transform.position,
+                Yaw = GetRotation(_local).eulerAngles.y,
+                Velocity = Velocity,
+                Head = head,
+                HeadRotation = headRotation,
+                LeftHand = left,
+                LeftRotation = leftRotation,
+                RightHand = right,
+                RightRotation = rightRotation,
+                EyeHeight = EyeHeight,
+                Grounded = Grounded,
+                InVR = InVR,
+                Fps = GetFps(_local)
+            });
         }
 
         // ── world UI and the keyboard ────────────────────────────────────────
@@ -452,6 +581,48 @@ namespace ParelVR.Volt.Simulator
             _locked = false;
         }
 
+        private bool _relock;
+        private Func<Vector2> _inputSystemPosition;
+
+        /// <summary>A menu takes the mouse: the cursor shows and the view stops turning.</summary>
+        internal void ReleaseMouse()
+        {
+            _relock = _locked || _wantLock;
+            _wantLock = false;
+            UnlockCursor();
+        }
+
+        /// <summary>The menu is closed: the mouse looks around again if it did before.</summary>
+        internal void RestoreMouse()
+        {
+            if (_relock && !InVR) LockCursor();
+            _relock = false;
+        }
+
+        /// <summary>The cursor in screen pixels (origin bottom left), from whichever input backend the project uses.</summary>
+        internal Vector2 MousePosition()
+        {
+            if (!_legacyMouseMissing)
+            {
+                try { return UnityEngine.Input.mousePosition; }
+                catch (InvalidOperationException) { _legacyMouseMissing = true; }
+            }
+            if (_inputSystemPosition == null)
+            {
+                Type mouse = Type.GetType("UnityEngine.InputSystem.Mouse, Unity.InputSystem");
+                System.Reflection.PropertyInfo current = mouse?.GetProperty("current", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                System.Reflection.PropertyInfo position = mouse?.GetProperty("position");
+                System.Reflection.MethodInfo read = position?.PropertyType.GetMethod("ReadValue", Type.EmptyTypes);
+                _inputSystemPosition = current == null || read == null ? (Func<Vector2>)(() => new Vector2(Screen.width / 2f, Screen.height / 2f)) : () =>
+                {
+                    object device = current.GetValue(null);
+                    object control = device != null ? position.GetValue(device) : null;
+                    return control != null ? (Vector2)read.Invoke(control, null) : new Vector2(Screen.width / 2f, Screen.height / 2f);
+                };
+            }
+            return _inputSystemPosition();
+        }
+
         /// <summary>Mouse movement this frame in the old input manager's units, read from whichever input backend the project uses.</summary>
         private Vector2 MouseDelta()
         {
@@ -483,6 +654,7 @@ namespace ParelVR.Volt.Simulator
 
         private void UpdateMouseLook()
         {
+            if (Body != null && Body.CapturesMouse) return; // the mouse points in the menu or moves the test hand
             // At the start the Game view may not have focus yet; the lock waits for it.
             if (_wantLock && Application.isFocused)
             {
@@ -501,23 +673,41 @@ namespace ParelVR.Volt.Simulator
         // ── players ──────────────────────────────────────────────────────────
 
         public VoltPlayerHandle LocalPlayer => _local;
-        public VoltPlayerHandle Master => _local;
+        public VoltPlayerHandle Master => _master ?? _local;
         public IReadOnlyList<VoltPlayerHandle> Players => _players;
-        public VoltPlayerHandle Find(int playerId) => playerId == _local.Id ? _local : null;
-        public VoltPlayerHandle PlayerOf(Collider collider) => collider != null && collider == _body ? _local : null;
 
-        public Vector3 GetPosition(VoltPlayerHandle player) => transform.position;
-        public Quaternion GetRotation(VoltPlayerHandle player) => Quaternion.Euler(0f, InVR ? _camera.transform.eulerAngles.y : _yaw, 0f);
-        public Vector3 GetVelocity(VoltPlayerHandle player) => _body != null ? _body.velocity : Vector3.zero;
-        public bool IsGrounded(VoltPlayerHandle player) => _body != null && _body.isGrounded;
-        public bool IsInVR(VoltPlayerHandle player) => InVR;
-        public float GetAvatarEyeHeight(VoltPlayerHandle player) => EyeHeight;
-        public string GetAvatarId(VoltPlayerHandle player) => "simulated";
-        public int GetFps(VoltPlayerHandle player) => Time.smoothDeltaTime > 0f ? Mathf.RoundToInt(1f / Time.smoothDeltaTime) : 0;
-        public int GetPingMs(VoltPlayerHandle player) => 0;
+        public VoltPlayerHandle Find(int playerId)
+        {
+            foreach (VoltPlayerHandle player in _players)
+                if (player.Id == playerId) return player;
+            return null;
+        }
+
+        public VoltPlayerHandle PlayerOf(Collider collider)
+        {
+            if (collider == null) return null;
+            if (collider == _body) return _local;
+            foreach (SimulatedRemotePlayer remote in _remotes.Values)
+                if (remote != null && remote.Collider == collider) return remote.Handle;
+            return null;
+        }
+
+        public Vector3 GetPosition(VoltPlayerHandle player) => RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.Feet : transform.position;
+        public Quaternion GetRotation(VoltPlayerHandle player) =>
+            RemoteOf(player) is SimulatedRemotePlayer r ? Quaternion.Euler(0f, r.Pose.Yaw, 0f) : Quaternion.Euler(0f, InVR ? _camera.transform.eulerAngles.y : _yaw, 0f);
+        public Vector3 GetVelocity(VoltPlayerHandle player) => RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.Velocity : _body != null ? _body.velocity : Vector3.zero;
+        public bool IsGrounded(VoltPlayerHandle player) => RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.Grounded : _body != null && _body.isGrounded;
+        public bool IsInVR(VoltPlayerHandle player) => RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.InVR : InVR;
+        public float GetAvatarEyeHeight(VoltPlayerHandle player) => RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.EyeHeight : EyeHeight;
+        public string GetAvatarId(VoltPlayerHandle player) => Body != null && player == _local ? Body.AvatarId : "simulated";
+        public int GetFps(VoltPlayerHandle player) =>
+            RemoteOf(player) is SimulatedRemotePlayer r ? r.Pose.Fps : Time.smoothDeltaTime > 0f ? Mathf.RoundToInt(1f / Time.smoothDeltaTime) : 0;
+        public int GetPingMs(VoltPlayerHandle player) => _network != null ? _network.PingMs : 0;
 
         public bool TryGetTracking(VoltPlayerHandle player, VoltTrackingPoint point, out Vector3 position, out Quaternion rotation)
         {
+            if (RemoteOf(player) is SimulatedRemotePlayer remote) return remote.TryGetTracking(point, out position, out rotation);
+            if (Body != null && Body.TryGetTracking(point, out position, out rotation)) return true;
             Transform eye = _camera.transform;
             rotation = eye.rotation;
 #if VOLT_SIM_XR
@@ -544,6 +734,7 @@ namespace ParelVR.Volt.Simulator
 
         public bool TryGetBone(VoltPlayerHandle player, VoltBone bone, out Vector3 position, out Quaternion rotation)
         {
+            if (Body != null && player == _local && Body.TryGetBone(bone, out position, out rotation)) return true;
             if (bone == VoltBone.Head) return TryGetTracking(player, VoltTrackingPoint.Head, out position, out rotation);
             if (bone == VoltBone.RightHand) return TryGetTracking(player, VoltTrackingPoint.RightHand, out position, out rotation);
             if (bone == VoltBone.LeftHand) return TryGetTracking(player, VoltTrackingPoint.LeftHand, out position, out rotation);
@@ -613,8 +804,8 @@ namespace ParelVR.Volt.Simulator
         public string WorldId => "editor";
         public string WorldName => _options.WorldName ?? "Editor World";
         public string WorldVersion => "editor";
-        public string InstanceId => "editor";
-        public int Capacity => 1;
+        public string InstanceId => _network != null ? "editor-multi-client" : "editor";
+        public int Capacity => _network != null ? 16 : 1;
         public VoltInstancePrivacy Privacy => VoltInstancePrivacy.Unknown;
         public string GetInstanceProperty(string key) => null;
         public void ReturnToHub() => Debug.Log("[Volt] The world asked to return to the hub. In the editor nothing happens.");
@@ -787,9 +978,11 @@ namespace ParelVR.Volt.Simulator
 
         private void Update()
         {
+            PollNetwork();
 #if VOLT_SIM_XR
             if (InVR) ReadVR();
 #endif
+            bool still = _immobile || (Body != null && Body.LocomotionDisabled);
             if (_seat != null)
             {
                 _body.enabled = false;
@@ -801,14 +994,14 @@ namespace ParelVR.Volt.Simulator
             else
             {
                 float speed = Get(VoltInputAction.Run) ? RunSpeed : WalkSpeed;
-                Vector2 axis = _immobile ? Vector2.zero : GetAxis(VoltInputAction.Movement);
+                Vector2 axis = still ? Vector2.zero : GetAxis(VoltInputAction.Movement);
                 float heading = InVR ? _camera.transform.eulerAngles.y : _yaw;
                 Vector3 move = Quaternion.Euler(0f, heading, 0f) * Vector3.ClampMagnitude(new Vector3(axis.x, 0f, axis.y), 1f) * speed + _velocity;
                 _velocity = Vector3.Lerp(_velocity, Vector3.zero, 5f * Time.deltaTime);
                 if (_body.isGrounded)
                 {
                     if (_vertical < 0f) _vertical = -1f;
-                    if (_jumpQueued && !_immobile) _vertical = JumpImpulse;
+                    if (_jumpQueued && !still) _vertical = JumpImpulse;
                 }
                 _jumpQueued = false;
                 _vertical += Physics.gravity.y * GravityStrength * Time.deltaTime;
@@ -817,6 +1010,7 @@ namespace ParelVR.Volt.Simulator
                 if (transform.position.y < -100f) Respawn();
             }
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+            SendPose();
 
 #if VOLT_SIM_XR
             if (InVR)
@@ -835,15 +1029,17 @@ namespace ParelVR.Volt.Simulator
 #endif
             UpdateMouseLook();
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
-            _camera.transform.localPosition = new Vector3(0f, EyeHeight, 0f);
+            _camera.transform.localPosition = new Vector3(0f, EyeHeight, Body != null ? Body.ViewForward : 0f);
             _camera.transform.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+            Body?.AdjustView(_camera.transform);
             // The pickup may have been taken away or dropped by a script.
             if (_held != null && (World == null || !World.IsLoaded || !World.IsHeldLocally(_held))) _held = null;
             Transform eye = _camera.transform;
             var ray = new Ray(eye.position, eye.forward);
+            bool menu = Body != null && Body.CapturesMouse;
             // World UI in front of what the crosshair would use gets the mouse instead.
-            float ui = _held == null ? _ui.Cast(ray, RayLength, out _, out _, out _) : float.PositiveInfinity;
-            _aim = _held == null ? Aim(eye.position, eye.forward, DesktopReach, out _, ui) : null;
+            float ui = _held == null && !menu ? _ui.Cast(ray, RayLength, out _, out _, out _) : float.PositiveInfinity;
+            _aim = _held == null && !menu ? Aim(eye.position, eye.forward, DesktopReach, out _, ui) : null;
             bool onUI = _aim == null && !float.IsInfinity(ui);
             PointUI(_ui, ray, onUI && _mouseLeft, ref _uiKeyWas, onUI ? _scroll : Vector2.zero);
             _scroll = Vector2.zero;
@@ -873,6 +1069,11 @@ namespace ParelVR.Volt.Simulator
                     if (_keys.Remove(e.keyCode) && e.keyCode == KeyCode.F && _held != null) World?.PickupUse(_held, false);
                     break;
                 case EventType.MouseDown:
+                    if (Body != null && Body.CapturesMouse)
+                    {
+                        Body.MouseButton(e.button, true);
+                        if (Body.MenuOpen || e.button != 1) break; // the right button still turns the view around the test hand
+                    }
                     // A click on the Game view while the mouse is free only takes the mouse back.
                     if (e.button == 0 && !_locked && !InVR)
                     {
@@ -888,6 +1089,7 @@ namespace ParelVR.Volt.Simulator
                     if (e.button == 1) _mouseRight = true;
                     break;
                 case EventType.MouseUp:
+                    if (Body != null && Body.CapturesMouse) Body.MouseButton(e.button, false);
                     if (e.button == 0)
                     {
                         _mouseLeft = false;
@@ -896,11 +1098,16 @@ namespace ParelVR.Volt.Simulator
                     if (e.button == 1) _mouseRight = false;
                     break;
                 case EventType.MouseDrag:
-                    if (e.button != 1) break;
+                    if (e.button != 1 || (Body != null && Body.MenuOpen)) break;
                     _yaw += e.delta.x * 0.2f;
                     _pitch = Mathf.Clamp(_pitch + e.delta.y * 0.2f, -89f, 89f);
                     break;
                 case EventType.ScrollWheel:
+                    if (Body != null && Body.CapturesMouse)
+                    {
+                        if (!Body.MenuOpen) Body.Scroll(e.delta.y / 3f);
+                        break;
+                    }
                     // Over UI the wheel scrolls it (three IMGUI units a notch); with a held object it pushes or pulls it, as in the client.
                     if (_held == null) _scroll += new Vector2(e.delta.x, -e.delta.y) / 3f;
                     if (_held == null || World == null || Mathf.Abs(e.delta.y) < 0.01f) break;
@@ -910,13 +1117,22 @@ namespace ParelVR.Volt.Simulator
             }
             if (e.type != EventType.Repaint) return;
 
+            if (_network != null)
+            {
+                string who = _local.DisplayName + (Master == _local ? " (master)" : string.Empty);
+                GUI.Label(new Rect(10f, 8f, Screen.width - 20f, 20f), _network.Online
+                    ? "Multi-client: " + who + "    " + _players.Count + (_players.Count == 1 ? " player" : " players") + (_network.IsRelayHost ? "    meeting point" : string.Empty)
+                    : "Multi-client: connection closed, " + who + " plays alone");
+            }
             var hint = new Rect(10f, Screen.height - 26f, Screen.width - 20f, 20f);
             string mouse = _locked ? "Esc free mouse" : "click to look around";
-            GUI.Label(hint, InVR ? "VR: grip grab    trigger use    left stick move    right stick turn    A jump"
+            string avatar = Body != null ? "    " + Body.Hint : string.Empty;
+            GUI.Label(hint, Body != null && Body.CapturesMouse ? Body.Hint
+                : InVR ? "VR: grip grab    trigger use    left stick move    right stick turn    A jump" + avatar
                 : _held != null ? "Click / F use    G drop    wheel push / pull    WASD move    " + mouse
-                : _seat != null ? "Space stand up    " + mouse
-                : "WASD move    Space jump    Shift run    click / E use and pick up    " + mouse);
-            if (InVR) return;
+                : _seat != null ? "Space stand up    " + mouse + avatar
+                : "WASD move    Space jump    Shift run    click / E use and pick up    " + mouse + avatar);
+            if (InVR || (Body != null && Body.CapturesMouse)) return;
             GUI.Label(new Rect(Screen.width / 2f - 4f, Screen.height / 2f - 10f, 20f, 20f), "+");
             if (_aim != null)
             {
@@ -927,6 +1143,7 @@ namespace ParelVR.Volt.Simulator
 
         private void Pressed(KeyCode key)
         {
+            if (Body != null && Body.KeyPressed(key)) return;
             if (key == KeyCode.Escape) UnlockCursor();
             else if (key == KeyCode.Space) _jumpQueued = true;
             else if (key == KeyCode.E && _held == null) _held = Use(_aim, VoltHand.Right);
@@ -950,7 +1167,12 @@ namespace ParelVR.Volt.Simulator
         {
             if (_locked) UnlockCursor();
             _keyboard.Destroy();
-            foreach (Material material in _materials) if (material != null) Destroy(material);
+            _look?.Destroy();
+            foreach (SimulatedRemotePlayer remote in _remotes.Values)
+                if (remote != null) Destroy(remote.gameObject);
+            _remotes.Clear();
+            ShutdownNetwork();
+            Body?.Detach();
 #if VOLT_SIM_XR
             StopVR();
 #endif
@@ -960,6 +1182,8 @@ namespace ParelVR.Volt.Simulator
 
 #if !VOLT_SIM_XR
         private bool InVR => false;
+        internal bool VRMenuToggle() => false;
+        internal void VRMenuInput(out Vector2 stick, out bool choose, out bool back) { stick = Vector2.zero; choose = back = false; }
 #else
         private sealed class Hand
         {
@@ -1066,9 +1290,10 @@ namespace ParelVR.Volt.Simulator
         {
             ReadHand(_leftHand);
             ReadHand(_rightHand);
-            if (_rightHand.Primary && !_rightHand.PrimaryWas) _jumpQueued = true;
-            // Snap turn around the head, so the view does not swing sideways.
-            float x = _rightHand.OnUI ? 0f : _rightHand.Stick.x;
+            bool menu = Body != null && Body.MenuOpen;
+            if (_rightHand.Primary && !_rightHand.PrimaryWas && !menu) _jumpQueued = true;
+            // Snap turn around the head, so the view does not swing sideways. The open menu has the right stick.
+            float x = _rightHand.OnUI || menu ? 0f : _rightHand.Stick.x;
             if (Mathf.Abs(x) < 0.3f) _turned = false;
             else if (!_turned && Mathf.Abs(x) > 0.7f && _seat == null)
             {
@@ -1080,6 +1305,24 @@ namespace ParelVR.Volt.Simulator
                 transform.position += head - _camera.transform.position;
                 _body.enabled = true;
             }
+        }
+
+        private bool _menuButtonWas;
+
+        /// <summary>The left menu button was pressed this frame: it opens and closes the avatar's radial menu.</summary>
+        internal bool VRMenuToggle()
+        {
+            bool pressed = _leftHand.Menu && !_menuButtonWas;
+            _menuButtonWas = _leftHand.Menu;
+            return pressed;
+        }
+
+        /// <summary>The right stick points in the menu, the trigger chooses, A goes back.</summary>
+        internal void VRMenuInput(out Vector2 stick, out bool choose, out bool back)
+        {
+            stick = _rightHand.Stick;
+            choose = _rightHand.Trigger && !_rightHand.TriggerWas;
+            back = _rightHand.Primary && !_rightHand.PrimaryWas;
         }
 
         private void ReadHand(Hand hand)

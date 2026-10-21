@@ -3,7 +3,8 @@
     "rootNamespace": "ParelVR.Volt.Simulator",
     "references": [
         "ParelVR.WorldSDK",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "ParelVR.AvatarSDK"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

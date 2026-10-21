@@ -111,7 +111,9 @@ namespace ParelVR.SDK.Avatars.Validation
                 if (chain != null) stats.MotionBoneTransforms += chain.GetComponentsInChildren<Transform>(true).Length;
             }
             stats.MotionBoneColliders = root.GetComponentsInChildren<ParelMotionBoneCollider>(true).Length;
-            stats.Contacts = root.GetComponentsInChildren<ParelContactBase>(true).Length;
+            // Local Only contacts run on the wearer's client alone and do not count, as with VRChat.
+            foreach (ParelContactBase contact in root.GetComponentsInChildren<ParelContactBase>(true))
+                if (!contact.localOnly) stats.Contacts++;
             return stats;
         }
 

@@ -4,7 +4,9 @@
     "references": [
         "ParelVR.SDK.Core",
         "ParelVR.SDK.Build",
-        "ParelVR.Volt.Simulator"
+        "ParelVR.Volt.Simulator",
+        "ParelVR.AvatarSDK",
+        "ParelVR.SDK.Avatars"
     ],
     "includePlatforms": [
         "Editor"

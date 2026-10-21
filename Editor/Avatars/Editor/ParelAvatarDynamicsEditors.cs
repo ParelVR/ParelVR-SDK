@@ -313,10 +313,15 @@ namespace ParelVR.SDK.Avatars.Inspectors
         protected override bool IsReceiver => true;
     }
 
+    /// <summary>
+    /// Contacts made simple: pick a preset (Headpat, Boop, Hug, High Five, Stomp, Hand Touch), choose who can touch it
+    /// with body-part buttons instead of typing tags, add the parameters you want from one receiver, and let the
+    /// inspector add those parameters to the FX controller.
+    /// </summary>
     public abstract class ParelContactEditorBase : Editor
     {
-        /// <summary>The tags ParelVR's automatic avatar colliders send.</summary>
-        private static readonly string[] BuiltInTags =
+        /// <summary>The tags ParelVR's automatic avatar contacts send.</summary>
+        internal static readonly string[] BuiltInTags =
         {
             "Head", "Torso", "Hand", "HandL", "HandR", "Foot", "FootL", "FootR",
             "Finger", "FingerL", "FingerR", "FingerIndex", "FingerIndexL", "FingerIndexR",
@@ -324,52 +329,143 @@ namespace ParelVR.SDK.Avatars.Inspectors
             "FingerLittle", "FingerLittleL", "FingerLittleR",
         };
 
+        private static readonly (string Label, string Tag)[] BodyParts =
+        {
+            ("Head", "Head"), ("Torso", "Torso"), ("Hands", "Hand"), ("Fingers", "Finger"), ("Index fingers", "FingerIndex"), ("Feet", "Foot"),
+        };
+
+        private enum Preset { Choose, Headpat, Boop, Hug, HighFive, Stomp, HandTouch }
+
+        private static readonly string[] PresetNames = { "Apply a preset...", "Headpat (head, hands and fingers, proximity + taps)", "Boop (nose, fingertips, pulse + taps)",
+            "Hug (torso, hands, held)", "High Five (hand, other people's hands, pulse)", "Stomp (feet, pulse + speed)", "Hand Touch (anything a hand touches, held)" };
+
+        private bool _showAdvanced;
+
         protected abstract bool IsReceiver { get; }
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
+            var contact = (ParelContactBase)target;
+            bool onAvatar = contact.GetComponentInParent<ParelAvatarDescriptor>() != null;
+
+            if (IsReceiver && !serializedObject.isEditingMultipleObjects)
+            {
+                int preset = EditorGUILayout.Popup(0, PresetNames);
+                if (preset != 0)
+                {
+                    serializedObject.ApplyModifiedProperties();
+                    ApplyPreset((ParelContactReceiver)target, (Preset)preset);
+                    serializedObject.Update();
+                }
+            }
 
             DynamicsGUI.Section("Shape");
-            DynamicsGUI.Prop(serializedObject, "rootTransform", "Root Transform");
+            DynamicsGUI.Prop(serializedObject, "rootTransform", "Follow");
             SerializedProperty shape = serializedObject.FindProperty("shapeType");
-            EditorGUILayout.PropertyField(shape, new GUIContent("Shape Type"));
-            DynamicsGUI.Prop(serializedObject, "radius", "Radius");
-            if (shape.enumValueIndex == (int)ParelContactBase.ShapeType.Capsule) DynamicsGUI.Prop(serializedObject, "height", "Height");
+            EditorGUILayout.PropertyField(shape, new GUIContent("Shape"));
+            var shapeType = (ParelContactBase.ShapeType)shape.enumValueIndex;
+            if (shapeType == ParelContactBase.ShapeType.Box) DynamicsGUI.Prop(serializedObject, "size", "Size");
+            else DynamicsGUI.Prop(serializedObject, "radius", "Radius");
+            if (shapeType == ParelContactBase.ShapeType.Capsule) DynamicsGUI.Prop(serializedObject, "height", "Height");
             DynamicsGUI.Prop(serializedObject, "position", "Position");
             SerializedProperty rotation = serializedObject.FindProperty("rotation");
             EditorGUI.BeginChangeCheck();
             Vector3 euler = EditorGUILayout.Vector3Field("Rotation", rotation.quaternionValue.eulerAngles);
             if (EditorGUI.EndChangeCheck()) rotation.quaternionValue = Quaternion.Euler(euler);
 
-            DynamicsGUI.Section("Filtering");
-            if (IsReceiver)
-            {
-                DynamicsGUI.Prop(serializedObject, "allowSelf", "Allow Self");
-                DynamicsGUI.Prop(serializedObject, "allowOthers", "Allow Others");
-            }
-            DynamicsGUI.Prop(serializedObject, "localOnly", "Local Only");
+            DynamicsGUI.Section(IsReceiver ? "Touched by" : "Touches as");
             SerializedProperty tags = serializedObject.FindProperty("collisionTags");
-            EditorGUILayout.PropertyField(tags, new GUIContent("Collision Tags"), true);
-            if (GUILayout.Button("Add Built-in Tag ▾", EditorStyles.miniButton, GUILayout.Width(130))) ShowTagMenu(tags);
+            BodyPartButtons(tags);
+            EditorGUILayout.PropertyField(tags, new GUIContent("Tags"), true);
+            if (GUILayout.Button("Add a standard tag ▾", EditorStyles.miniButton, GUILayout.Width(150))) ShowTagMenu(tags);
+            if (tags.arraySize > ParelContactBase.MaxTags) EditorGUILayout.HelpBox("Only the first " + ParelContactBase.MaxTags + " tags are used.", MessageType.Warning);
+            if (tags.arraySize == 0) EditorGUILayout.HelpBox(IsReceiver ? "No tags: nothing can touch this receiver." : "No tags: no receiver can feel this sender.", MessageType.Warning);
 
             if (IsReceiver)
             {
-                DynamicsGUI.Section("Receiver");
-                SerializedProperty type = serializedObject.FindProperty("receiverType");
-                EditorGUILayout.PropertyField(type, new GUIContent("Receiver Type"));
-                DynamicsGUI.Prop(serializedObject, "parameter", "Parameter");
-                if (type.enumValueIndex == (int)ParelContactReceiver.ReceiverType.OnEnter) DynamicsGUI.Prop(serializedObject, "minVelocity", "Min Velocity");
-                string kind = type.enumValueIndex == (int)ParelContactReceiver.ReceiverType.Proximity ? "a Float (0 at the edge, 1 at the center)" : "a Bool";
-                EditorGUILayout.LabelField("The parameter is set as " + kind + ".", EditorStyles.miniLabel);
+                if (onAvatar)
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        DynamicsGUI.Prop(serializedObject, "allowSelf", "Me");
+                        DynamicsGUI.Prop(serializedObject, "allowOthers", "Others");
+                    }
+                }
+                SerializedProperty sources = serializedObject.FindProperty("sources");
+                sources.intValue = (int)(ParelContactReceiver.Sources)EditorGUILayout.EnumFlagsField(new GUIContent("From", "Other avatars, the world's own senders, or both."), (ParelContactReceiver.Sources)sources.intValue);
+
+                DynamicsGUI.Section("What it sets");
+                if (onAvatar)
+                {
+                    SerializedProperty type = serializedObject.FindProperty("receiverType");
+                    EditorGUILayout.PropertyField(type, new GUIContent("Main", "Constant: while touched. On Enter: a short pulse as a touch starts. Proximity: 0 at the edge to 1 at the centre."));
+                    DynamicsGUI.Prop(serializedObject, "parameter", "Parameter");
+                    var receiverType = (ParelContactReceiver.ReceiverType)type.enumValueIndex;
+                    if (receiverType != ParelContactReceiver.ReceiverType.Proximity) DynamicsGUI.Prop(serializedObject, "value", "Value");
+                    Outputs(serializedObject.FindProperty("outputs"), serializedObject.FindProperty("parameter").stringValue);
+                    if (!serializedObject.isEditingMultipleObjects && GUILayout.Button("Add these parameters to the FX controller")) AddParametersToFx((ParelContactReceiver)target);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("In a world a receiver calls its events. Wire them to a Volt script's public method, like a UI button.", MessageType.Info);
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("onContactEnter"), new GUIContent("On Contact Enter"));
+                    EditorGUILayout.PropertyField(serializedObject.FindProperty("onContactExit"), new GUIContent("On Contact Exit"));
+                }
+
+                DynamicsGUI.Section("Feel");
+                DynamicsGUI.Prop(serializedObject, "hold", "Hold pulses (s)");
+                DynamicsGUI.Prop(serializedObject, "smoothing", "Smoothing (s)");
+                DynamicsGUI.Prop(serializedObject, "minVelocity", "Min touch speed");
+                if (shapeType == ParelContactBase.ShapeType.Box) DynamicsGUI.Prop(serializedObject, "proximityFromFront", "Proximity from front");
+                DynamicsGUI.Prop(serializedObject, "haptics", "Haptics");
+            }
+
+            _showAdvanced = EditorGUILayout.Foldout(_showAdvanced, "Advanced", true);
+            if (_showAdvanced)
+            {
+                EditorGUI.indentLevel++;
+                DynamicsGUI.Prop(serializedObject, "localOnly", "Local Only");
+                if (onAvatar) DynamicsGUI.Prop(serializedObject, "activeWhen", "Active When");
+                EditorGUI.indentLevel--;
             }
 
             serializedObject.ApplyModifiedProperties();
 
             if (!serializedObject.isEditingMultipleObjects && target is ParelContactReceiver receiver && Application.isPlaying)
             {
-                EditorGUILayout.LabelField("Current value", receiver.CurrentValue.ToString("0.00"));
+                DynamicsGUI.Section("Live");
+                EditorGUILayout.LabelField("Value", receiver.CurrentValue.ToString("0.00"));
+                EditorGUILayout.LabelField("Touching", receiver.TouchCount.ToString());
+                EditorGUILayout.LabelField("Taps", receiver.TapCount.ToString());
                 Repaint();
+            }
+        }
+
+        // ── tags as body parts ───────────────────────────────────────────────
+
+        private static void BodyPartButtons(SerializedProperty tags)
+        {
+            var present = new HashSet<string>();
+            for (int i = 0; i < tags.arraySize; i++) present.Add(tags.GetArrayElementAtIndex(i).stringValue);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                foreach ((string label, string tag) in BodyParts)
+                {
+                    bool on = present.Contains(tag);
+                    bool want = GUILayout.Toggle(on, label, EditorStyles.miniButton);
+                    if (want == on) continue;
+                    if (want)
+                    {
+                        tags.arraySize++;
+                        tags.GetArrayElementAtIndex(tags.arraySize - 1).stringValue = tag;
+                    }
+                    else
+                    {
+                        for (int i = tags.arraySize - 1; i >= 0; i--)
+                            if (tags.GetArrayElementAtIndex(i).stringValue == tag) tags.DeleteArrayElementAtIndex(i);
+                    }
+                }
             }
         }
 
@@ -399,6 +495,219 @@ namespace ParelVR.SDK.Avatars.Inspectors
             menu.ShowAsContext();
         }
 
+        // ── outputs ──────────────────────────────────────────────────────────
+
+        private static void Outputs(SerializedProperty outputs, string mainParameter)
+        {
+            for (int i = 0; i < outputs.arraySize; i++)
+            {
+                SerializedProperty output = outputs.GetArrayElementAtIndex(i);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.PropertyField(output.FindPropertyRelative("kind"), GUIContent.none, GUILayout.Width(110));
+                    EditorGUILayout.PropertyField(output.FindPropertyRelative("parameter"), GUIContent.none);
+                    if (GUILayout.Button("−", EditorStyles.miniButton, GUILayout.Width(22)))
+                    {
+                        outputs.DeleteArrayElementAtIndex(i);
+                        break;
+                    }
+                }
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("+ Also set ▾", EditorStyles.miniButton, GUILayout.Width(110)))
+                {
+                    var menu = new GenericMenu();
+                    SerializedObject so = outputs.serializedObject;
+                    string path = outputs.propertyPath;
+                    foreach (ParelContactReceiver.OutputKind kind in Enum.GetValues(typeof(ParelContactReceiver.OutputKind)))
+                    {
+                        ParelContactReceiver.OutputKind captured = kind;
+                        menu.AddItem(new GUIContent(Describe(kind)), false, () =>
+                        {
+                            so.Update();
+                            SerializedProperty list = so.FindProperty(path);
+                            list.arraySize++;
+                            SerializedProperty added = list.GetArrayElementAtIndex(list.arraySize - 1);
+                            added.FindPropertyRelative("kind").enumValueIndex = (int)captured;
+                            string stem = string.IsNullOrEmpty(mainParameter) ? "Contact" : mainParameter;
+                            added.FindPropertyRelative("parameter").stringValue = stem + "_" + captured;
+                            so.ApplyModifiedProperties();
+                        });
+                    }
+                    menu.ShowAsContext();
+                }
+            }
+        }
+
+        private static string Describe(ParelContactReceiver.OutputKind kind)
+        {
+            switch (kind)
+            {
+                case ParelContactReceiver.OutputKind.Touching: return "Touching (Bool)";
+                case ParelContactReceiver.OutputKind.Entered: return "Entered pulse (Bool)";
+                case ParelContactReceiver.OutputKind.Exited: return "Exited pulse (Bool)";
+                case ParelContactReceiver.OutputKind.Proximity: return "Proximity 0-1 (Float)";
+                case ParelContactReceiver.OutputKind.Count: return "How many touch it (Int)";
+                case ParelContactReceiver.OutputKind.Taps: return "Taps counter (Int)";
+                case ParelContactReceiver.OutputKind.Speed: return "Touch speed 0-1 (Float)";
+                case ParelContactReceiver.OutputKind.DirectionX: return "Direction left-right (Float)";
+                case ParelContactReceiver.OutputKind.DirectionY: return "Direction down-up (Float)";
+                case ParelContactReceiver.OutputKind.DirectionZ: return "Direction back-front (Float)";
+                case ParelContactReceiver.OutputKind.FromSelf: return "Touched by me (Bool)";
+                default: return "Touched by others (Bool)";
+            }
+        }
+
+        private static UnityEngine.AnimatorControllerParameterType TypeOf(ParelContactReceiver.OutputKind kind)
+        {
+            switch (kind)
+            {
+                case ParelContactReceiver.OutputKind.Proximity:
+                case ParelContactReceiver.OutputKind.Speed:
+                case ParelContactReceiver.OutputKind.DirectionX:
+                case ParelContactReceiver.OutputKind.DirectionY:
+                case ParelContactReceiver.OutputKind.DirectionZ: return UnityEngine.AnimatorControllerParameterType.Float;
+                case ParelContactReceiver.OutputKind.Count:
+                case ParelContactReceiver.OutputKind.Taps: return UnityEngine.AnimatorControllerParameterType.Int;
+                default: return UnityEngine.AnimatorControllerParameterType.Bool;
+            }
+        }
+
+        /// <summary>Adds every parameter the receiver sets to the avatar's FX controller, with the right type, if it is not there yet.</summary>
+        private static void AddParametersToFx(ParelContactReceiver receiver)
+        {
+            ParelAvatarDescriptor descriptor = receiver.GetComponentInParent<ParelAvatarDescriptor>();
+            var fx = descriptor != null ? descriptor.FxController as UnityEditor.Animations.AnimatorController : null;
+            if (fx == null)
+            {
+                EditorUtility.DisplayDialog("Contact Receiver", "The avatar has no FX controller yet. Set one under Playable Layers on the Avatar Descriptor first.", "OK");
+                return;
+            }
+            var wanted = new List<(string, UnityEngine.AnimatorControllerParameterType)>();
+            if (!string.IsNullOrEmpty(receiver.parameter))
+            {
+                bool flt = receiver.receiverType == ParelContactReceiver.ReceiverType.Proximity || !Mathf.Approximately(receiver.value, Mathf.Round(receiver.value));
+                bool integer = !flt && !Mathf.Approximately(receiver.value, 1f) && !Mathf.Approximately(receiver.value, 0f);
+                wanted.Add((receiver.parameter, flt ? UnityEngine.AnimatorControllerParameterType.Float : integer ? UnityEngine.AnimatorControllerParameterType.Int : UnityEngine.AnimatorControllerParameterType.Bool));
+            }
+            foreach (ParelContactReceiver.Output output in receiver.outputs)
+                if (output != null && !string.IsNullOrEmpty(output.parameter)) wanted.Add((output.parameter, TypeOf(output.kind)));
+            int added = 0;
+            Undo.RecordObject(fx, "Add contact parameters");
+            foreach ((string name, UnityEngine.AnimatorControllerParameterType type) in wanted)
+            {
+                bool exists = false;
+                foreach (UnityEngine.AnimatorControllerParameter p in fx.parameters) if (p.name == name) { exists = true; break; }
+                if (exists) continue;
+                fx.AddParameter(name, type);
+                added++;
+            }
+            EditorUtility.SetDirty(fx);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[Contacts] Added " + added + " parameter" + (added == 1 ? "" : "s") + " to " + fx.name + ".", fx);
+        }
+
+        // ── presets ──────────────────────────────────────────────────────────
+
+        private static void ApplyPreset(ParelContactReceiver receiver, Preset preset)
+        {
+            Undo.RecordObject(receiver, "Contact preset");
+            ParelAvatarDescriptor descriptor = receiver.GetComponentInParent<ParelAvatarDescriptor>();
+            Animator animator = descriptor != null ? (descriptor.AvatarAnimator != null ? descriptor.AvatarAnimator : descriptor.GetComponentInChildren<Animator>()) : null;
+            Transform Bone(HumanBodyBones bone) => animator != null && animator.isHuman ? animator.GetBoneTransform(bone) : null;
+            float scale = descriptor != null ? Mathf.Max(0.01f, descriptor.transform.lossyScale.y) : 1f;
+            string stem = Stem(receiver, preset);
+            receiver.outputs = new List<ParelContactReceiver.Output>();
+            receiver.allowSelf = false;
+            receiver.allowOthers = true;
+            receiver.rotation = Quaternion.identity;
+            receiver.hold = 0.1f;
+            switch (preset)
+            {
+                case Preset.Headpat:
+                    receiver.rootTransform = Bone(HumanBodyBones.Head) ?? receiver.rootTransform;
+                    receiver.shapeType = ParelContactBase.ShapeType.Sphere;
+                    receiver.radius = 0.16f;
+                    receiver.position = new Vector3(0f, 0.14f, 0f) / scale;
+                    receiver.collisionTags = new List<string> { "Hand", "Finger" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.Proximity;
+                    receiver.smoothing = 0.1f;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Touching, parameter = stem + "_Touching" });
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Taps, parameter = stem + "_Taps" });
+                    break;
+                case Preset.Boop:
+                    receiver.rootTransform = Bone(HumanBodyBones.Head) ?? receiver.rootTransform;
+                    receiver.shapeType = ParelContactBase.ShapeType.Sphere;
+                    receiver.radius = 0.03f;
+                    receiver.position = new Vector3(0f, 0.06f, 0.1f) / scale;
+                    receiver.collisionTags = new List<string> { "FingerIndex" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.OnEnter;
+                    receiver.hold = 0.2f;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Taps, parameter = stem + "_Taps" });
+                    receiver.haptics = 0.4f;
+                    break;
+                case Preset.Hug:
+                    receiver.rootTransform = Bone(HumanBodyBones.Chest) ?? receiver.rootTransform;
+                    receiver.shapeType = ParelContactBase.ShapeType.Capsule;
+                    receiver.radius = 0.18f;
+                    receiver.height = 0.5f;
+                    receiver.position = Vector3.zero;
+                    receiver.collisionTags = new List<string> { "Hand" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.Constant;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Count, parameter = stem + "_Hands" });
+                    break;
+                case Preset.HighFive:
+                    receiver.rootTransform = Bone(HumanBodyBones.RightHand) ?? receiver.rootTransform;
+                    receiver.shapeType = ParelContactBase.ShapeType.Sphere;
+                    receiver.radius = 0.08f;
+                    receiver.position = new Vector3(0f, 0.06f, 0f) / scale;
+                    receiver.collisionTags = new List<string> { "Hand" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.OnEnter;
+                    receiver.minVelocity = 0.8f;
+                    receiver.hold = 0.25f;
+                    receiver.haptics = 0.8f;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Speed, parameter = stem + "_Speed" });
+                    break;
+                case Preset.Stomp:
+                    receiver.rootTransform = null;
+                    receiver.shapeType = ParelContactBase.ShapeType.Box;
+                    receiver.size = new Vector3(1f, 0.1f, 1f) / scale;
+                    receiver.position = Vector3.zero;
+                    receiver.collisionTags = new List<string> { "Foot" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.OnEnter;
+                    receiver.minVelocity = 0.5f;
+                    receiver.allowSelf = true;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Speed, parameter = stem + "_Speed" });
+                    break;
+                default:
+                    receiver.shapeType = ParelContactBase.ShapeType.Sphere;
+                    receiver.radius = 0.1f;
+                    receiver.collisionTags = new List<string> { "Hand", "Finger" };
+                    receiver.receiverType = ParelContactReceiver.ReceiverType.Constant;
+                    receiver.allowSelf = true;
+                    receiver.outputs.Add(new ParelContactReceiver.Output { kind = ParelContactReceiver.OutputKind.Proximity, parameter = stem + "_Proximity" });
+                    break;
+            }
+            if (string.IsNullOrEmpty(receiver.parameter)) receiver.parameter = stem;
+            EditorUtility.SetDirty(receiver);
+        }
+
+        private static string Stem(ParelContactReceiver receiver, Preset preset)
+        {
+            if (!string.IsNullOrEmpty(receiver.parameter)) return receiver.parameter;
+            switch (preset)
+            {
+                case Preset.Headpat: return "Headpat";
+                case Preset.Boop: return "Boop";
+                case Preset.Hug: return "Hug";
+                case Preset.HighFive: return "HighFive";
+                case Preset.Stomp: return "Stomp";
+                default: return "Touch";
+            }
+        }
+
         private void OnSceneGUI()
         {
             var contact = (ParelContactBase)target;
@@ -407,8 +716,24 @@ namespace ParelVR.SDK.Avatars.Inspectors
             Vector3 center = root.TransformPoint(contact.position);
             Quaternion rotation = root.rotation * contact.rotation;
             Handles.color = IsReceiver ? new Color(1f, 0.4f, 0.7f, 0.9f) : new Color(0.4f, 1f, 0.6f, 0.9f);
+            if (contact.shapeType == ParelContactBase.ShapeType.Box)
+            {
+                Matrix4x4 previous = Handles.matrix;
+                Handles.matrix = Matrix4x4.TRS(center, rotation, Vector3.one);
+                Handles.DrawWireCube(Vector3.zero, Vector3.Scale(contact.size, root.lossyScale));
+                Handles.matrix = previous;
+                return;
+            }
             float height = contact.shapeType == ParelContactBase.ShapeType.Capsule ? contact.height * scale : 0f;
             ParelAvatarDescriptorEditor.DrawCapsule(center, rotation, contact.radius * scale, height);
+            // Drag the radius in the Scene view.
+            EditorGUI.BeginChangeCheck();
+            float radius = Handles.RadiusHandle(rotation, center, contact.radius * scale);
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(contact, "Contact radius");
+                contact.radius = Mathf.Max(0.001f, radius / Mathf.Max(0.0001f, scale));
+            }
         }
     }
 

@@ -199,6 +199,7 @@ namespace ParelVR.AvatarSDK
         private bool _ownerResolved;
         private IParelAvatarParameterSink _sink;
         private bool _sinkResolved;
+        private int _sinkGeneration;
         private Bounds _bounds;
         private bool _suspended;
         private bool _faulted;
@@ -880,9 +881,10 @@ namespace ParelVR.AvatarSDK
         private void WriteParameters()
         {
             if (string.IsNullOrEmpty(parameter) || _count < 2) return;
-            if (!_sinkResolved)
+            if (!_sinkResolved || (_sink == null && _sinkGeneration != ParelAvatarSinks.Generation))
             {
                 _sinkResolved = true;
+                _sinkGeneration = ParelAvatarSinks.Generation;
                 _sink = ParelAvatarSinks.Find(this);
             }
             if (_sink == null) return;

@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 3
+    "minor": 4
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.6.0",
-  "hash": "ce161e17bed21582d7fabeaa8c32da93d9ed72275ee708caac9d40cfdce13b0f",
+  "sdkVersion": "1.7.0",
+  "hash": "b301b1ce46b8e728cf77a3775055e38b83822b507af24041e79fb52e003800c0",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -909,6 +909,28 @@
           "doc": "The floor point under the player: where the avatar stands."
         }
       ]
+    },
+    {
+      "id": "0xC4BD961A",
+      "name": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "docId": "T:ParelVR.Volt.Rendering.VoltRenderTexture",
+      "namespace": "ParelVR.Volt.Rendering",
+      "kind": "reference",
+      "host": "Unity",
+      "hostType": "UnityEngine.RenderTexture",
+      "base": "ParelVR.Volt.Rendering.VoltTexture",
+      "doc": "A texture a camera draws into. Give it to and show it on any renderer or raw image of the world. One can be part of the world (assigned in the inspector) or made by a script with ."
+    },
+    {
+      "id": "0x0D410B46",
+      "name": "ParelVR.Volt.Rendering.VoltTexture",
+      "docId": "T:ParelVR.Volt.Rendering.VoltTexture",
+      "namespace": "ParelVR.Volt.Rendering",
+      "kind": "reference",
+      "host": "Unity",
+      "hostType": "UnityEngine.Texture",
+      "base": "ParelVR.Volt.Objects.VoltObject",
+      "doc": "A picture: a texture that is part of the world, or a render texture a camera draws into."
     },
     {
       "id": "0x31386215",
@@ -2617,6 +2639,23 @@
       "doc": "Turns the camera to look at a position."
     },
     {
+      "id": "0x6D16001F",
+      "sig": "M:ParelVR.Volt.Cameras.VoltCamera.Render",
+      "type": "ParelVR.Volt.Cameras.VoltCamera",
+      "name": "Render",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Cameras.VoltCamera",
+      "returns": "System.Void",
+      "params": [],
+      "doc": "Draws one picture into the target texture now, for a camera that is switched off and updated only when something changes (a photo, a slow security monitor). At most once a frame per camera, and four cameras a frame."
+    },
+    {
       "id": "0x249225F8",
       "sig": "M:ParelVR.Volt.Cameras.VoltCamera.WorldToViewportPoint(UnityEngine.Vector3)",
       "type": "ParelVR.Volt.Cameras.VoltCamera",
@@ -2738,6 +2777,24 @@
       "returns": "UnityEngine.Quaternion",
       "params": [],
       "doc": "Rotation of the camera in world space."
+    },
+    {
+      "id": "0x7AC55ABE",
+      "sig": "M:ParelVR.Volt.Cameras.VoltCamera.get_TargetTexture",
+      "type": "ParelVR.Volt.Cameras.VoltCamera",
+      "name": "TargetTexture",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Cameras.VoltCamera.TargetTexture",
+      "static": false,
+      "host": "Unity",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Cameras.VoltCamera",
+      "returns": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "params": [],
+      "doc": "The render texture the camera draws into, for screens, monitors and portals: put the same texture on a renderer with . Setting it to null also switches the camera off, since a world camera never draws onto a player\u0027s screen."
     },
     {
       "id": "0x2E578CE5",
@@ -2870,6 +2927,29 @@
         }
       ],
       "doc": "Rotation of the camera in world space."
+    },
+    {
+      "id": "0xBD3B563A",
+      "sig": "M:ParelVR.Volt.Cameras.VoltCamera.set_TargetTexture(ParelVR.Volt.Rendering.VoltRenderTexture)",
+      "type": "ParelVR.Volt.Cameras.VoltCamera",
+      "name": "TargetTexture",
+      "kind": "PropertySet",
+      "property": "P:ParelVR.Volt.Cameras.VoltCamera.TargetTexture",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Cameras.VoltCamera",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "value",
+          "type": "ParelVR.Volt.Rendering.VoltRenderTexture"
+        }
+      ],
+      "doc": "The render texture the camera draws into, for screens, monitors and portals: put the same texture on a renderer with . Setting it to null also switches the camera off, since a world camera never draws onto a player\u0027s screen."
     },
     {
       "id": "0x462DB350",
@@ -6450,6 +6530,28 @@
       "doc": "Reads a number property."
     },
     {
+      "id": "0xCF951CDB",
+      "sig": "M:ParelVR.Volt.Objects.VoltRenderer.GetTexture(System.String)",
+      "type": "ParelVR.Volt.Objects.VoltRenderer",
+      "name": "GetTexture",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 1,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Objects.VoltRenderer",
+      "returns": "ParelVR.Volt.Rendering.VoltTexture",
+      "params": [
+        {
+          "name": "property",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Reads a texture property: what this renderer was given, or the material\u0027s own texture. Null when there is none."
+    },
+    {
       "id": "0x83537304",
       "sig": "M:ParelVR.Volt.Objects.VoltRenderer.SetBlendShapeWeight(System.Int32,System.Single)",
       "type": "ParelVR.Volt.Objects.VoltRenderer",
@@ -6544,6 +6646,54 @@
         }
       ],
       "doc": "Sets a number property of this renderer only."
+    },
+    {
+      "id": "0x59F98EEC",
+      "sig": "M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(ParelVR.Volt.Rendering.VoltTexture)",
+      "type": "ParelVR.Volt.Objects.VoltRenderer",
+      "name": "SetTexture",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Objects.VoltRenderer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "texture",
+          "type": "ParelVR.Volt.Rendering.VoltTexture"
+        }
+      ],
+      "doc": "Puts a texture into the main texture of this renderer only (_MainTex and _BaseMap)."
+    },
+    {
+      "id": "0xE2807070",
+      "sig": "M:ParelVR.Volt.Objects.VoltRenderer.SetTexture(System.String,ParelVR.Volt.Rendering.VoltTexture)",
+      "type": "ParelVR.Volt.Objects.VoltRenderer",
+      "name": "SetTexture",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 3,
+      "retCount": 0,
+      "since": 4,
+      "receiver": "ParelVR.Volt.Objects.VoltRenderer",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "property",
+          "type": "System.String"
+        },
+        {
+          "name": "texture",
+          "type": "ParelVR.Volt.Rendering.VoltTexture"
+        }
+      ],
+      "doc": "Puts a texture into a texture property of this renderer only, for example \u0022_MainTex\u0022, \u0022_BaseMap\u0022 or \u0022_EmissionMap\u0022: a render texture a camera draws into, or any texture of the world. Null gives the property back to the material."
     },
     {
       "id": "0x6A1F567D",
@@ -9588,6 +9738,101 @@
       "doc": "Walking speed of the local player in metres per second."
     },
     {
+      "id": "0x34C6AB31",
+      "sig": "M:ParelVR.Volt.Rendering.VoltRenderTexture.Clear(UnityEngine.Color)",
+      "type": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "name": "Clear",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 0,
+      "receiver": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "color",
+          "type": "UnityEngine.Color"
+        }
+      ],
+      "doc": "Fills the texture with one colour."
+    },
+    {
+      "id": "0xFCA4C84C",
+      "sig": "M:ParelVR.Volt.Rendering.VoltRenderTexture.Create(System.Int32,System.Int32)",
+      "type": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "name": "Create",
+      "kind": "Method",
+      "static": true,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 1,
+      "returns": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "params": [
+        {
+          "name": "width",
+          "type": "System.Int32"
+        },
+        {
+          "name": "height",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "Makes a render texture with a depth buffer. Sides from 16 to 2048 pixels; a world can have 16 of them at once and 16 million pixels in all. They are freed when the world unloads, or earlier with ."
+    },
+    {
+      "id": "0x438D3920",
+      "sig": "M:ParelVR.Volt.Rendering.VoltRenderTexture.Release",
+      "type": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "name": "Release",
+      "kind": "Method",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 1,
+      "retCount": 0,
+      "receiver": "ParelVR.Volt.Rendering.VoltRenderTexture",
+      "returns": "System.Void",
+      "params": [],
+      "doc": "Frees a texture made with . Textures that are part of the world cannot be released."
+    },
+    {
+      "id": "0xB0827F0D",
+      "sig": "M:ParelVR.Volt.Rendering.VoltTexture.get_Height",
+      "type": "ParelVR.Volt.Rendering.VoltTexture",
+      "name": "Height",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Rendering.VoltTexture.Height",
+      "static": false,
+      "host": "Unity",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "receiver": "ParelVR.Volt.Rendering.VoltTexture",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "Height in pixels."
+    },
+    {
+      "id": "0xD6CB02B2",
+      "sig": "M:ParelVR.Volt.Rendering.VoltTexture.get_Width",
+      "type": "ParelVR.Volt.Rendering.VoltTexture",
+      "name": "Width",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.Rendering.VoltTexture.Width",
+      "static": false,
+      "host": "Unity",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "receiver": "ParelVR.Volt.Rendering.VoltTexture",
+      "returns": "System.Int32",
+      "params": [],
+      "doc": "Width in pixels."
+    },
+    {
       "id": "0xA92CA256",
       "sig": "M:ParelVR.Volt.Scene.VoltScene.Destroy(ParelVR.Volt.Objects.VoltGameObject)",
       "type": "ParelVR.Volt.Scene.VoltScene",
@@ -10262,6 +10507,24 @@
       "doc": "How much of a filled image is drawn, 0 to 1."
     },
     {
+      "id": "0x52DA0DE3",
+      "sig": "M:ParelVR.Volt.UI.VoltImage.get_Texture",
+      "type": "ParelVR.Volt.UI.VoltImage",
+      "name": "Texture",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.UI.VoltImage.Texture",
+      "static": false,
+      "host": "Unity",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 4,
+      "receiver": "ParelVR.Volt.UI.VoltImage",
+      "returns": "ParelVR.Volt.Rendering.VoltTexture",
+      "params": [],
+      "doc": "The texture a raw image shows, for example a render texture a camera draws into. A sprite image keeps its sprite."
+    },
+    {
       "id": "0x13073070",
       "sig": "M:ParelVR.Volt.UI.VoltImage.set_Color(UnityEngine.Color)",
       "type": "ParelVR.Volt.UI.VoltImage",
@@ -10326,6 +10589,29 @@
         }
       ],
       "doc": "How much of a filled image is drawn, 0 to 1."
+    },
+    {
+      "id": "0x6F707DB3",
+      "sig": "M:ParelVR.Volt.UI.VoltImage.set_Texture(ParelVR.Volt.Rendering.VoltTexture)",
+      "type": "ParelVR.Volt.UI.VoltImage",
+      "name": "Texture",
+      "kind": "PropertySet",
+      "property": "P:ParelVR.Volt.UI.VoltImage.Texture",
+      "static": false,
+      "host": "Unity",
+      "capability": 16,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 4,
+      "receiver": "ParelVR.Volt.UI.VoltImage",
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "value",
+          "type": "ParelVR.Volt.Rendering.VoltTexture"
+        }
+      ],
+      "doc": "The texture a raw image shows, for example a render texture a camera draws into. A sprite image keeps its sprite."
     },
     {
       "id": "0x0553060D",
