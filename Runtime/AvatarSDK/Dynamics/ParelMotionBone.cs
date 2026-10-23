@@ -67,6 +67,9 @@ namespace ParelVR.AvatarSDK
         private const float TeleportDistance = 3f;
         /// <summary>A turn sharper than this in one frame (a snap turn) carries the chain round instead of whipping it.</summary>
         private const float SnapTurnDegrees = 20f;
+        // How much of the avatar's own walking, flying and turning the bones are carried through (VRChat-like feel):
+        // starting, stopping and sharp moves still swing them, steady movement no longer leaves them trailing.
+        private const float LocomotionCarry = 0.8f;
         private const float GravityStrength = 0.12f;
 
         [Tooltip("1.1 adds Max Squish and Stretch Motion. Keep 1.0 for Motion Bones tuned before that.")]
@@ -195,6 +198,8 @@ namespace ParelVR.AvatarSDK
         private Vector3 _lastMovePosition;
         private Quaternion _lastAnchorRotation = Quaternion.identity;
         private bool _hasLastMove;
+        private Vector3 _lastOwnerPosition;
+        private bool _hasLastOwner;
         private Transform _ownerRoot;
         private bool _ownerResolved;
         private IParelAvatarParameterSink _sink;
@@ -462,6 +467,9 @@ namespace ParelVR.AvatarSDK
             _lastMovePosition = moveAnchor;
             _lastAnchorRotation = anchorRotation;
             _hasLastMove = true;
+            Vector3 ownerMove = owner != null && _hasLastOwner ? owner.position - _lastOwnerPosition : Vector3.zero;
+            _lastOwnerPosition = owner != null ? owner.position : Vector3.zero;
+            _hasLastOwner = owner != null;
 
             // Scaled-up avatars cover more ground per frame; bone scale says nothing about that (some rigs use 100).
             float teleport = TeleportDistance * Mathf.Max(1f, owner != null ? MaxAbs(owner.lossyScale) : 1f);
@@ -481,17 +489,37 @@ namespace ParelVR.AvatarSDK
                     p.PrevPosition = target + turnDelta * (p.PrevPosition - pivot);
                 }
             }
-            else if (move != Vector3.zero)
+            else
             {
                 // Immobile: carry the particles along with the avatar so its own movement isn't felt.
+                Quaternion carryTurn = owner != null && turn > 0.01f ? Quaternion.SlerpUnclamped(Quaternion.identity, turnDelta, LocomotionCarry) : Quaternion.identity;
+                Vector3 pivot = owner != null ? owner.position : Vector3.zero;
                 for (int i = 1; i < _count; i++)
                 {
                     ref Particle p = ref _particles[i];
-                    float amount = immobile * Curve(immobileCurve, p.Depth01);
-                    if (amount <= 0f) continue;
-                    Vector3 shift = move * amount;
-                    p.Position += shift;
-                    p.PrevPosition += shift;
+                    float amount = move != Vector3.zero ? immobile * Curve(immobileCurve, p.Depth01) : 0f;
+                    if (amount > 0f)
+                    {
+                        Vector3 shift = move * amount;
+                        p.Position += shift;
+                        p.PrevPosition += shift;
+                    }
+
+                    // The avatar moving as a whole (locomotion, smooth turning) is mostly carried too, on top of
+                    // what Immobile already took, so bones don't stick out behind while the player moves.
+                    if (owner == null) continue;
+                    float extra = Mathf.Max(0f, LocomotionCarry - amount);
+                    if (extra > 0f && ownerMove != Vector3.zero)
+                    {
+                        Vector3 carry = ownerMove * extra;
+                        p.Position += carry;
+                        p.PrevPosition += carry;
+                    }
+                    if (carryTurn != Quaternion.identity)
+                    {
+                        p.Position = pivot + carryTurn * (p.Position - pivot);
+                        p.PrevPosition = pivot + carryTurn * (p.PrevPosition - pivot);
+                    }
                 }
             }
 
@@ -805,6 +833,15 @@ namespace ParelVR.AvatarSDK
 
         /// <summary>Lets posed bones fall back to normal physics.</summary>
         public void ClearPose() => _posed = false;
+
+        /// <summary>Back to the rest pose: lets go of a grab, drops a pose and restarts the motion (Reset Poses).</summary>
+        public void ResetPose()
+        {
+            ReleaseGrab(false);
+            _posed = false;
+            RestoreInitialPose();
+            _needsReset = true;
+        }
 
         private void ApplyGrab()
         {

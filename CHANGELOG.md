@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.1 (2026-10-23)
+
+### Portals in worlds
+
+- **Local Portal In / Local Portal Out**: walking through a Local Portal In takes the player to its Local Portal Out in
+  the same world, keeping where they stand in the doorway and the way they walk. Both draw a doorway outline, a ring
+  at the foot and a facing line in the Scene view, like the Spawn Point. Several Ins may share one Out; "Two Way"
+  lets an In be walked into from either side.
+- **World Portal**: enter a World ID; walking through takes the player to that world. "Show Doorway" draws the
+  ParelVR portal on all three (off: use your own models).
+
+### Motion Bones
+
+- Walking, flying and smooth turning no longer leave bones trailing far behind (moving left left them stuck out to
+  the right): the avatar's own movement is mostly carried through, so only starting, stopping and sharp moves swing
+  them, the way creators expect.
+
 ## 1.8.0 (2026-10-21)
 
 ### Platforms: build once, ParelVR makes the standalone version
