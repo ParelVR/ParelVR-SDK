@@ -13,6 +13,7 @@ namespace ParelVR.AvatarSDK
         Clothing = 4,
         Accessory = 5,
         SoftBody = 6,
+        Jiggle = 7,
     }
 
     /// <summary>
@@ -332,6 +333,10 @@ namespace ParelVR.AvatarSDK
                 case ParelMotionBonePreset.SoftBody:
                     pull = 0.4f; spring = 0.6f; stiffness = 0.5f; gravity = 0.05f; immobile = 0.2f; maxAngleX = 20f;
                     maxStretch = 0.2f; maxSquish = 0.1f; stretchMotion = 0.5f;
+                    break;
+                case ParelMotionBonePreset.Jiggle:
+                    // Loose and bouncy, held in a cone so hard pulls and sudden stops can't fold it over.
+                    pull = 0.15f; spring = 0.5f; stiffness = 0.1f; gravity = 0f; maxAngleX = 35f;
                     break;
             }
 
@@ -889,12 +894,15 @@ namespace ParelVR.AvatarSDK
             {
                 int index = path[n];
                 ref Particle p = ref _particles[index];
-                Vector3 parentPosition = _particles[p.Parent].Position;
+                ref Particle parent = ref _particles[p.Parent];
+                Vector3 parentPosition = parent.Position;
                 Vector3 direction = p.Position - parentPosition;
                 float length = direction.magnitude;
                 float stretch = maxStretch * Curve(maxStretchCurve, p.Depth01);
                 float target = Mathf.Clamp(length, p.RestLength * (1f - SquishAt(p.Depth01)), p.RestLength * (1f + stretch));
                 p.Position = length > 1e-6f ? parentPosition + direction * (target / length) : parentPosition;
+                // A hard pull can't bend bones past their limits (it used to fold them over).
+                ApplyLimit(ref p, ref parent, p.AnimPosition - parent.AnimPosition);
                 p.PrevPosition = p.Position;
             }
         }

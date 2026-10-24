@@ -146,6 +146,26 @@ namespace ParelVR.SDK.Tests
         }
 
         [Test]
+        public void Grab_StaysInsideTheAngleLimit()
+        {
+            ParelMotionBone bone = MakeChain(out _);
+            bone.limitType = ParelMotionBone.LimitType.Angle;
+            bone.maxAngleX = 30f;
+            Run(bone, 0.2f, 90f);
+
+            // Pull the tip back behind the root, which would fold the chain over on itself.
+            bone.BeginGrab(bone.ParticleCount - 1);
+            bone.SetGrabTarget(new Vector3(-0.3f, 0.1f, 0f));
+            Run(bone, 1f, 90f);
+
+            for (int i = 1; i < bone.ParticleCount; i++)
+            {
+                Vector3 dir = bone.ParticlePosition(i) - bone.ParticlePosition(i - 1);
+                Assert.That(Vector3.Angle(Vector3.right, dir), Is.LessThan(31f), $"bone {i} bent past its limit");
+            }
+        }
+
+        [Test]
         public void Stopping_JigglesPastRest()
         {
             ParelMotionBone bone = MakeChain(out Transform holder);

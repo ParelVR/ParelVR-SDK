@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.3 (2026-10-23)
+
+### Motion Bones
+
+- Grabbing and pulling a bone hard no longer bends it past its Limit (Angle, Hinge or Polar), so it can't be folded
+  over by hand any more.
+- New **Jiggle** preset: loose and bouncy (Pull 0.15, Spring 0.5, no Gravity) inside a 35° Angle limit. For jiggly
+  parts, keep a Limit on: with Limit Type None nothing stops a hard pull or a sudden stop from folding the bone.
+
 ## 1.8.2 (2026-10-23)
 
 ### Motion Bones
