@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.5 (2026-10-24)
+
+### Uploads
+
+- Worlds and avatars over 48 MB now upload in 32 MB parts, so big bundles no longer fail at the 100 MB proxy limit.
+  The server joins the parts and checks them before saving.
+
 ## 1.8.4 (2026-10-24)
 
 ### Motion Bones
