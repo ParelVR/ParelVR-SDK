@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.4 (2026-10-24)
+
+### Motion Bones
+
+- Fixed bones folding over when moving fast below 90 fps (for example 60 fps in the Editor). The chain's root was eased
+  across the frame's substeps while the bones hanging off it were moved all at once, throwing them ahead of their
+  rest by a share of every frame's movement.
+- Even with Limit Type None, a bone can no longer swing more than 120° from its rest direction.
+- A collider push can no longer shove a bone past its Limit.
+
 ## 1.8.3 (2026-10-23)
 
 ### Motion Bones

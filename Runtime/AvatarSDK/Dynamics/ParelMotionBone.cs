@@ -68,10 +68,12 @@ namespace ParelVR.AvatarSDK
         private const float TeleportDistance = 3f;
         /// <summary>A turn sharper than this in one frame (a snap turn) carries the chain round instead of whipping it.</summary>
         private const float SnapTurnDegrees = 20f;
-        // How much of the avatar's own walking, flying and turning the bones are carried through (VRChat-like feel):
+        // How much of the avatar's own walking, flying and turning the bones are carried through:
         // starting, stopping and sharp moves still swing them, steady movement no longer leaves them trailing.
         private const float LocomotionCarry = 0.8f;
         private const float GravityStrength = 0.12f;
+        /// <summary>Even with Limit None a bone never swings further than this from its rest direction (no folding over).</summary>
+        private const float MaxSwingDegrees = 120f;
 
         [Tooltip("1.1 adds Max Squish and Stretch Motion. Keep 1.0 for Motion Bones tuned before that.")]
         public Version version = Version.Version_1_1;
@@ -502,7 +504,10 @@ namespace ParelVR.AvatarSDK
                 // Immobile: carry the particles along with the avatar so its own movement isn't felt.
                 Quaternion carryTurn = owner != null && turn > 0.01f ? Quaternion.SlerpUnclamped(Quaternion.identity, turnDelta, LocomotionCarry) : Quaternion.identity;
                 Vector3 pivot = owner != null ? owner.position : Vector3.zero;
-                for (int i = 1; i < _count; i++)
+                // The root is carried too: Step eases it from here to its animated position across the frame's
+                // substeps. Carrying only the children threw them ahead of their rest by a share of each frame's
+                // movement whenever a frame took more than one step (under 90 fps), which folded them at speed.
+                for (int i = 0; i < _count; i++)
                 {
                     ref Particle p = ref _particles[i];
                     float amount = move != Vector3.zero ? immobile * Curve(immobileCurve, p.Depth01) : 0f;
@@ -698,6 +703,8 @@ namespace ParelVR.AvatarSDK
                 if (frameColliders != null && frameColliders.Count > 0)
                 {
                     Collide(ref p, ref parent, frameColliders);
+                    // A collider push can't shove a bone past its limit either.
+                    ApplyLimit(ref p, ref parent, animOffset);
                     ApplyLength(ref p, ref parent, animOffset);
                 }
             }
@@ -707,7 +714,7 @@ namespace ParelVR.AvatarSDK
 
         private void ApplyLimit(ref Particle p, ref Particle parent, Vector3 animOffset)
         {
-            if (limitType == LimitType.None || p.RestLength <= 1e-6f) return;
+            if (p.RestLength <= 1e-6f) return;
 
             Vector3 dir = p.Position - parent.Position;
             float length = dir.magnitude;
@@ -720,6 +727,13 @@ namespace ParelVR.AvatarSDK
 
             switch (limitType)
             {
+                case LimitType.None:
+                {
+                    float swing = Vector3.Angle(axis, dir);
+                    if (swing <= MaxSwingDegrees) return;
+                    dir = Vector3.Slerp(axis, dir, MaxSwingDegrees / swing);
+                    break;
+                }
                 case LimitType.Angle:
                 {
                     float angle = Vector3.Angle(axis, dir);
