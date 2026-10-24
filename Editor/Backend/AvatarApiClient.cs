@@ -96,6 +96,23 @@ namespace ParelVR.SDK.Backend
             public AvatarPerformanceRecord performance = new AvatarPerformanceRecord();
         }
 
+        /// <summary>The page details alone (no performance numbers), for saving them without a new build.</summary>
+        [Serializable]
+        public class AvatarDetailsRequest
+        {
+            public string name;
+            public string description;
+            public string releaseStatus = "private";
+            public List<string> tags = new List<string>();
+            public List<string> contentWarnings = new List<string>();
+        }
+
+        public static async Task<AvatarRecord> UpdateAvatarDetailsAsync(string avatarId, AvatarDetailsRequest payload, CancellationToken ct = default)
+        {
+            var res = await ParelApiClient.PatchJsonAsync<AvatarResponse>($"{Root}/{Uri.EscapeDataString(avatarId)}", payload, ct);
+            return res?.avatar;
+        }
+
         /// <summary>Avatars owned by the signed-in creator, newest first.</summary>
         public static async Task<List<AvatarRecord>> GetMyAvatarsAsync(CancellationToken ct = default)
         {
@@ -138,6 +155,9 @@ namespace ParelVR.SDK.Backend
             CancellationToken ct = default)
         {
             string url = $"{Root}/{Uri.EscapeDataString(avatarId)}/bundle?platform={Uri.EscapeDataString(platform)}";
+            if (bundleData != null && bundleData.Length > ParelApiClient.ChunkThresholdBytes)
+                return await ParelApiClient.PutChunkedAsync<AvatarResponse>($"{Root}/{Uri.EscapeDataString(avatarId)}/bundle",
+                    $"platform={Uri.EscapeDataString(platform)}", bundleData, progress, ct);
             return await ParelApiClient.PutBytesAsync<AvatarResponse>(url, bundleData, "application/octet-stream", progress, ct);
         }
 

@@ -152,6 +152,36 @@ namespace ParelVR.SDK.Core.Http
             return string.IsNullOrWhiteSpace(text) ? new Dictionary<string, object>() : MiniJson.AsDict(MiniJson.Parse(text));
         }
 
+        /// <summary>Bodies above this go up in parts: the proxy in front of the API refuses anything over 100 MB.</summary>
+        public const int ChunkThresholdBytes = 48 * 1024 * 1024;
+        private const int ChunkBytes = 32 * 1024 * 1024;
+
+        /// <summary>
+        /// Uploads a large body in 32 MB parts to "{root}/chunk" and joins them with "{root}/complete" (checked by
+        /// SHA-256), the way world and avatar bundles go up. extraQuery is appended to both, e.g. "platform=windows".
+        /// </summary>
+        public static async Task<T> PutChunkedAsync<T>(string root, string extraQuery, byte[] data, IProgress<float> progress = null, CancellationToken ct = default) where T : class
+        {
+            string uploadId = Guid.NewGuid().ToString("N");
+            int chunks = Math.Max(1, (data.Length + ChunkBytes - 1) / ChunkBytes);
+            string sha;
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+                sha = BitConverter.ToString(hash.ComputeHash(data)).Replace("-", string.Empty).ToLowerInvariant();
+            string extra = string.IsNullOrEmpty(extraQuery) ? string.Empty : "&" + extraQuery;
+            for (int index = 0; index < chunks; index++)
+            {
+                ct.ThrowIfCancellationRequested();
+                int offset = index * ChunkBytes;
+                int length = Math.Min(ChunkBytes, data.Length - offset);
+                var body = new byte[length];
+                Buffer.BlockCopy(data, offset, body, 0, length);
+                int done = index;
+                await PutBytesRawAsync($"{root}/chunk?uploadId={uploadId}&index={index}&total={chunks}{extra}", body, "application/octet-stream",
+                    new Progress<float>(p => progress?.Report(Math.Min(1f, (done + p) / chunks))), ct);
+            }
+            return await PostJsonAsync<T>($"{root}/complete?uploadId={uploadId}&total={chunks}&sha256={sha}{extra}", null, ct);
+        }
+
         public static async Task<string> PutBytesRawAsync(
             string path,
             byte[] data,

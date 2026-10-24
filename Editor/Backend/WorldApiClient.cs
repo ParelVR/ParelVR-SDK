@@ -83,7 +83,10 @@ namespace ParelVR.SDK.Backend
             // Log payload info (size instead of raw bytes to avoid console freeze)
             UnityEngine.Debug.Log($"[WorldApiClient] UploadBundleAsync Request:\nURL: {url}\nPayload Size: {bundleData?.Length ?? 0} bytes\nPlatform: {platform}");
             
-            var res = await ParelApiClient.PutBytesAsync<WorldResponse>(url, bundleData, "application/octet-stream", progress, ct);
+            // Big bundles go up in parts (the proxy refuses bodies over 100 MB); the server joins and checks them.
+            var res = bundleData != null && bundleData.Length > ParelApiClient.ChunkThresholdBytes
+                ? await ParelApiClient.PutChunkedAsync<WorldResponse>($"/api/parelvr/worlds/{worldId}/bundle", $"platform={platform}", bundleData, progress, ct)
+                : await ParelApiClient.PutBytesAsync<WorldResponse>(url, bundleData, "application/octet-stream", progress, ct);
             if (res != null) UnityEngine.Debug.Log($"[WorldApiClient] UploadBundleAsync Response:\n{UnityEngine.JsonUtility.ToJson(res, true)}");
             return res;
         }
