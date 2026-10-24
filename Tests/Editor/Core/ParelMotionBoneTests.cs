@@ -128,6 +128,49 @@ namespace ParelVR.SDK.Tests
         }
 
         [Test]
+        public void SteadyMovement_CarriesLooseBonesAlong()
+        {
+            ParelMotionBone bone = MakeChain(out Transform holder);
+            bone.gravity = 0f;
+            bone.pull = 0.05f;
+            bone.spring = 0.3f;
+            Run(bone, 0.5f, 90f);
+
+            for (int i = 0; i < 90; i++)
+            {
+                holder.position += Vector3.forward * (1f / 90f);
+                Frame(bone, 1f / 90f);
+            }
+
+            Assert.That(Mathf.Abs(Tip(bone).z - holder.position.z), Is.LessThan(0.01f), "the chain was left behind");
+        }
+
+        [Test]
+        public void Stopping_JigglesPastRest()
+        {
+            ParelMotionBone bone = MakeChain(out Transform holder);
+            bone.gravity = 0f;
+            bone.pull = 0.15f;
+            bone.spring = 0.5f;
+            Run(bone, 0.5f, 90f);
+            for (int i = 0; i < 90; i++)
+            {
+                holder.position += Vector3.forward * (1f / 90f);
+                Frame(bone, 1f / 90f);
+            }
+
+            float overshoot = 0f;
+            for (int i = 0; i < 180; i++)
+            {
+                Frame(bone, 1f / 90f);
+                overshoot = Mathf.Max(overshoot, Tip(bone).z - holder.position.z);
+            }
+
+            Assert.That(overshoot, Is.GreaterThan(0.003f), "no bounce when stopping");
+            Assert.That(Mathf.Abs(Tip(bone).z - holder.position.z), Is.LessThan(0.002f), "did not settle");
+        }
+
+        [Test]
         public void AngleLimit_HoldsUnderGravity()
         {
             ParelMotionBone bone = MakeChain(out _);

@@ -181,6 +181,7 @@ namespace ParelVR.AvatarSDK
             public Quaternion InitLocalRotation;
             public Vector3 Position;
             public Vector3 PrevPosition;
+            public Vector3 LastRest;
             public Vector3 AnimPosition;
             public Quaternion AnimRotation;
             public float RestLength;
@@ -195,6 +196,7 @@ namespace ParelVR.AvatarSDK
         private bool _built;
         private bool _needsReset = true;
         private float _lastStep = StepSeconds;
+        private bool _restPosed;
         private Vector3 _lastMovePosition;
         private Quaternion _lastAnchorRotation = Quaternion.identity;
         private bool _hasLastMove;
@@ -487,6 +489,7 @@ namespace ParelVR.AvatarSDK
                     ref Particle p = ref _particles[i];
                     p.Position = target + turnDelta * (p.Position - pivot);
                     p.PrevPosition = target + turnDelta * (p.PrevPosition - pivot);
+                    p.LastRest = target + turnDelta * (p.LastRest - pivot);
                 }
             }
             else
@@ -503,6 +506,7 @@ namespace ParelVR.AvatarSDK
                         Vector3 shift = move * amount;
                         p.Position += shift;
                         p.PrevPosition += shift;
+                        p.LastRest += shift;
                     }
 
                     // The avatar moving as a whole (locomotion, smooth turning) is mostly carried too, on top of
@@ -514,11 +518,13 @@ namespace ParelVR.AvatarSDK
                         Vector3 carry = ownerMove * extra;
                         p.Position += carry;
                         p.PrevPosition += carry;
+                        p.LastRest += carry;
                     }
                     if (carryTurn != Quaternion.identity)
                     {
                         p.Position = pivot + carryTurn * (p.Position - pivot);
                         p.PrevPosition = pivot + carryTurn * (p.PrevPosition - pivot);
+                        p.LastRest = pivot + carryTurn * (p.LastRest - pivot);
                     }
                 }
             }
@@ -562,10 +568,17 @@ namespace ParelVR.AvatarSDK
             {
                 _particles[i].Position = _particles[i].AnimPosition;
                 _particles[i].PrevPosition = _particles[i].AnimPosition;
+                _particles[i].LastRest = _particles[i].AnimPosition;
             }
         }
 
         private float WorldScale() => MaxAbs(Root.lossyScale);
+
+        /// <summary>
+        /// Spring / Momentum as the share of the bone's own swing kept each 90 Hz step. The quarter power
+        /// spreads the slider out: 0 settles without overshoot, 0.3-0.5 bounces once or twice, 1 keeps going.
+        /// </summary>
+        private static float Momentum(float spring) => Mathf.Pow(Mathf.Clamp01(spring), 0.25f);
 
         private static float MaxAbs(Vector3 s) => Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
 
@@ -620,7 +633,10 @@ namespace ParelVR.AvatarSDK
             _lastStep = h;
             float simplified = integrationType == IntegrationType.Simplified ? 0.95f : 1f;
             bool momentumCurve = springCurve != null && springCurve.length > 0;
-            float baseMomentum = Mathf.Pow(Mathf.Clamp01(spring) * simplified, stepRatio);
+            float baseMomentum = Mathf.Pow(Momentum(spring) * simplified, stepRatio);
+            // Switching between posed and free rest moves the rest in one jump; that isn't movement to follow.
+            bool restJump = _restPosed != _posed;
+            _restPosed = _posed;
             bool pushed = ExternalForce != Vector3.zero;
             Transform poseSpace = PoseSpace;
 
@@ -633,9 +649,13 @@ namespace ParelVR.AvatarSDK
                 Vector3 animOffset = p.AnimPosition - parent.AnimPosition;
                 Vector3 restPosition = _posed ? poseSpace.TransformPoint(p.PosedLocal) : parent.Position + animOffset;
 
-                // Momentum (verlet).
-                float momentum = momentumCurve ? Mathf.Pow(Mathf.Clamp01(spring * Curve(springCurve, depth)) * simplified, stepRatio) : baseMomentum;
-                Vector3 velocity = (p.Position - p.PrevPosition) * (momentum * carry);
+                // Momentum (verlet), damped against the rest pose's own movement rather than the world: the
+                // body moving steadily carries the bone along, and only speeding up, stopping and turning make
+                // it swing. Damping world speed instead left loose bones dragging behind and folding over.
+                Vector3 restMove = restJump ? Vector3.zero : restPosition - p.LastRest;
+                p.LastRest = restPosition;
+                float momentum = momentumCurve ? Mathf.Pow(Momentum(spring * Curve(springCurve, depth)) * simplified, stepRatio) : baseMomentum;
+                Vector3 velocity = restMove + ((p.Position - p.PrevPosition) * carry - restMove) * momentum;
                 p.PrevPosition = p.Position;
                 p.Position += velocity;
 

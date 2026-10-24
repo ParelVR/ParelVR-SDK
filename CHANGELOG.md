@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.2 (2026-10-23)
+
+### Motion Bones
+
+- Loose, jiggly setups (low Pull, no Gravity or Stiffness) now move with the body instead of staying put and folding
+  over when the avatar moves: bones are only slowed against their own swing, not against the avatar moving through
+  the world, so steady movement carries them along and starting, stopping and turning make them bounce.
+- Spring (Momentum in Advanced) now behaves like the slider says: around 0.3-0.5 bones overshoot and bounce once or
+  twice before settling, higher values keep bouncing longer, 0 settles without overshoot. Before, anything below
+  about 0.7 never bounced. Existing Motion Bones will feel a little livelier; lower Spring if one is too bouncy.
+
 ## 1.8.1 (2026-10-23)
 
 ### Portals in worlds
