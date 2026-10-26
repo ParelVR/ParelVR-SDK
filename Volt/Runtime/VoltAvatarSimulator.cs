@@ -88,7 +88,9 @@ namespace ParelVR.Volt.Simulator
                 }
                 else
                 {
-                    AsyncOperation open = SceneManager.LoadSceneAsync(scenes[0], LoadSceneMode.Additive);
+                    // A world with subrooms opens in its MainScene.
+                    string main = Array.Find(scenes, p => string.Equals(System.IO.Path.GetFileNameWithoutExtension(p), "MainScene", StringComparison.OrdinalIgnoreCase)) ?? scenes[0];
+                    AsyncOperation open = SceneManager.LoadSceneAsync(main, LoadSceneMode.Additive);
                     if (open != null) yield return open;
                     world = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
                 }

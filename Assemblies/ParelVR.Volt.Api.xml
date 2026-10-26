@@ -1627,10 +1627,10 @@
             <summary>Version of the world build that is running. It changes every time the creator publishes.</summary>
         </member>
         <member name="P:ParelVR.Volt.Worlds.VoltWorld.PlayerCount">
-            <summary>Number of players in the instance.</summary>
+            <summary>Number of players in this world's scene. In a world with subrooms, only those in the local player's subroom.</summary>
         </member>
         <member name="P:ParelVR.Volt.Worlds.VoltWorld.Players">
-            <summary>Every player in the instance.</summary>
+            <summary>Every player in this world's scene. In a world with subrooms, only those in the local player's subroom.</summary>
         </member>
         <member name="P:ParelVR.Volt.Worlds.VoltWorld.LocalPlayer">
             <summary>The player on this client.</summary>
@@ -1645,7 +1645,7 @@
             <summary>Seconds between physics steps.</summary>
         </member>
         <member name="M:ParelVR.Volt.Worlds.VoltWorld.GetPlayers">
-            <summary>Every player in the instance.</summary>
+            <summary>Every player in this world's scene. In a world with subrooms, only those in the local player's subroom.</summary>
         </member>
         <member name="M:ParelVR.Volt.Worlds.VoltWorld.GetPlayer(System.Int32)">
             <summary>The player with a PlayerId, or null.</summary>
@@ -1678,7 +1678,7 @@
             <summary>The player on this client.</summary>
         </member>
         <member name="P:ParelVR.Volt.Instance.VoltInstance.PlayerCount">
-            <summary>Number of players in the instance.</summary>
+            <summary>Number of players in the instance, in every subroom.</summary>
         </member>
         <member name="P:ParelVR.Volt.Instance.VoltInstance.Capacity">
             <summary>Most players the instance accepts.</summary>
@@ -2088,6 +2088,13 @@
         </member>
         <member name="P:ParelVR.Volt.Scene.VoltScene.RootObjects">
             <summary>The objects at the top of the world's hierarchy.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Scene.VoltScene.Switch(System.String)">
+            <summary>
+            Moves the local player into another scene of this world: a subroom. Every scene in the world's Build Profiles
+            scene list is uploaded with the world, so nothing downloads, and the player stays in the same instance.
+            Players in other subrooms are neither seen nor heard. "MainScene" goes back to the scene players arrive in.
+            </summary>
         </member>
         <member name="M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject)">
             <summary>Makes a copy of a world object. The copy exists on this client only.</summary>

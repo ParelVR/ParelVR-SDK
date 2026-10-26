@@ -95,6 +95,14 @@ namespace ParelVR.SDK.Worlds.Validation
                 }
             }
 
+            // Scenes: MainScene and its subrooms, all from Build Profiles, and every scene the scripts switch to.
+            foreach (string problem in global::ParelVR.SDK.Build.WorldScenes.Problems(SceneManager.GetActiveScene().path))
+                report.AddError(problem);
+            var worldScenes = global::ParelVR.SDK.Build.WorldScenes.BuildOrder();
+            if (worldScenes.Count > 1)
+                report.AddInfo("Subrooms (VoltScene.Switch): " + string.Join(", ", worldScenes.Skip(1).Select(global::ParelVR.SDK.Build.WorldScenes.NameOf)) +
+                               ". They upload with MainScene, and players switching between them stay in the same instance.");
+
             if (lights.FindAll(l => l.type == LightType.Directional).Count == 0)
             {
                 report.AddWarning("Your world has no Directional Light. It might be completely dark.");

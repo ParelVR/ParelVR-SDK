@@ -54,6 +54,7 @@ namespace ParelVR.SDK.Worlds.UI
         private Button _btnCaptureThumbnail;
         private Button _btnSelectImage;
         private Button _btnBuildPublish;
+        private Button _btnSaveDetails;
         private Toggle _platformPc;
         private Toggle _platformStandalone;
         private Label _platformStatus;
@@ -168,6 +169,12 @@ namespace ParelVR.SDK.Worlds.UI
                 }
             });
             _btnBuildPublish.clicked += () => _ = BuildAndPublishAsync();
+            // Name, description, tags, thumbnail, credits and store, without building the world again.
+            _btnSaveDetails = new Button(() => _ = SaveDetailsAsync()) { text = "Save Details (no rebuild)" };
+            foreach (string c in _btnBuildPublish.GetClasses()) _btnSaveDetails.AddToClassList(c);
+            _btnSaveDetails.style.marginTop = 6;
+            _btnSaveDetails.style.display = DisplayStyle.None;
+            if (_btnBuildPublish.parent != null) _btnBuildPublish.parent.Insert(_btnBuildPublish.parent.IndexOf(_btnBuildPublish) + 1, _btnSaveDetails);
 
             ParelSession.OnSessionChanged += RefreshState;
             EditorApplication.hierarchyChanged += RefreshState;
@@ -330,6 +337,7 @@ namespace ParelVR.SDK.Worlds.UI
                     _publishTitle.text = "Publish New World";
                     _blueprintIdLabel.text = "Blueprint ID: None (will be assigned on publish)";
                     _btnBuildPublish.text = "Build & Publish New World";
+                    if (_btnSaveDetails != null) _btnSaveDetails.style.display = DisplayStyle.None;
 
                     if (isNewDescriptor)
                     {
@@ -349,6 +357,7 @@ namespace ParelVR.SDK.Worlds.UI
                     _publishTitle.text = "Update Existing World";
                     _blueprintIdLabel.text = $"Blueprint ID: {_currentDescriptor.blueprintId}";
                     _btnBuildPublish.text = "Build & Update World";
+                    if (_btnSaveDetails != null) _btnSaveDetails.style.display = DisplayStyle.Flex;
 
                     if (isNewDescriptor)
                     {
@@ -681,6 +690,67 @@ namespace ParelVR.SDK.Worlds.UI
         //  Build & Publish (single-button chain)
         // ─────────────────────────────────────────────────────────────────
 
+        private async Task SaveDetailsAsync()
+        {
+            if (_currentDescriptor == null || string.IsNullOrEmpty(_currentDescriptor.blueprintId)) return;
+            if (string.IsNullOrWhiteSpace(_worldName.value))
+            {
+                EditorUtility.DisplayDialog("Error", "World Name is required.", "OK");
+                return;
+            }
+            _btnBuildPublish.SetEnabled(false);
+            _btnSaveDetails.SetEnabled(false);
+            _progressContainer.style.display = DisplayStyle.Flex;
+            _progressBar.value = 10;
+            _progressStatus.text = "Saving world details...";
+            try
+            {
+                string blueprintId = _currentDescriptor.blueprintId;
+                WorldPagePublisher.BuildJson(_currentDescriptor);
+                var request = new WorldApiClient.CreateWorldRequest
+                {
+                    blueprintId = blueprintId,
+                    name = _worldName.value,
+                    description = _worldDesc.value,
+                    authorName = ParelSession.Username ?? "Unknown",
+                    releaseStatus = "public",
+                    tags = new List<string>(_currentTags),
+                    recommendedCapacity = LobbyCapacity,
+                    maximumCapacity = LobbyCapacity,
+                    allowDebugging = _worldAllowDebug.value,
+                    portalEnabled = true,
+                    contentWarnings = GetSelectedWarnings()
+                };
+                var worldRecord = await WorldApiClient.CreateWorldAsync(request);
+                if (worldRecord == null) throw new Exception("Failed to save the world details.");
+
+                _progressBar.value = 45;
+                _progressStatus.text = "Saving credits and store...";
+                await WorldPagePublisher.PublishAsync(_currentDescriptor, blueprintId, CancellationToken.None);
+
+                if (_pendingThumbnailBytes != null)
+                {
+                    _progressBar.value = 75;
+                    _progressStatus.text = "Uploading thumbnail...";
+                    await WorldApiClient.UploadImageAsync(blueprintId, _pendingThumbnailBytes);
+                    _pendingThumbnailBytes = null;
+                }
+                _progressBar.value = 100;
+                EditorUtility.DisplayDialog("Saved", $"World '{worldRecord.name}' details saved. The world itself was not rebuilt.", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WorldsTab] Save details failed: {ex.Message}");
+                EditorUtility.DisplayDialog("Save Error", ex.Message, "OK");
+            }
+            finally
+            {
+                _btnBuildPublish.SetEnabled(true);
+                _btnSaveDetails.SetEnabled(true);
+                _progressContainer.style.display = DisplayStyle.None;
+            }
+        }
+
         private async Task BuildAndPublishAsync()
         {
             if (_currentDescriptor == null) return;
@@ -716,6 +786,10 @@ namespace ParelVR.SDK.Worlds.UI
             }
 
             _uploadCts = new CancellationTokenSource();
+            var publishTimer = System.Diagnostics.Stopwatch.StartNew();
+            Scene publishScene = SceneManager.GetActiveScene();
+            Debug.Log($"[PublishDiag] start scene='{publishScene.path}' name='{publishScene.name}' " +
+                      $"playing={Application.isPlaying} loadedScenes={SceneManager.sceneCount}");
 
             try
             {
@@ -792,6 +866,11 @@ namespace ParelVR.SDK.Worlds.UI
                 string questSourceError = WorldBuilder.QuestSourceError;
                 string platform = WorldBuilder.BuiltPlatform;
                 string voltPackage = WorldBuilder.VoltPackagePathFor(bundlePath);
+                var bundleInfo = new FileInfo(bundlePath);
+                Debug.Log($"[PublishDiag] build done ms={publishTimer.ElapsedMilliseconds} " +
+                          $"scene='{publishScene.path}' playing={Application.isPlaying} " +
+                          $"bundle='{bundlePath}' bytes={bundleInfo.Length} platform={platform} " +
+                          $"questSource={questSource != null} volt={File.Exists(voltPackage)}");
                 _progressBar.value = 45;
 
                 // ── 5. Upload Thumbnail (if captured) ──
@@ -809,6 +888,8 @@ namespace ParelVR.SDK.Worlds.UI
                 if (forPc)
                 {
                     byte[] bundleBytes = File.ReadAllBytes(bundlePath);
+                    Debug.Log($"[PublishDiag] upload start bytes={bundleBytes.Length} " +
+                              $"elapsedMs={publishTimer.ElapsedMilliseconds}");
                     _progressStatus.text = "Uploading PC / PCVR bundle...";
                     var progress = new Progress<float>(p =>
                     {
@@ -818,6 +899,8 @@ namespace ParelVR.SDK.Worlds.UI
                     var response = await WorldApiClient.UploadBundleAsync(blueprintId, platform, bundleBytes, progress, _uploadCts.Token);
                     if (response == null || !response.success)
                         throw new Exception(response?.message ?? "Unknown upload error.");
+                    Debug.Log($"[PublishDiag] upload done ms={publishTimer.ElapsedMilliseconds} " +
+                              $"world={response.world?.id ?? "?"}");
 
                     if (WorldBuilder.AfterBundleUploaded != null)
                     {
@@ -878,6 +961,8 @@ namespace ParelVR.SDK.Worlds.UI
                     // The world itself is published; only Import World misses this version.
                     Debug.LogWarning($"[WorldsTab] The project was not saved for Import World: {sourceError.Message}");
                 }
+                Debug.Log($"[PublishDiag] done totalMs={publishTimer.ElapsedMilliseconds} " +
+                          $"scene='{publishScene.path}' playing={Application.isPlaying}");
                 _progressBar.value = 100;
                 _progressStatus.text = "Done!";
 
@@ -893,7 +978,9 @@ namespace ParelVR.SDK.Worlds.UI
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WorldsTab] Publish failed: {ex.Message}");
+                Debug.LogError($"[WorldsTab] Publish failed after " +
+                               $"{publishTimer.ElapsedMilliseconds} ms " +
+                               $"(scene='{publishScene.path}', playing={Application.isPlaying}): {ex.Message}");
                 EditorUtility.DisplayDialog("Publish Error", ex.Message, "OK");
             }
             finally

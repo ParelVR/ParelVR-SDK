@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.9.0 (2026-10-25)
+
+### Subrooms (Volt API 1.5)
+
+- Every enabled scene in File > Build Profiles uploads with the world, in its one bundle. Players arrive in
+  **MainScene**; `VoltScene.Switch("SceneName")` moves the local player into another scene of the world, with no
+  download and in the same instance. Players in other subrooms are not shown or heard, and scripts network only with
+  players in the same subroom. Give each subroom its own ParelVR Spawn Point.
+- Building stops with an error when no scene is called MainScene ("You need a "MainScene". Fix this by renaming 1 of
+  your scenes to MainScene."), when the open scene isn't in Build Profiles, when MainScene isn't the open scene, and
+  when a script calls `VoltScene.Switch("X")` for a scene that isn't in Build Profiles ("You're calling "X", but "X"
+  isn't in Build Profiles.").
+- `VoltScene.Switch` works in Play Mode: the scene playing is swapped for the subroom and its scripts start.
+- `VoltWorld.Players` / `PlayerCount` are the players in your subroom; `VoltInstance.PlayerCount` counts every subroom.
+
+### Worlds
+
+- New **ParelVR Weather** component: Clear, Rain, Snow, Fog or Storm (rain with lightning and thunder). Rain and
+  snow fall in a box around the player's own view, so they cost the same in any size of world.
+- New **ParelVR Skybox Cycle** component: several skyboxes in one world, each with its own ambient light, fog and
+  sun. Switch by hand (Next / Previous / SetSky, from a button or Volt) or let the world cycle through them.
+- **Save Details (no rebuild)** in the Worlds panel saves the name, description, tags, thumbnail, credits and store
+  without building and uploading the world again.
+
+### Video players
+
+- Live streams (YouTube live, Twitch, Kick) play in Play Mode on Windows, with picture and sound in sync, and can be
+  paused and rewound like in the game.
+- YouTube links are allowed as youtube.com / youtu.be instead of each exact host, and a video player no longer
+  needs a web domain of its own just to play.
+- ParelVR Video Player warns when it is given a video page address (YouTube, Twitch, Kick), which Unity's player
+  cannot open; use the Volt video player for those.
+
+### Avatars
+
+- **Convert PhysBones to Motion Bones** (Avatar Tools): turns another platform's PhysBones and PhysBone colliders
+  into Motion Bones. That platform's SDK must still be in the project while you convert.
+- Eye rotation fields keep the angles you type (no more -10 turning into 350 while editing), and with Linked eyes
+  the other eye shows the same rotation while one is turned.
+- The validator no longer flags hair chains as the jaw when Unity's rig maps the Jaw to a child of the head.
+- The avatar build section folds away, so the docked panel's footer can be kept small.
+
+### Standalone (Quest)
+
+- Shaders the conversion server rewrites for mobile are accepted by the Quest checks.
+
+### Editor
+
+- The update window can be resized, and long release notes scroll instead of being cut off.
+- In Play Mode, the click that focuses a text field no longer types into it.
+
 ## 1.8.5 (2026-10-24)
 
 ### Uploads

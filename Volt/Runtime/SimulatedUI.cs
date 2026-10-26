@@ -103,7 +103,7 @@ namespace ParelVR.Volt.Simulator
                 for (int i = 0; i < graphics.Count; i++)
                 {
                     Graphic g = graphics[i];
-                    if (g == null || g.depth == -1 || !g.raycastTarget || !g.isActiveAndEnabled || g.canvasRenderer.cull) continue;
+                    if (g == null || !g.raycastTarget || !g.isActiveAndEnabled || g.canvasRenderer.cull) continue;
                     if (top != null && g.depth <= top.depth) continue;
                     if (useScreen)
                     {
@@ -252,6 +252,7 @@ namespace ParelVR.Volt.Simulator
         private Component _field;
         private GameObject _hover;
         private bool _shift;
+        private float _liveAt;
         private static Font _font;
 
         /// <summary>The text field being typed in, or null.</summary>
@@ -285,6 +286,14 @@ namespace ParelVR.Volt.Simulator
         /// <summary>Called every frame with where the player's head is; shows, places and refreshes the keyboard.</summary>
         public void Update(Transform head)
         {
+            if (_root != null && _root.activeSelf && EscapePressed())
+            {
+                _field = null;
+                _root.SetActive(false);
+                if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
+                return;
+            }
+
             Component field = FocusedField();
             if (field != _field)
             {
@@ -306,10 +315,29 @@ namespace ParelVR.Volt.Simulator
             Vector3 forward = Vector3.ProjectOnPlane(head.forward, Vector3.up);
             if (forward.sqrMagnitude < 0.01f) forward = head.up;
             forward.Normalize();
-            _root.transform.position = head.position + forward * 0.62f + Vector3.down * 0.28f;
+            _root.transform.position = head.position + forward * 0.62f + Vector3.down * 0.36f;
             _root.transform.rotation = Quaternion.LookRotation(forward, Vector3.up) * Quaternion.Euler(20f, 0f, 0f);
             _root.SetActive(true);
+            Canvas.ForceUpdateCanvases();
             SimulatedUIPointer.ForgetCanvases();
+            // The click that focused the field ends over the keys (the middle one is "h"): it must not type.
+            _liveAt = Time.unscaledTime + 0.35f;
+        }
+
+        private static bool EscapePressed()
+        {
+            try
+            {
+                Type keyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
+                object keyboard = keyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                object key = keyboard?.GetType().GetProperty("escapeKey")?.GetValue(keyboard);
+                object pressed = key?.GetType().GetProperty("wasPressedThisFrame")?.GetValue(key);
+                return pressed is bool value && value;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public bool Owns(GameObject target) => target != null && _keys.ContainsKey(target);
@@ -325,7 +353,7 @@ namespace ParelVR.Volt.Simulator
 
         public void Press(GameObject target)
         {
-            if (_field == null || !_keys.TryGetValue(target, out string key)) return;
+            if (_field == null || !_keys.TryGetValue(target, out string key) || Time.unscaledTime < _liveAt) return;
             switch (key)
             {
                 case "shift":

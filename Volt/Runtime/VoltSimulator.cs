@@ -74,6 +74,12 @@ namespace ParelVR.Volt.Simulator
         public static bool SuppressAutoStart;
         public static event Action Started;
         public static event Action Stopped;
+        /// <summary>Set by the editor: asset paths of the world's scenes in Build Profiles, MainScene first. VoltScene.Switch moves between them.</summary>
+        public static string[] WorldScenes;
+        /// <summary>Set by the editor: loads a scene by asset path in play mode, in place of the one playing.</summary>
+        public static Func<string, AsyncOperation> LoadScene;
+        /// <summary>Set by the editor: prepares a scene that loaded in play mode the way a built world's scene is, if it was not already.</summary>
+        public static Action<Scene> PrepareLoadedScene;
 
         /// <summary>Starts the scripts of a scene (the active one unless the options name another). Call it in play mode.</summary>
         public static void Start(VoltSimulatorOptions options)
@@ -116,6 +122,7 @@ namespace ParelVR.Volt.Simulator
                 Interaction = _player,
                 Dialogs = new SimulatedDialogs(),
                 Nameplates = _player,
+                Scenes = SimulatedScenes.Instance,
                 Avatar = options.Avatar,
                 Transport = network != null ? (IVoltNetTransport)network : new VoltOfflineTransport(),
                 Storage = new SimulatedStorage(options.StorageFolder ?? Path.Combine(Application.dataPath, "..", "Library", "ParelVR", "VoltStorage"))
@@ -220,20 +227,31 @@ namespace ParelVR.Volt.Simulator
             try { VoltWorld.Current?.Unload(); } catch (Exception) { }
             World = null;
             _player = null;
+            StartActiveScene(NextDebugger, false);
+        }
+
+        /// <summary>
+        /// Starts the scripts the active scene was prepared with. A subroom without scripts still gets the stand-in
+        /// player when <paramref name="playerWithoutScripts"/> is set (the player walked into it with VoltScene.Switch).
+        /// </summary>
+        internal static void StartActiveScene(VoltDebugger debugger, bool playerWithoutScripts, VoltSimulatorOptions before = null)
+        {
             VoltWorldScene data = null;
             foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
             {
                 data = root.GetComponentInChildren<VoltWorldScene>(true);
                 if (data != null) break;
             }
-            if (data == null || data.editorModule == null || data.editorModule.Length == 0) return;
-            VoltDebugger debugger = NextDebugger;
+            bool scripts = data != null && data.editorModule != null && data.editorModule.Length > 0;
+            if (!scripts && !playerWithoutScripts) return;
             try
             {
                 VoltMultiClientOptions multi = MultiClientDefaults;
-                if (multi != null)
+                if (multi != null && scripts)
                     multi = new VoltMultiClientOptions { Port = multi.Port, LatencyMs = multi.LatencyMs, LossPercent = multi.LossPercent, ModuleHash = data.moduleSha256 };
-                Start(new VoltSimulatorOptions { Module = data.editorModule, Capabilities = data.editorCapabilities, WebDomains = data.editorWebDomains, Debugger = debugger, VR = data.editorVR, MultiClient = multi });
+                Start(scripts
+                    ? new VoltSimulatorOptions { Module = data.editorModule, Capabilities = data.editorCapabilities, WebDomains = data.editorWebDomains, Debugger = debugger, VR = data.editorVR, MultiClient = multi, PlayerName = before?.PlayerName }
+                    : new VoltSimulatorOptions { Debugger = debugger, MultiClient = multi, VR = before != null && before.VR, PlayerName = before?.PlayerName });
             }
             catch (VoltFormatException e)
             {
@@ -1426,6 +1444,68 @@ namespace ParelVR.Volt.Simulator
             if (_rightHand.Ray != null) _rightHand.Ray.enabled = false;
         }
 #endif
+    }
+
+    /// <summary>
+    /// VoltScene.Switch in play mode: the scene playing is swapped for the subroom (a scene from Build Profiles), the
+    /// scripts stop, and the subroom's own scripts and the stand-in player start there, as in the game.
+    /// </summary>
+    internal sealed class SimulatedScenes : MonoBehaviour, IVoltSceneService
+    {
+        private static SimulatedScenes _instance;
+        private bool _switching;
+
+        public static SimulatedScenes Instance
+        {
+            get
+            {
+                if (_instance != null) return _instance;
+                var go = new GameObject("[Volt Subrooms]") { hideFlags = HideFlags.HideInHierarchy };
+                DontDestroyOnLoad(go);
+                return _instance = go.AddComponent<SimulatedScenes>();
+            }
+        }
+
+        private static string NameOf(string path) => Path.GetFileNameWithoutExtension(path ?? string.Empty);
+
+        public string Switch(string sceneName)
+        {
+            string path = null;
+            foreach (string candidate in VoltSimulator.WorldScenes ?? Array.Empty<string>())
+                if (string.Equals(NameOf(candidate), sceneName, StringComparison.OrdinalIgnoreCase)) { path = candidate; break; }
+            if (path == null) return "You're calling \"" + sceneName + "\", but \"" + sceneName + "\" isn't in Build Profiles.";
+            if (VoltSimulator.LoadScene == null) return "Subrooms switch in play mode only.";
+            if (string.Equals(SceneManager.GetActiveScene().path, path, StringComparison.OrdinalIgnoreCase) || _switching) return null;
+            _switching = true;
+            StartCoroutine(Run(path));
+            return null;
+        }
+
+        private System.Collections.IEnumerator Run(string path)
+        {
+            try
+            {
+                // The script that asked finishes its frame first.
+                yield return null;
+                VoltSimulatorOptions before = VoltSimulator.Options;
+                VoltDebugger debugger = before?.Debugger;
+                try { VoltSimulator.Stop(); }
+                catch (Exception e) { Debug.LogException(e); }
+                AsyncOperation load = null;
+                try { load = VoltSimulator.LoadScene(path); }
+                catch (Exception e) { Debug.LogError("[Volt] Could not open the subroom " + NameOf(path) + ": " + e.Message); }
+                if (load != null) yield return load;
+                yield return null;
+                try { VoltSimulator.PrepareLoadedScene?.Invoke(SceneManager.GetActiveScene()); }
+                catch (Exception e) { Debug.LogException(e); }
+                Debug.Log("[Volt] Switched to the subroom " + NameOf(path) + ".");
+                VoltSimulator.StartActiveScene(debugger, true, before);
+            }
+            finally
+            {
+                _switching = false;
+            }
+        }
     }
 
     /// <summary>The editor has no HUD: notifications go to the console and a question is answered with its confirm button.</summary>

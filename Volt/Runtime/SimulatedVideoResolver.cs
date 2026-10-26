@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -11,7 +13,6 @@ using UnityEngine.Networking;
 namespace ParelVR.Volt.Simulator
 {
     /// <summary>
-    /// The client's YouTube lookup (ParelVideoResolver), for play mode: keep the two the same.
     /// Plays YouTube links in world video players. A YouTube link is a web page, not a video file, and the address
     /// of the file behind it only works from the computer that asked for it — so it is looked up here, on the
     /// player's own machine, with yt-dlp. Windows only.
@@ -23,22 +24,57 @@ namespace ParelVR.Volt.Simulator
     internal sealed class SimulatedVideoResolver : MonoBehaviour
     {
         private const string ToolUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
-        private const string Format = "best[ext=mp4][vcodec^=avc1][acodec!=none][protocol=https]/18";
-        // YouTube's phone app is the client that is still given that file.
-        private const string Clients = "youtube:player_client=default,android";
-        private const int TimeoutMs = 30000;
+        // Live streams (YouTube live, Twitch, Kick) have no single file, only an HLS playlist: that is the fallback.
+        // HD first: a 1080p-or-lower H.264 picture and an AAC sound file, played side by side (see VoltUnityVideoBackend).
+        private const string VodFormat = "bv*[height<=1080][ext=mp4][vcodec^=avc1][protocol=https]+ba[ext=m4a][protocol=https]/b[ext=mp4][vcodec^=avc1][protocol=https]/18/b";
+        private const string MuxedFormat = "b[ext=mp4][vcodec^=avc1][protocol=https]/18/b";
+        // YouTube live now has separate picture and sound playlists only: the pair prints as two lines, muxed by the relay.
+        private const string LiveFormat = "b[protocol^=m3u8][height<=1080]/bv*[protocol^=m3u8][height<=1080][vcodec^=avc1]+ba[protocol^=m3u8]/b[protocol^=m3u8]/b";
+        private const string StreamOnlyFormat = "b[protocol^=m3u8]/b";
+        private const int VodTimeoutMs = 30000;
+        private const int LiveTimeoutMs = 60000;
         // YouTube changes often and an old yt-dlp stops working, so it is fetched again now and then.
         private const double RefreshDays = 14;
+        private const int MaxCachedLookups = 128;
+        private const int MaxLookupSlots = 2;
 
         private static SimulatedVideoResolver _instance;
         private static readonly object StartLock = new object();
+        private static readonly SemaphoreSlim LookupSlots = new SemaphoreSlim(MaxLookupSlots, MaxLookupSlots);
         private bool _fetching;
+
+        private enum Provider
+        {
+            Unknown,
+            YouTube,
+            Twitch,
+            Kick
+        }
+
+        private readonly struct Attempt
+        {
+            public readonly string Format;
+            public readonly string Clients;
+
+            public Attempt(string format, string clients)
+            {
+                Format = format;
+                Clients = clients;
+            }
+        }
 
         private sealed class Lookup
         {
             public volatile bool Done;
-            public string Media, Problem;
+            public bool Running;
+            public string Media;
+            public string Problem;
+            public bool IsLive;
+            public double ExpiresAt;
+            public readonly List<Action<string>> Waiters = new List<Action<string>>();
         }
+
+        private static readonly Dictionary<string, Lookup> Lookups = new Dictionary<string, Lookup>(StringComparer.Ordinal);
 
         /// <summary>Lets the simulator play YouTube links, unless the project (the ParelVR client itself) already does.</summary>
         internal static void InstallIfMissing()
@@ -59,8 +95,32 @@ namespace ParelVR.Volt.Simulator
 
         [Serializable] private sealed class PlayerAnswer { public Playability playabilityStatus; public Streaming streamingData; }
         [Serializable] private sealed class Playability { public string status; public string reason; }
-        [Serializable] private sealed class Streaming { public StreamFormat[] formats; }
-        [Serializable] private sealed class StreamFormat { public int itag; public string url; public string mimeType; }
+        [Serializable] private sealed class Streaming { public StreamFormat[] formats; public StreamFormat[] adaptiveFormats; public string hlsManifestUrl; }
+        [Serializable] private sealed class StreamFormat { public int itag; public string url; public string mimeType; public int height; public int bitrate; }
+
+        /// <summary>The highest H.264 picture up to 1080p and the best AAC sound, or nulls.</summary>
+        private static void PickHd(StreamFormat[] adaptive, out string video, out string audio)
+        {
+            video = null;
+            audio = null;
+            if (adaptive == null) return;
+            int bestHeight = 0, bestAudio = 0;
+            foreach (StreamFormat f in adaptive)
+            {
+                if (f == null || string.IsNullOrEmpty(f.url) || f.mimeType == null) continue;
+                if (f.mimeType.StartsWith("video/mp4", StringComparison.Ordinal) && f.mimeType.Contains("avc1") && f.height <= 1080 && f.height > bestHeight)
+                {
+                    bestHeight = f.height;
+                    video = f.url;
+                }
+                else if (f.mimeType.StartsWith("audio/mp4", StringComparison.Ordinal) && f.bitrate > bestAudio)
+                {
+                    bestAudio = f.bitrate;
+                    audio = f.url;
+                }
+            }
+            if (bestHeight <= 360 || audio == null) video = audio = null;   // no better than the single file
+        }
 
         /// <summary>The eleven-character id of the video a YouTube link points at, or null.</summary>
         public static string VideoId(string url)
@@ -81,7 +141,68 @@ namespace ParelVR.Volt.Simulator
             return id;
         }
 
-        private IEnumerator Ask(string url, Action<string> done)
+        private static Provider ProviderOf(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return Provider.Unknown;
+            string host = uri.Host.ToLowerInvariant();
+            if (host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal)) return Provider.YouTube;
+            if (host == "twitch.tv" || host.EndsWith(".twitch.tv", StringComparison.Ordinal)) return Provider.Twitch;
+            if (host == "kick.com" || host.EndsWith(".kick.com", StringComparison.Ordinal)) return Provider.Kick;
+            return Provider.Unknown;
+        }
+
+        private static bool IsLiveUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return false;
+            string path = uri.AbsolutePath.Trim('/').ToLowerInvariant();
+            switch (ProviderOf(url))
+            {
+                case Provider.YouTube:
+                    return path == "live" || path.StartsWith("live/", StringComparison.Ordinal) || path.EndsWith("/live", StringComparison.Ordinal);
+                case Provider.Twitch:
+                    return !(path.StartsWith("videos/", StringComparison.Ordinal) || path.StartsWith("clip/", StringComparison.Ordinal) ||
+                             path.StartsWith("collections/", StringComparison.Ordinal));
+                case Provider.Kick:
+                    return !(path.StartsWith("video/", StringComparison.Ordinal) || path.StartsWith("clips/", StringComparison.Ordinal));
+                default:
+                    return false;
+            }
+        }
+
+        private static bool ContainsHls(string media) =>
+            !string.IsNullOrEmpty(media) && media.IndexOf(".m3u8", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        private static Attempt[] AttemptsFor(Provider provider, bool live)
+        {
+            if (provider == Provider.Twitch || provider == Provider.Kick)
+                return new[] { new Attempt(StreamOnlyFormat, null) };
+
+            if (provider == Provider.YouTube)
+            {
+                if (live)
+                {
+                    return new[]
+                    {
+                        new Attempt(LiveFormat, null),
+                        new Attempt(LiveFormat, "youtube:player_client=mweb"),
+                        new Attempt(LiveFormat, "youtube:player_client=android_vr")
+                    };
+                }
+
+                return new[]
+                {
+                    new Attempt(VodFormat, null),
+                    new Attempt(MuxedFormat, null),
+                    new Attempt(VodFormat, "youtube:player_client=mweb"),
+                    new Attempt(MuxedFormat, "youtube:player_client=mweb"),
+                    new Attempt(VodFormat, "youtube:player_client=android_vr")
+                };
+            }
+
+            return new[] { new Attempt(MuxedFormat, null) };
+        }
+
+        private IEnumerator AskOrRun(string url, Action<string> done, Lookup lookup)
         {
             string id = VideoId(url);
             if (id != null)
@@ -107,13 +228,14 @@ namespace ParelVR.Volt.Simulator
                 }
                 if (media != null)
                 {
+                    lookup.IsLive = ContainsHls(media);
                     done(media);
                     yield break;
                 }
                 Debug.LogWarning("[VideoResolver] YouTube gave no playable file for " + id + ": " + problem);
             }
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-            yield return Run(url, done);
+            yield return Run(url, done, lookup);
 #else
             done(null);
 #endif
@@ -129,14 +251,24 @@ namespace ParelVR.Volt.Simulator
             if (answer == null) return null;
             if (answer.playabilityStatus != null && answer.playabilityStatus.status != "OK" && !string.IsNullOrEmpty(answer.playabilityStatus.status))
                 problem = answer.playabilityStatus.status + " " + answer.playabilityStatus.reason;
-            if (answer.streamingData == null || answer.streamingData.formats == null) return null;
+            if (answer.streamingData == null) return null;
+            // A live stream has no files, only the playlist.
+            if (answer.streamingData.formats == null || answer.streamingData.formats.Length == 0)
+                return string.IsNullOrEmpty(answer.streamingData.hlsManifestUrl) ? null : answer.streamingData.hlsManifestUrl;
             string fallback = null;
             foreach (StreamFormat format in answer.streamingData.formats)
             {
                 if (format == null || string.IsNullOrEmpty(format.url) || format.mimeType == null || !format.mimeType.StartsWith("video/mp4", StringComparison.Ordinal)) continue;
-                if (format.itag == 18) return format.url;
+                if (format.itag == 18)
+                {
+                    fallback = format.url;
+                    break;
+                }
                 if (fallback == null) fallback = format.url;
             }
+            // HD as "picture / sound / single file": the player falls back to the single file if the pair will not open.
+            PickHd(answer.streamingData.adaptiveFormats, out string video, out string audio);
+            if (video != null) return video + "\n" + audio + (fallback != null ? "\n" + fallback : string.Empty);
             return fallback;
         }
 
@@ -145,17 +277,21 @@ namespace ParelVR.Volt.Simulator
         private static string ToolPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ParelVR", "VideoResolver", "yt-dlp.exe");
         private static double ToolAgeDays => File.Exists(ToolPath) ? (DateTime.UtcNow - File.GetLastWriteTimeUtc(ToolPath)).TotalDays : double.MaxValue;
 
-        /// <summary>True for a link to a YouTube video.</summary>
+        /// <summary>True for a link to a YouTube video or a Twitch / Kick stream.</summary>
         public static bool Handles(string url)
         {
             if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri) || uri.Scheme != Uri.UriSchemeHttps) return false;
+            if (uri.IsLoopback || uri.UserInfo.Length > 0 || IPAddress.TryParse(uri.Host, out _)) return false;
             string host = uri.Host.ToLowerInvariant();
-            return host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal);
+            return host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal) ||
+                   host == "twitch.tv" || host.EndsWith(".twitch.tv", StringComparison.Ordinal) ||
+                   host == "kick.com" || host.EndsWith(".kick.com", StringComparison.Ordinal);
         }
 
         /// <summary>Answers with the address of a file the video player can open, or null when there is none.</summary>
         public static void Resolve(string url, Action<string> done)
         {
+            if (done == null) return;
             // The address becomes a program argument: nothing that could end the argument or start another.
             if (!Handles(url) || url.IndexOf('"') >= 0 || url.IndexOf(' ') >= 0 || url.IndexOf('\n') >= 0 || url.IndexOf('\r') >= 0 || url.Length > 500)
             {
@@ -164,31 +300,103 @@ namespace ParelVR.Volt.Simulator
             }
             if (_instance == null)
             {
-                var go = new GameObject("Volt Video Resolver") { hideFlags = HideFlags.HideAndDontSave };
+                var go = new GameObject("Parel Video Resolver") { hideFlags = HideFlags.HideAndDontSave };
                 DontDestroyOnLoad(go);
                 _instance = go.AddComponent<SimulatedVideoResolver>();
             }
-            _instance.StartCoroutine(_instance.Ask(url, done));
+
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (Lookups.TryGetValue(url, out Lookup cached) && cached.Done)
+            {
+                if (cached.ExpiresAt > now)
+                {
+                    done(cached.Media);
+                    return;
+                }
+                Lookups.Remove(url);
+            }
+
+            if (!Lookups.TryGetValue(url, out Lookup lookup))
+            {
+                lookup = new Lookup();
+                Lookups[url] = lookup;
+            }
+
+            if (lookup.Running)
+            {
+                lookup.Waiters.Add(done);
+                return;
+            }
+
+            lookup.Running = true;
+            lookup.Done = false;
+            lookup.Media = null;
+            lookup.Problem = null;
+            lookup.IsLive = IsLiveUrl(url);
+            lookup.Waiters.Add(done);
+            _instance.StartCoroutine(_instance.ResolveAndPublish(url, lookup));
         }
 
-        private IEnumerator Run(string url, Action<string> done)
+        private IEnumerator ResolveAndPublish(string url, Lookup lookup)
         {
-            for (int attempt = 0; attempt < 2; attempt++)
+            string media = null;
+            yield return AskOrRun(url, value => media = value, lookup);
+
+            lookup.Media = media;
+            lookup.IsLive = lookup.IsLive || ContainsHls(media);
+            lookup.Done = true;
+            lookup.Running = false;
+            lookup.ExpiresAt = Time.realtimeSinceStartupAsDouble + (media == null ? 15.0 : lookup.IsLive ? 30.0 : 600.0);
+
+            Action<string>[] waiters = lookup.Waiters.ToArray();
+            lookup.Waiters.Clear();
+            foreach (Action<string> waiter in waiters)
+            {
+                try { waiter(media); }
+                catch (Exception e) { Debug.LogException(e); }
+            }
+
+            PruneLookups();
+        }
+
+        private static void PruneLookups()
+        {
+            if (Lookups.Count <= MaxCachedLookups) return;
+            double now = Time.realtimeSinceStartupAsDouble;
+            var remove = new List<string>();
+            foreach (KeyValuePair<string, Lookup> pair in Lookups)
+                if (pair.Value.Done && pair.Value.ExpiresAt <= now) remove.Add(pair.Key);
+            foreach (string key in remove) Lookups.Remove(key);
+        }
+
+        private IEnumerator Run(string url, Action<string> done, Lookup lookup)
+        {
+            Provider provider = ProviderOf(url);
+            bool live = lookup.IsLive || IsLiveUrl(url);
+            Attempt[] attempts = AttemptsFor(provider, live);
+
+            for (int pass = 0; pass < 2; pass++)
             {
                 // A second try is made with a newly fetched yt-dlp.
-                yield return FetchTool(attempt > 0);
+                yield return FetchTool(pass > 0);
                 if (!File.Exists(ToolPath)) break;
+
                 double age = ToolAgeDays;
                 string tool = ToolPath;
-                var lookup = new Lookup();
-                new Thread(() => Look(tool, url, lookup)) { IsBackground = true, Name = "Volt Video Resolver" }.Start();
-                while (!lookup.Done) yield return null;
-                if (lookup.Media != null)
+                foreach (Attempt attempt in attempts)
                 {
-                    done(lookup.Media);
-                    yield break;
+                    var result = new Lookup { IsLive = live };
+                    new Thread(() => Look(tool, url, attempt.Format, attempt.Clients, result, live)) { IsBackground = true, Name = "Parel Video Resolver" }.Start();
+                    while (!result.Done) yield return null;
+                    if (result.Media != null)
+                    {
+                        lookup.IsLive = result.IsLive;
+                        done(result.Media);
+                        yield break;
+                    }
+                    lookup.Problem = result.Problem;
+                    Debug.LogWarning("[VideoResolver] " + provider + " lookup failed: " + result.Problem);
                 }
-                Debug.LogWarning("[VideoResolver] Could not resolve " + url + ": " + lookup.Problem);
                 if (age < 1) break; // already current: fetching it again would not change the answer
             }
             done(null);
@@ -200,7 +408,7 @@ namespace ParelVR.Volt.Simulator
             if (!force && ToolAgeDays < RefreshDays) yield break;
             _fetching = true;
             Debug.Log("[VideoResolver] Fetching yt-dlp.");
-            string partial = ToolPath + ".part";
+            string partial = ToolPath + "." + Guid.NewGuid().ToString("N") + ".part";
             bool ready = false;
             try
             {
@@ -222,12 +430,23 @@ namespace ParelVR.Volt.Simulator
                     if (!fetched) Debug.LogWarning("[VideoResolver] yt-dlp could not be fetched: " + request.error);
                 }
                 // A failed refresh leaves the copy that is already there in use.
-                if (fetched)
+                if (fetched && File.Exists(partial) && new FileInfo(partial).Length > 1024 * 1024)
                 {
                     try
                     {
-                        if (File.Exists(ToolPath)) File.Delete(ToolPath);
-                        File.Move(partial, ToolPath);
+                        if (File.Exists(ToolPath))
+                        {
+                            try { File.Replace(partial, ToolPath, null); }
+                            catch (Exception)
+                            {
+                                File.Delete(ToolPath);
+                                File.Move(partial, ToolPath);
+                            }
+                        }
+                        else
+                        {
+                            File.Move(partial, ToolPath);
+                        }
                         File.SetLastWriteTimeUtc(ToolPath, DateTime.UtcNow);
                     }
                     catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
@@ -235,36 +454,66 @@ namespace ParelVR.Volt.Simulator
                         Debug.LogWarning("[VideoResolver] " + e.Message);
                     }
                 }
+                else if (File.Exists(partial))
+                {
+                    try { File.Delete(partial); }
+                    catch (Exception e) when (e is IOException || e is UnauthorizedAccessException) { Debug.LogWarning("[VideoResolver] " + e.Message); }
+                }
             }
             _fetching = false;
         }
 
         // Runs on its own thread: yt-dlp takes a few seconds.
-        private static void Look(string tool, string url, Lookup lookup)
+        private static void Look(string tool, string url, string format, string clients, Lookup lookup, bool live)
         {
+            bool slot = false;
             try
             {
-                string arguments = "-f \"" + Format + "\" --print urls --no-playlist --playlist-end 1 --no-warnings --ignore-config --no-cache-dir" +
-                                   " --socket-timeout 15 --extractor-args \"" + Clients + "\" -- \"" + url + "\"";
-                string output = RunHidden(tool, arguments, TimeoutMs, out bool timedOut);
-                if (timedOut) lookup.Problem = "yt-dlp took too long";
-                else
+                if (!LookupSlots.Wait(15000))
                 {
-                    foreach (string line in output.Split('\n'))
-                    {
-                        string candidate = line.Trim();
-                        if (!candidate.StartsWith("https://", StringComparison.Ordinal)) continue;
-                        lookup.Media = candidate;
-                        break;
-                    }
-                    if (lookup.Media == null) lookup.Problem = output.Trim().Length > 0 ? output.Trim() : "no stream this player can open";
+                    lookup.Problem = "yt-dlp queue is busy";
+                    return;
+                }
+                slot = true;
+
+                var arguments = new StringBuilder();
+                arguments.Append("-f \"").Append(format).Append("\" --print urls --no-playlist --playlist-end 1 --no-warnings --ignore-config --no-cache-dir --socket-timeout 15 --retries 3 --fragment-retries 3");
+                if (!string.IsNullOrEmpty(clients)) arguments.Append(" --extractor-args \"").Append(clients).Append('"');
+                arguments.Append(" -- \"").Append(url).Append('"');
+
+                string output = RunHidden(tool, arguments.ToString(), live ? LiveTimeoutMs : VodTimeoutMs, out bool timedOut, out int exitCode);
+                if (timedOut)
+                {
+                    lookup.Problem = "yt-dlp took too long";
+                    return;
+                }
+
+                foreach (string line in output.Split('\n'))
+                {
+                    string candidate = line.Trim();
+                    if (!candidate.StartsWith("https://", StringComparison.Ordinal) && !candidate.StartsWith("http://", StringComparison.Ordinal)) continue;
+                    // A picture + sound pair prints two addresses: both are passed on, one per line.
+                    lookup.Media = lookup.Media == null ? candidate : lookup.Media + "\n" + candidate;
+                    if (lookup.Media.IndexOf('\n') >= 0) break;
+                }
+
+                lookup.IsLive = live || ContainsHls(lookup.Media);
+                if (lookup.Media == null)
+                {
+                    string detail = output.Trim();
+                    if (detail.Length > 400) detail = detail.Substring(detail.Length - 400);
+                    lookup.Problem = (detail.Length > 0 ? detail : "no stream this player can open") + " (exit " + exitCode + ")";
                 }
             }
             catch (Exception e)
             {
                 lookup.Problem = e.Message;
             }
-            lookup.Done = true;
+            finally
+            {
+                if (slot) LookupSlots.Release();
+                lookup.Done = true;
+            }
         }
 
         // ── running the tool ─────────────────────────────────────────────────
@@ -296,10 +545,11 @@ namespace ParelVR.Volt.Simulator
         [DllImport("kernel32.dll")] private static extern bool CancelIoEx(IntPtr file, IntPtr overlapped);
         [DllImport("kernel32.dll")] private static extern int WaitForSingleObject(IntPtr handle, int milliseconds);
         [DllImport("kernel32.dll")] private static extern bool TerminateProcess(IntPtr process, int code);
+        [DllImport("kernel32.dll")] private static extern bool GetExitCodeProcess(IntPtr process, out int exitCode);
         [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
 
         /// <summary>Runs a program without a window and returns everything it printed.</summary>
-        private static string RunHidden(string program, string arguments, int timeoutMs, out bool timedOut)
+        private static string RunHidden(string program, string arguments, int timeoutMs, out bool timedOut, out int exitCode)
         {
             IntPtr read, process, thread;
             // One at a time: a program started meanwhile would otherwise inherit this pipe too and hold it open.
@@ -344,6 +594,8 @@ namespace ParelVR.Volt.Simulator
             Volatile.Write(ref finished, 1);
             watchdog.Join();
             timedOut = Volatile.Read(ref late) != 0;
+            if (!GetExitCodeProcess(process, out exitCode)) exitCode = -1;
+            if (timedOut) exitCode = -1;
             CloseHandle(read);
             CloseHandle(thread);
             CloseHandle(process);

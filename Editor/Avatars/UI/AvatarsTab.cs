@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ParelVR.AvatarSDK;
 using ParelVR.SDK.Avatars.Build;
+using ParelVR.SDK.Avatars.Tools;
 using ParelVR.SDK.Avatars.Validation;
 using ParelVR.SDK.Backend;
 using ParelVR.SDK.Core.Auth;
@@ -386,6 +387,11 @@ namespace ParelVR.SDK.Avatars.UI
             // While the standalone version is being made, its status is fetched again now and then (only while the window shows it).
             _platformStatus.schedule.Execute(PollQuestStatus).Every(20000);
 
+            // ---- Avatar Tools -----------------------------------------------------------------------
+            VisualElement tools = Section(_builderBody, "Avatar Tools");
+            tools.Add(Hint("Coming from VRChat? Convert its PhysBones and PhysBone colliders to Motion Bones. The VRChat SDK must be in the project while you convert."));
+            tools.Add(SmallButton("Convert PhysBones to Motion Bones", ConvertPhysBones));
+
             // ---- Validations ------------------------------------------------------------------------
             VisualElement validation = Section(_builderBody, "Validations");
             VisualElement validationHeader = Row();
@@ -404,7 +410,14 @@ namespace ParelVR.SDK.Avatars.UI
             // The Build section is docked at the bottom of the window, under the scrolling page.
             VisualElement build = Card(ParelControlPanel.FooterFor(_container) ?? _builderBody);
             _buildCard = build;
-            build.Add(Title("Build"));
+            // A fold-out like the world panel's, so the docked footer can be made small (state remembered).
+            var buildFold = new Foldout { text = "Build", value = EditorPrefs.GetBool(BuildFoldKey, true) };
+            buildFold.Q<Toggle>()?.AddToClassList("bk-card-title");
+            buildFold.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.target == buildFold) EditorPrefs.SetBool(BuildFoldKey, evt.newValue);
+            });
+            build.Add(buildFold);
 
             VisualElement rightsRow = Row();
             rightsRow.style.alignItems = Align.FlexStart;
@@ -422,7 +435,7 @@ namespace ParelVR.SDK.Avatars.UI
             rightsText.style.marginLeft = 4;
             rightsText.RegisterCallback<ClickEvent>(_ => _rightsToggle.value = !_rightsToggle.value);
             rightsRow.Add(rightsText);
-            build.Add(rightsRow);
+            buildFold.Add(rightsRow);
 
             VisualElement buttons = Row();
             buttons.style.marginTop = 12;
@@ -439,7 +452,14 @@ namespace ParelVR.SDK.Avatars.UI
             _publishButton.style.marginLeft = 8;
             _publishButton.style.fontSize = 13;
             buttons.Add(_publishButton);
-            build.Add(buttons);
+            buildFold.Add(buttons);
+
+            // Name, description, visibility, tags and thumbnail, without building the avatar again.
+            Button saveDetails = new Button(() => _ = SaveDetailsAsync()) { text = "Save Details (no rebuild)" };
+            saveDetails.AddToClassList("bk-btn");
+            saveDetails.style.height = 30;
+            saveDetails.style.marginTop = 6;
+            buildFold.Add(saveDetails);
 
             VisualElement testRow = Row();
             testRow.style.marginTop = 6;
@@ -452,7 +472,7 @@ namespace ParelVR.SDK.Avatars.UI
                 Directory.CreateDirectory(ParelAvatarBuilder.TestAvatarFolder);
                 EditorUtility.RevealInFinder(ParelAvatarBuilder.TestAvatarFolder);
             }));
-            build.Add(testRow);
+            buildFold.Add(testRow);
 
             VisualElement simulatorRow = Row();
             simulatorRow.style.marginTop = 6;
@@ -465,7 +485,7 @@ namespace ParelVR.SDK.Avatars.UI
                 if (_current != null) Selection.activeGameObject = _current.gameObject;
                 EditorApplication.ExecuteMenuItem("ParelVR SDK/Avatar Simulator/Test Avatar in Home Hub");
             }));
-            build.Add(simulatorRow);
+            buildFold.Add(simulatorRow);
 
             // ---- Progress (outside the body so it stays enabled while busy) ---------------------
             _progressCard = Card(page);
@@ -737,6 +757,36 @@ namespace ParelVR.SDK.Avatars.UI
             _pendingSelection = descriptor;
             Remember(descriptor);
             RefreshAvatars();
+        }
+
+        // =========================================================================================
+        // Builder -- avatar tools
+        // =========================================================================================
+
+        private void ConvertPhysBones()
+        {
+            if (_current == null) return;
+
+            GameObject root = _current.gameObject;
+            int choice = EditorUtility.DisplayDialogComplex("Convert PhysBones",
+                $"Convert every PhysBone and PhysBone collider under '{root.name}' to Motion Bones?",
+                "Convert, keep originals off", "Cancel", "Convert, remove originals");
+            if (choice == 1) return;
+
+            ParelPhysBoneConverter.Convert(root, choice == 2,
+                out int bones, out int colliders, out int found);
+            if (found == 0)
+            {
+                EditorUtility.DisplayDialog("Convert PhysBones",
+                    "No PhysBones were found. If they show as \"Missing Script\", import the VRChat SDK into this project first, convert, then remove it.", "OK");
+                return;
+            }
+
+            if (root.scene.IsValid()) EditorSceneManager.MarkSceneDirty(root.scene);
+            Revalidate();
+            QueueRefresh();
+            EditorUtility.DisplayDialog("Convert PhysBones",
+                $"Converted {bones} bone chain(s) and {colliders} collider(s).", "OK");
         }
 
         // =========================================================================================
@@ -1083,6 +1133,55 @@ namespace ParelVR.SDK.Avatars.UI
             {
                 EndBusy();
                 QueueRefresh();
+            }
+        }
+
+        private async Task SaveDetailsAsync()
+        {
+            if (!CanStartBuild(out ParelAvatarDescriptor descriptor)) return;
+            string avatarId = descriptor.BlueprintId;
+            if (string.IsNullOrEmpty(avatarId))
+            {
+                EditorUtility.DisplayDialog("Save Details", "This avatar hasn't been published yet: use Build & Publish first.", "OK");
+                return;
+            }
+            string avatarName = (_nameField.value ?? string.Empty).Trim();
+            if (avatarName.Length == 0)
+            {
+                EditorUtility.DisplayDialog("Save Details", "Give your avatar a name first.", "OK");
+                return;
+            }
+            BeginBusy("Saving details...", false);
+            try
+            {
+                int visibility = Mathf.Clamp(_visibilityField.index, 0, VisibilityValues.Length - 1);
+                var request = new AvatarApiClient.AvatarDetailsRequest
+                {
+                    name = avatarName,
+                    description = _descriptionField.value ?? string.Empty,
+                    releaseStatus = VisibilityValues[visibility],
+                    tags = new List<string>(_tags),
+                    contentWarnings = SelectedWarnings(),
+                };
+                AvatarRecord record = await AvatarApiClient.UpdateAvatarDetailsAsync(avatarId, request);
+                if (_pendingThumbnail != null)
+                {
+                    SetProgress(70, "Uploading thumbnail...");
+                    await AvatarApiClient.UploadImageAsync(avatarId, _pendingThumbnail, _pendingThumbnailIsPng);
+                    _pendingThumbnail = null;
+                }
+                SetProgress(100, "Saved");
+                if (record != null) _existingRecord = record;
+                EditorUtility.DisplayDialog("Saved", $"'{avatarName}' details saved. The avatar itself was not rebuilt.", "OK");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[AvatarsTab] Save details failed: {ex.Message}");
+                EditorUtility.DisplayDialog("Save Error", ex.Message, "OK");
+            }
+            finally
+            {
+                EndBusy();
             }
         }
 
@@ -1716,6 +1815,8 @@ namespace ParelVR.SDK.Avatars.UI
             spacer.AddToClassList("bk-spacer");
             return spacer;
         }
+
+        private const string BuildFoldKey = "ParelVR.SDK.AvatarBuildOpen";
 
         private static VisualElement Card(VisualElement parent)
         {

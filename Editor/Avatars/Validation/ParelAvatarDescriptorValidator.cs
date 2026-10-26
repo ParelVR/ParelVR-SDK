@@ -387,6 +387,10 @@ namespace ParelVR.SDK.Avatars.Validation
                 {
                     Transform t = animator.GetBoneTransform(humanBone);
                     if (t == null) continue;
+                    // The humanoid Jaw is not driven by animation or IK here (lip sync uses the descriptor's
+                    // own Jaw Bone), and Unity's auto rig often maps it to the first child of the head --
+                    // a hair root -- which flagged hair chains that never touch the real jaw.
+                    if (humanBone == HumanBodyBones.Jaw && descriptor.JawBone != t) continue;
                     bool moved = t == chain ? RotatesRoot(bone, chain) : t.IsChildOf(chain) && !IsIgnored(bone, t);
                     if (!moved) continue;
                     issues.Add($"Moves the humanoid {ObjectNames.NicifyVariableName(humanBone.ToString())} bone ('{t.name}'), which animation and IK also drive. Start the chain below it or add it to Ignore Transforms.");

@@ -154,6 +154,7 @@
     flex-grow: 1;
     flex-shrink: 1;
     min-height: 110px;
+    max-height: 420px;
     margin-bottom: 10px;
 }
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using ParelVR.SDK.Build.Quest;
 using UnityEditor;
 using UnityEngine;
@@ -12,10 +13,11 @@ namespace ParelVR.SDK.Build
         public const BuildTarget Target = BuildTarget.StandaloneWindows64;
 
         /// <summary>
-        /// Lets another part of the SDK prepare what goes into the bundle. It is given the saved scene's asset
-        /// path and returns the path of the scene to build (the same one, or a prepared copy).
+        /// Lets another part of the SDK prepare what goes into the bundle. It is given the asset paths of the world's
+        /// saved scenes (MainScene first, then the subrooms) and returns the paths to build, in the same order: the
+        /// same scenes, or prepared copies.
         /// </summary>
-        public static System.Func<string, string> PrepareScene;
+        public static System.Func<string[], string[]> PrepareScenes;
         /// <summary>Called when the build is over, with the bundle's path or null when it failed.</summary>
         public static System.Action<string> Finished;
         /// <summary>Called after the bundle was uploaded: world id, platform, bundle path. What it uploads belongs to that bundle.</summary>
@@ -90,6 +92,18 @@ namespace ParelVR.SDK.Build
             {
                 throw new System.Exception("Failed to save scene.");
             }
+            // Subrooms open next to it are built from disk too: their changes are saved first.
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                Scene open = SceneManager.GetSceneAt(i);
+                if (open.isLoaded && open.isDirty && !string.IsNullOrEmpty(open.path)) UnityEditor.SceneManagement.EditorSceneManager.SaveScene(open);
+            }
+
+            // Every enabled scene in Build Profiles goes into the one bundle: MainScene, where players arrive, and the
+            // subrooms VoltScene.Switch moves them into.
+            var problems = WorldScenes.Problems(activeScene.path);
+            if (problems.Count > 0) throw new System.Exception(string.Join("\n", problems));
+            string[] worldScenes = WorldScenes.BuildOrder().ToArray();
 
             string outputDir = Path.Combine(Application.dataPath, "..", "Builds", "ParelVR");
             if (!Directory.Exists(outputDir))
@@ -100,14 +114,19 @@ namespace ParelVR.SDK.Build
             string oldVoltPackage = VoltPackagePathFor(Path.Combine(outputDir, "worldbundle"));
             if (File.Exists(oldVoltPackage)) File.Delete(oldVoltPackage);
 
-            string scenePath = PrepareScene != null ? PrepareScene(activeScene.path) : activeScene.path;
-            ParelMipStreamingOff.TurnOffFor(new[] { scenePath });
+            string[] scenePaths = PrepareScenes != null ? PrepareScenes(worldScenes) : worldScenes;
+            if (scenePaths == null || scenePaths.Length != worldScenes.Length) throw new System.Exception("The world's scenes could not be prepared for building.");
+            string scenePath = scenePaths[0];
+            ParelMipStreamingOff.TurnOffFor(scenePaths);
+            if (scenePaths.Length > 1)
+                Debug.Log("[ParelVR SDK] Building MainScene with " + (scenePaths.Length - 1) + " subroom(s): " +
+                          string.Join(", ", worldScenes.Skip(1).Select(WorldScenes.NameOf)) + ".");
 
             var buildMap = new AssetBundleBuild[1];
             buildMap[0] = new AssetBundleBuild
             {
                 assetBundleName = "worldbundle",
-                assetNames = new[] { scenePath }
+                assetNames = scenePaths
             };
 
             var manifest = BuildPipeline.BuildAssetBundles(
@@ -130,13 +149,16 @@ namespace ParelVR.SDK.Build
                     string lighting = UnityEditor.Lightmapping.lightingDataAsset != null
                         ? AssetDatabase.GetAssetPath(UnityEditor.Lightmapping.lightingDataAsset)
                         : null;
+                    // The subrooms travel with MainScene.
+                    var extras = scenePaths.Skip(1).ToList();
+                    if (!string.IsNullOrEmpty(lighting)) extras.Add(lighting);
                     QuestSource = ParelQuestSource.Export(
                         ParelQuestSource.WorldKind,
                         scenePath,
                         Path.Combine(outputDir, "worldbundle.questsource.unitypackage"),
                         activeScene.GetRootGameObjects(),
                         RenderSettings.skybox,
-                        string.IsNullOrEmpty(lighting) ? null : new[] { lighting });
+                        extras.Count == 0 ? null : extras);
                 }
                 catch (System.Exception ex)
                 {

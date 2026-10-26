@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 4
+    "minor": 5
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.7.0",
-  "hash": "b301b1ce46b8e728cf77a3775055e38b83822b507af24041e79fb52e003800c0",
+  "sdkVersion": "1.8.0",
+  "hash": "26907cff1c53bb3659087674bbb41fe8948f242cdb6736bf60dab1102d8b21fe",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -4902,7 +4902,7 @@
       "retCount": 1,
       "returns": "System.Int32",
       "params": [],
-      "doc": "Number of players in the instance."
+      "doc": "Number of players in the instance, in every subroom."
     },
     {
       "id": "0x815DB1B5",
@@ -9989,6 +9989,27 @@
       "doc": "Makes a copy of a world object at a position."
     },
     {
+      "id": "0x086A28E9",
+      "sig": "M:ParelVR.Volt.Scene.VoltScene.Switch(System.String)",
+      "type": "ParelVR.Volt.Scene.VoltScene",
+      "name": "Switch",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 5,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "sceneName",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Moves the local player into another scene of this world: a subroom. Every scene in the world\u0027s Build Profiles scene list is uploaded with the world, so nothing downloads, and the player stays in the same instance. Players in other subrooms are neither seen nor heard. \u0022MainScene\u0022 goes back to the scene players arrive in."
+    },
+    {
       "id": "0xB8FBAC69",
       "sig": "M:ParelVR.Volt.Scene.VoltScene.get_RootObjects",
       "type": "ParelVR.Volt.Scene.VoltScene",
@@ -13189,7 +13210,7 @@
       "retCount": 1,
       "returns": "ParelVR.Volt.Players.VoltPlayer[]",
       "params": [],
-      "doc": "Every player in the instance."
+      "doc": "Every player in this world\u0027s scene. In a world with subrooms, only those in the local player\u0027s subroom."
     },
     {
       "id": "0xEB595BA8",
@@ -13288,7 +13309,7 @@
       "retCount": 1,
       "returns": "System.Int32",
       "params": [],
-      "doc": "Number of players in the instance."
+      "doc": "Number of players in this world\u0027s scene. In a world with subrooms, only those in the local player\u0027s subroom."
     },
     {
       "id": "0x012B1214",
@@ -13304,7 +13325,7 @@
       "retCount": 1,
       "returns": "ParelVR.Volt.Players.VoltPlayer[]",
       "params": [],
-      "doc": "Every player in the instance."
+      "doc": "Every player in this world\u0027s scene. In a world with subrooms, only those in the local player\u0027s subroom."
     },
     {
       "id": "0x9450C37F",

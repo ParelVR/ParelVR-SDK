@@ -47,6 +47,8 @@ namespace ParelVR.SDK.Build.Quest
 
         public static bool IsMobile(string shaderName)
         {
+            // Rewritten for mobile by the conversion server's AI step (and checked to compile there).
+            if (!string.IsNullOrEmpty(shaderName) && shaderName.StartsWith("ParelQuestAI/", StringComparison.Ordinal)) return true;
             if (string.IsNullOrEmpty(shaderName) || shaderName == ErrorShader) return false;
             return MobilePrefixes.Any(p => shaderName.StartsWith(p, StringComparison.OrdinalIgnoreCase));
         }

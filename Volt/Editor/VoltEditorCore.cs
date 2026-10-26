@@ -123,7 +123,19 @@ namespace ParelVR.Volt.EditorTools
 
         private const int CompileTimeoutMs = 120000;
 
-        public static VoltCompileOutput Compile(bool logToConsole = true)
+        /// <summary>The source files of the assemblies that hold the world's scripts, as project paths.</summary>
+        public static List<string> ScriptSources()
+        {
+            var scriptAssemblies = new HashSet<string>(TypeCache.GetTypesDerivedFrom<VoltBehaviour>().Select(t => t.Assembly.GetName().Name));
+            var sources = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (UnityEditor.Compilation.Assembly assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
+                if (scriptAssemblies.Contains(assembly.name))
+                    foreach (string source in assembly.sourceFiles) sources.Add(source.Replace('\\', '/'));
+            return sources.ToList();
+        }
+
+        /// <param name="sceneComponents">Some scene of the world has Volt components: a module is made even without scripts.</param>
+        public static VoltCompileOutput Compile(bool logToConsole = true, bool sceneComponents = false)
         {
             var output = new VoltCompileOutput();
             try
@@ -131,7 +143,7 @@ namespace ParelVR.Volt.EditorTools
                 var scriptAssemblies = new HashSet<string>(TypeCache.GetTypesDerivedFrom<VoltBehaviour>().Select(t => t.Assembly.GetName().Name));
                 // Video players, pickups and the other Volt components run in the world runtime too: a scene with them and
                 // no scripts gets an empty module.
-                bool componentsOnly = scriptAssemblies.Count == 0 && VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene());
+                bool componentsOnly = scriptAssemblies.Count == 0 && (sceneComponents || VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene()));
                 if (scriptAssemblies.Count == 0 && !componentsOnly)
                 {
                     output.success = true;
@@ -249,6 +261,8 @@ namespace ParelVR.Volt.EditorTools
         public sealed class Result
         {
             public int Behaviours;
+            /// <summary>The last network id and owner group handed out: the next scene of the world starts after them.</summary>
+            public int LastNetId, LastGroup;
             public readonly List<(int NetId, int Group, string Class, string Path)> Entries = new List<(int, int, string, string)>();
             public readonly List<string> Warnings = new List<string>();
         }
@@ -270,7 +284,6 @@ namespace ParelVR.Volt.EditorTools
         /// <summary>
         /// A Volt Video Player needs the Video capability, and the domain of the address it starts with. Both are added to
         /// the Volt settings here, so the player works in play mode and in the uploaded world without a trip to the settings.
-        /// Video sites the platform plays itself (YouTube) need no domain.
         /// </summary>
         public static void DeclareSceneNeeds(Scene scene)
         {
@@ -290,11 +303,11 @@ namespace ParelVR.Volt.EditorTools
                     }
                     if (!Uri.TryCreate(player.startUrl ?? string.Empty, UriKind.Absolute, out Uri uri) || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)) continue;
                     string host = uri.Host.ToLowerInvariant();
-                    if (host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal)) continue;
-                    if (domains.Any(d => string.Equals(d, host, StringComparison.OrdinalIgnoreCase) || host.EndsWith("." + d, StringComparison.OrdinalIgnoreCase))) continue;
-                    domains.Add(host);
+                    string domain = host == "youtu.be" ? "youtu.be" : (host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal)) ? "youtube.com" : host;
+                    if (domains.Any(d => string.Equals(d, domain, StringComparison.OrdinalIgnoreCase) || host.EndsWith("." + d, StringComparison.OrdinalIgnoreCase))) continue;
+                    domains.Add(domain);
                     changed = true;
-                    Debug.Log("[Volt] Allowed the domain " + host + " for " + player.name + "'s start address.");
+                    Debug.Log("[Volt] Allowed the domain " + domain + " for " + player.name + "'s start address.");
                 }
             }
             if (!changed) return;
@@ -302,7 +315,8 @@ namespace ParelVR.Volt.EditorTools
             settings.SaveNow();
         }
 
-        public static Result Process(Scene scene, byte[] moduleBytes, bool playMode)
+        /// <param name="firstNetId">Ids handed out by the world's earlier scenes: a subroom's ids follow MainScene's, so every id is the world's own.</param>
+        public static Result Process(Scene scene, byte[] moduleBytes, bool playMode, int firstNetId = 0, int firstGroup = 0)
         {
             var context = new Context { Module = VoltModuleReader.Read(moduleBytes), Bindings = new VoltBindings() };
             VoltUnityDispatch.Register(context.Bindings);
@@ -329,12 +343,12 @@ namespace ParelVR.Volt.EditorTools
             var groups = new Dictionary<GameObject, int>();
             int Group(GameObject go)
             {
-                if (!groups.TryGetValue(go, out int id)) groups.Add(go, id = groups.Count + 1);
+                if (!groups.TryGetValue(go, out int id)) groups.Add(go, id = firstGroup + groups.Count + 1);
                 return id;
             }
 
             var hosts = new List<VoltBehaviourHost>();
-            int netId = 0;
+            int netId = Math.Max(0, firstNetId);
             foreach (VoltBehaviour proxy in proxies)
             {
                 VoltBehaviourHost host = MakeHost(context, proxy);
@@ -376,6 +390,8 @@ namespace ParelVR.Volt.EditorTools
             data.groups = groups.Select(g => new VoltSceneGroup { target = g.Key, ownerGroup = g.Value }).ToArray();
             data.templates = context.Templates.Values.ToArray();
             context.Result.Behaviours = hosts.Count;
+            context.Result.LastNetId = netId;
+            context.Result.LastGroup = firstGroup + groups.Count;
             foreach (string warning in context.Result.Warnings) Debug.LogWarning("[Volt] " + warning);
             return context.Result;
         }
@@ -581,9 +597,25 @@ namespace ParelVR.Volt.EditorTools
         {
             PushMultiClient();
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
-            WorldBuilder.PrepareScene = VoltWorldBuild.Prepare;
+            WorldBuilder.PrepareScenes = VoltWorldBuild.Prepare;
             WorldBuilder.Finished = VoltWorldBuild.Finished;
             WorldBuilder.AfterBundleUploaded = VoltWorldBuild.Upload;
+            WorldScenes.FindSwitchCalls = VoltSceneCalls.Find;
+            PushScenes();
+        }
+
+        /// <summary>Hands the simulator the world's scenes (Build Profiles) and a way to load them, for VoltScene.Switch in play mode.</summary>
+        internal static void PushScenes()
+        {
+            ParelVR.Volt.Simulator.VoltSimulator.WorldScenes = WorldScenes.BuildOrder().ToArray();
+            ParelVR.Volt.Simulator.VoltSimulator.LoadScene = path => EditorSceneManager.LoadSceneAsyncInPlayMode(path, new LoadSceneParameters(LoadSceneMode.Single));
+            ParelVR.Volt.Simulator.VoltSimulator.PrepareLoadedScene = scene =>
+            {
+                if (!VoltSceneProcessor.HasScripts(scene) || !File.Exists(VoltCompilerService.ModulePath)) return;
+                foreach (GameObject root in scene.GetRootGameObjects())
+                    if (root.GetComponentInChildren<VoltWorldScene>(true) != null) return; // already prepared as it loaded
+                VoltSceneProcessor.Process(scene, File.ReadAllBytes(VoltCompilerService.ModulePath), true);
+            };
         }
 
         public int callbackOrder => 0;
@@ -605,7 +637,11 @@ namespace ParelVR.Volt.EditorTools
 
         private static void OnPlayModeChanged(PlayModeStateChange change)
         {
-            if (change == PlayModeStateChange.ExitingEditMode) PushMultiClient();
+            if (change == PlayModeStateChange.ExitingEditMode)
+            {
+                PushMultiClient();
+                PushScenes();
+            }
             if (change != PlayModeStateChange.ExitingEditMode || !VoltSettings.instance.compileOnPlay) return;
             if (!VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene())) return;
             VoltSceneProcessor.DeclareSceneNeeds(SceneManager.GetActiveScene());
@@ -623,6 +659,34 @@ namespace ParelVR.Volt.EditorTools
         }
     }
 
+    /// <summary>Finds the scenes the world's scripts switch to by name, so a scene missing from Build Profiles stops the build.</summary>
+    public static class VoltSceneCalls
+    {
+        private static readonly System.Text.RegularExpressions.Regex Call = new System.Text.RegularExpressions.Regex(
+            @"VoltScene\s*\.\s*Switch\s*\(\s*@?""([^""\\\r\n]*)""\s*\)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+        public static IEnumerable<WorldScenes.SwitchCall> Find()
+        {
+            var calls = new List<WorldScenes.SwitchCall>();
+            foreach (string file in VoltCompilerService.ScriptSources())
+            {
+                string text;
+                try { text = File.ReadAllText(file); }
+                catch (IOException) { continue; }
+                if (text.IndexOf("Switch", StringComparison.Ordinal) < 0) continue;
+                foreach (System.Text.RegularExpressions.Match m in Call.Matches(text))
+                {
+                    int lineStart = text.LastIndexOf('\n', Math.Max(0, m.Index - 1)) + 1;
+                    if (text.IndexOf("//", lineStart, m.Index - lineStart, StringComparison.Ordinal) >= 0) continue;
+                    int line = 1;
+                    for (int i = 0; i < m.Index; i++) if (text[i] == '\n') line++;
+                    calls.Add(new WorldScenes.SwitchCall { Scene = m.Groups[1].Value.Trim(), File = file, Line = line });
+                }
+            }
+            return calls;
+        }
+    }
+
     /// <summary>Building and uploading a world with scripts: the bundle gets a prepared copy of the scene, the scripts travel as a Volt package.</summary>
     public static class VoltWorldBuild
     {
@@ -632,38 +696,80 @@ namespace ParelVR.Volt.EditorTools
 
         public static string LastPackagePath { get; private set; }
 
-        public static string Prepare(string scenePath)
+        /// <summary>
+        /// Prepares every scene of the world (MainScene first, then the subrooms): the scripts compile once, and each
+        /// scene with Volt in it is built from a prepared copy whose ids follow the scenes before it.
+        /// </summary>
+        public static string[] Prepare(string[] scenePaths)
         {
             _module = null;
             _scene = null;
-            if (!VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene()))
+            var built = (string[])scenePaths.Clone();
+            var needs = new bool[scenePaths.Length];
+            bool any = false;
+            for (int i = 0; i < scenePaths.Length; i++)
             {
-                if (SceneManager.GetActiveScene().GetRootGameObjects().Any(root =>
-                        root.GetComponentInChildren<ParelVR.Volt.Interaction.VoltPickup>(true) != null ||
-                        root.GetComponentInChildren<ParelVR.Volt.Interaction.VoltInteractable>(true) != null))
-                    Debug.LogWarning("[Volt] The scene has pickups or interactables but no VoltBehaviour script. They only work in a world built with scripts: add a VoltBehaviour to an object in the scene.");
-                return scenePath;
+                bool subroom = i > 0;
+                needs[i] = WithScene(scenePaths[i], scene =>
+                {
+                    // Without its own spawn point a subroom puts the player where MainScene's is.
+                    if (subroom && !scene.GetRootGameObjects().Any(root => root.GetComponentsInChildren<MonoBehaviour>(true).Any(m => m != null && m.GetType().Name == "ParelVRSpawnPoint")))
+                        Debug.LogWarning("[ParelVR SDK] The subroom " + scene.name + " has no ParelVR Spawn Point: players switching into it arrive where MainScene's spawn point is.");
+                    if (VoltSceneProcessor.HasScripts(scene))
+                    {
+                        VoltSceneProcessor.DeclareSceneNeeds(scene);
+                        return true;
+                    }
+                    if (scene.GetRootGameObjects().Any(root =>
+                            root.GetComponentInChildren<ParelVR.Volt.Interaction.VoltPickup>(true) != null ||
+                            root.GetComponentInChildren<ParelVR.Volt.Interaction.VoltInteractable>(true) != null))
+                        Debug.LogWarning("[Volt] " + scene.name + " has pickups or interactables but no VoltBehaviour script. They only work in a scene built with scripts: add a VoltBehaviour to an object in it.");
+                    return false;
+                });
+                any |= needs[i];
             }
-            VoltSceneProcessor.DeclareSceneNeeds(SceneManager.GetActiveScene());
-            VoltCompileOutput output = VoltCompilerService.Compile();
+            if (!any) return built;
+
+            VoltCompileOutput output = VoltCompilerService.Compile(true, true);
             if (!output.success || output.bytes == null) throw new Exception("The world scripts have errors. See the Console.");
 
             if (!AssetDatabase.IsValidFolder(TempFolder)) AssetDatabase.CreateFolder("Assets", "ParelVR_Volt_Build");
-            string copyPath = TempFolder + "/" + Path.GetFileName(scenePath);
-            AssetDatabase.DeleteAsset(copyPath);
-            if (!AssetDatabase.CopyAsset(scenePath, copyPath)) throw new Exception("Could not copy the scene for building.");
-            Scene copy = EditorSceneManager.OpenScene(copyPath, OpenSceneMode.Additive);
-            try
+            var all = new VoltSceneProcessor.Result();
+            for (int i = 0; i < scenePaths.Length; i++)
             {
-                _scene = VoltSceneProcessor.Process(copy, output.bytes, false);
-                EditorSceneManager.SaveScene(copy);
+                if (!needs[i]) continue;
+                string copyPath = TempFolder + "/" + Path.GetFileName(scenePaths[i]);
+                AssetDatabase.DeleteAsset(copyPath);
+                if (!AssetDatabase.CopyAsset(scenePaths[i], copyPath)) throw new Exception("Could not copy " + Path.GetFileNameWithoutExtension(scenePaths[i]) + " for building.");
+                Scene copy = EditorSceneManager.OpenScene(copyPath, OpenSceneMode.Additive);
+                try
+                {
+                    VoltSceneProcessor.Result result = VoltSceneProcessor.Process(copy, output.bytes, false, all.LastNetId, all.LastGroup);
+                    all.Entries.AddRange(result.Entries);
+                    all.Behaviours += result.Behaviours;
+                    all.LastNetId = result.LastNetId;
+                    all.LastGroup = result.LastGroup;
+                    EditorSceneManager.SaveScene(copy);
+                }
+                finally
+                {
+                    EditorSceneManager.CloseScene(copy, true);
+                }
+                built[i] = copyPath;
             }
-            finally
-            {
-                EditorSceneManager.CloseScene(copy, true);
-            }
+            _scene = all;
             _module = output.bytes;
-            return copyPath;
+            return built;
+        }
+
+        /// <summary>Runs <paramref name="look"/> on a saved scene: the open one as it is, any other opened beside it for the moment.</summary>
+        private static bool WithScene(string path, Func<Scene, bool> look)
+        {
+            Scene open = SceneManager.GetSceneByPath(path);
+            if (open.IsValid() && open.isLoaded) return look(open);
+            Scene scene = EditorSceneManager.OpenScene(path, OpenSceneMode.Additive);
+            try { return look(scene); }
+            finally { EditorSceneManager.CloseScene(scene, true); }
         }
 
         public static void Finished(string bundlePath)

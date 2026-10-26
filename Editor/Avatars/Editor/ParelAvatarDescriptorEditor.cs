@@ -946,20 +946,22 @@ namespace ParelVR.SDK.Avatars.Inspectors
         {
             SerializedProperty left = _activeRotation.FindPropertyRelative("left");
             SerializedProperty right = _activeRotation.FindPropertyRelative("right");
-            EditEyeHandle(_activeLeft, left, _activeLinked ? right : null);
-            if (!_activeLinked) EditEyeHandle(_activeRight, right, null);
+            EditEyeHandle(_activeLeft, left, _activeLinked ? right : null, _activeLinked ? _activeRight : null);
+            if (!_activeLinked) EditEyeHandle(_activeRight, right, null, null);
         }
 
-        private static void EditEyeHandle(Transform eye, SerializedProperty property, SerializedProperty mirror)
+        private void EditEyeHandle(Transform eye, SerializedProperty property, SerializedProperty mirror, Transform mirrorEye)
         {
             if (eye == null) return;
             EditorGUI.BeginChangeCheck();
             Quaternion world = Handles.RotationHandle(eye.rotation, eye.position);
             if (!EditorGUI.EndChangeCheck()) return;
             Quaternion local = eye.parent != null ? Quaternion.Inverse(eye.parent.rotation) * world : world;
-            eye.localRotation = local;
+            PreviewRotation(eye, local);
             property.quaternionValue = local;
             if (mirror != null) mirror.quaternionValue = local;
+            // Linked: the other eye shows the same rotation while it is being turned.
+            if (mirrorEye != null) PreviewRotation(mirrorEye, local);
         }
 
         private void SceneView_Collider()
@@ -1140,16 +1142,30 @@ namespace ParelVR.SDK.Avatars.Inspectors
             }
         }
 
+        /// <summary>
+        /// The angles last typed into each rotation field. Shown back as typed while they still give the
+        /// stored rotation: converting the quaternion to angles every repaint made the numbers jump
+        /// (-10 became 350, 100 became 80 / 180 / 180) while they were being edited.
+        /// </summary>
+        private static readonly Dictionary<string, Vector3> TypedAngles = new Dictionary<string, Vector3>();
+
         private static bool QuaternionField(string label, SerializedProperty quaternion)
         {
             Quaternion q = quaternion.quaternionValue;
             if (q.x == 0f && q.y == 0f && q.z == 0f && q.w == 0f) q = Quaternion.identity;
+            string key = quaternion.serializedObject.targetObject.GetInstanceID() + ":" + quaternion.propertyPath;
+            Vector3 shown = TypedAngles.TryGetValue(key, out Vector3 typed) && Quaternion.Angle(Quaternion.Euler(typed), q) < 0.05f
+                ? typed
+                : Signed(q.eulerAngles);
             EditorGUI.BeginChangeCheck();
-            Vector3 euler = EditorGUILayout.Vector3Field(label, Round(q.eulerAngles));
+            Vector3 euler = EditorGUILayout.Vector3Field(label, Round(shown));
             if (!EditorGUI.EndChangeCheck()) return false;
+            TypedAngles[key] = euler;
             quaternion.quaternionValue = Quaternion.Euler(euler);
             return true;
         }
+
+        private static Vector3 Signed(Vector3 e) => new Vector3(Mathf.DeltaAngle(0f, e.x), Mathf.DeltaAngle(0f, e.y), Mathf.DeltaAngle(0f, e.z));
 
         private static Vector3 Round(Vector3 v) => new Vector3((float)Math.Round(v.x, 3), (float)Math.Round(v.y, 3), (float)Math.Round(v.z, 3));
 

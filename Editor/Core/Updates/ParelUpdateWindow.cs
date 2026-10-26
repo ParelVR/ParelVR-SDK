@@ -42,7 +42,15 @@ namespace ParelVR.SDK.Core.Updates
         private static ParelUpdateWindow Create()
         {
             var window = GetWindow<ParelUpdateWindow>(true, "ParelVR SDK Updates", true);
-            window.minSize = window.maxSize = new Vector2(480f, 560f);
+            // Resizable, with room for long release notes; the body scrolls instead of clipping.
+            window.minSize = new Vector2(440f, 420f);
+            window.maxSize = new Vector2(1000f, 1400f);
+            if (window.position.width < 500f || window.position.height < 600f)
+            {
+                Rect main = EditorGUIUtility.GetMainWindowPosition();
+                var size = new Vector2(520f, 640f);
+                window.position = new Rect(main.center - size * 0.5f, size);
+            }
             return window;
         }
 
@@ -72,7 +80,11 @@ namespace ParelVR.SDK.Core.Updates
 
             _body = new VisualElement();
             _body.AddToClassList("pu-body");
-            root.Add(_body);
+            var bodyScroll = new ScrollView(ScrollViewMode.Vertical);
+            bodyScroll.style.flexGrow = 1;
+            bodyScroll.contentContainer.style.flexGrow = 1;
+            bodyScroll.Add(_body);
+            root.Add(bodyScroll);
 
             _footer = new VisualElement();
             _footer.AddToClassList("pu-footer");

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Video;
 
@@ -37,10 +38,28 @@ namespace ParelVR.WorldSDK
                 return;
             }
 
+            WarnIfPageUrl(player.url);
             player.isLooping = loop;
             if (playOnStart)
             {
                 player.Play();
+            }
+        }
+
+        private void OnValidate()
+        {
+            if (player != null) WarnIfPageUrl(player.url);
+        }
+
+        private void WarnIfPageUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out Uri uri)) return;
+            string host = uri.Host.ToLowerInvariant();
+            if (host == "youtu.be" || host == "youtube.com" || host.EndsWith(".youtube.com", StringComparison.Ordinal) ||
+                host == "twitch.tv" || host.EndsWith(".twitch.tv", StringComparison.Ordinal) ||
+                host == "kick.com" || host.EndsWith(".kick.com", StringComparison.Ordinal))
+            {
+                Debug.LogWarning("[ParelVRVideoPlayer] '" + url + "' is a page URL. Unity's VideoPlayer cannot resolve it; use ParelVR VoltVideoPlayer or a direct media URL.", this);
             }
         }
 

@@ -65,10 +65,10 @@ public class #SCRIPTNAME# : VoltBehaviour
             int scripts = scene.GetRootGameObjects().Sum(r => r.GetComponentsInChildren<VoltBehaviour>(true).Length);
             var caps = (VoltCapability)output.usedCapabilities & VoltCapabilities.ResourceMask;
             var missing = caps & ~(VoltCapability)VoltSettings.instance.capabilities;
-            bool web = (caps & (VoltCapability.Web | VoltCapability.Video)) != 0 && (VoltSettings.instance.webDomains == null || VoltSettings.instance.webDomains.Length == 0);
+            bool web = (caps & VoltCapability.Web) != 0 && (VoltSettings.instance.webDomains == null || VoltSettings.instance.webDomains.Length == 0);
             string text = scripts + " script component(s) in '" + scene.name + "', module " + output.moduleSize + " bytes.\nCapabilities used: " + caps;
             if (missing != 0) text += "\n\nNot enabled in the Volt settings: " + missing;
-            if (web) text += "\n\nThe scripts use web or video but no web domain is listed in the Volt settings.";
+            if (web) text += "\n\nThe scripts use web requests but no web domain is listed in the Volt settings.";
             EditorUtility.DisplayDialog("Volt: Validate World", text, "OK");
         }
 

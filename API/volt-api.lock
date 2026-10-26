@@ -1,7 +1,7 @@
 # ParelVR Volt API lock. Records the released contract so a later change cannot break it by accident.
 # Updated by 'voltapigen --update-lock' when a release is cut.
-version 1.4
-hash b301b1ce46b8e728cf77a3775055e38b83822b507af24041e79fb52e003800c0
+version 1.5
+hash 26907cff1c53bb3659087674bbb41fe8948f242cdb6736bf60dab1102d8b21fe
 M 62a2e1ca 0 1 0 F:UnityEngine.Mathf.Epsilon
 M f7ac2aa8 4 0 16 M:ParelVR.Volt.Animation.VoltAnimator.CrossFade(System.String,System.Single,System.Int32)
 M 0aa79038 2 1 0 M:ParelVR.Volt.Animation.VoltAnimator.GetBool(System.String)
@@ -429,6 +429,7 @@ M 669c036e 1 1 0 M:ParelVR.Volt.Scene.VoltScene.FindWithTag(System.String)
 M 8dca9ea8 1 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject)
 M 3b1631f8 2 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,ParelVR.Volt.Objects.VoltTransform)
 M b998c4aa 3 1 16 M:ParelVR.Volt.Scene.VoltScene.Instantiate(ParelVR.Volt.Objects.VoltGameObject,UnityEngine.Vector3,UnityEngine.Quaternion)
+M 086a28e9 1 0 0 M:ParelVR.Volt.Scene.VoltScene.Switch(System.String)
 M b8fbac69 0 1 0 M:ParelVR.Volt.Scene.VoltScene.get_RootObjects
 M 863ef10c 1 1 64 M:ParelVR.Volt.Storage.VoltAchievements.Check(System.String)
 M eb0db66e 2 1 64 M:ParelVR.Volt.Storage.VoltAchievements.Unlock(System.String,System.String)
