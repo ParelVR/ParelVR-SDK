@@ -193,7 +193,10 @@ namespace ParelVR.SDK.Build.Quest
             return info != null ? info.version : "0.0.0";
         }
 
-        private static void AddIncludes(string path, HashSet<string> into, int depth)
+        /// <summary>A shader source or include file.</summary>
+        public static bool IsShaderSource(string path) => !string.IsNullOrEmpty(path) && ShaderSourceExtensions.Contains(Path.GetExtension(path));
+
+        internal static void AddIncludes(string path, HashSet<string> into, int depth)
         {
             if (depth > 16 || !File.Exists(path)) return;
             string text;

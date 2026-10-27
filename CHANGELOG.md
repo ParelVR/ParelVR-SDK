@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.10.0 (2026-10-27)
+
+### Protected avatars
+
+- **ParelVR SDK > Protected Content > Make Sellable File** (for an avatar you protected on the ParelVR website) makes
+  the file you sell. It only holds stand-ins: blocky models, 32 px textures and silent sounds with the real bones,
+  weights, blendshapes and material slots, so buyers can set the avatar up and customize it, but there's nothing worth
+  exporting from their project. Your real files go to ParelVR, sealed with the avatar's own key.
+- **Import Protected File** (also under Assets) checks the file with ParelVR and imports the stand-ins. Buyers you
+  haven't approved go on your Pending list.
+- Publishing an avatar that uses stand-ins never uploads what was built locally: the avatar is sent to ParelVR's build
+  server, which swaps the stand-ins for your real files and builds it (and its Meta / Standalone VR version). Only
+  whitelisted buyers, and you, can publish it.
+
 ## 1.9.0 (2026-10-25)
 
 ### Subrooms (Volt API 1.5)

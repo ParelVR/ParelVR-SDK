@@ -108,11 +108,22 @@ namespace ParelVR.SDK.Backend
                 new Progress<float>(p => progress?.Report((voltSize + p * packageSize) / total)), ct);
         }
 
-        private static async Task<QuestResponse> UploadPartAsync(string root, string uploadId, string part, string path, string sdkVersion,
+        private static Task<QuestResponse> UploadPartAsync(string root, string uploadId, string part, string path, string sdkVersion,
             IProgress<float> progress, CancellationToken ct)
+        {
+            return UploadFileAsync<QuestResponse>(root, uploadId, "part=" + part, "sdk=" + Uri.EscapeDataString(sdkVersion ?? string.Empty), path, progress, ct);
+        }
+
+        /// <summary>
+        /// Streams a file up in 32 MB parts to "{root}/chunk" and joins them with "{root}/complete" (checked by SHA-256).
+        /// <paramref name="query"/> goes on every call, <paramref name="completeQuery"/> on the last one only.
+        /// </summary>
+        public static async Task<T> UploadFileAsync<T>(string root, string uploadId, string query, string completeQuery, string path,
+            IProgress<float> progress, CancellationToken ct) where T : class
         {
             long size = new FileInfo(path).Length;
             int chunks = (int)Math.Max(1, (size + ChunkBytes - 1) / ChunkBytes);
+            string extra = string.IsNullOrEmpty(query) ? string.Empty : "&" + query;
             string sha;
             using (var stream = File.OpenRead(path))
             {
@@ -137,14 +148,13 @@ namespace ParelVR.SDK.Backend
                     }
                     int done = index;
                     await ParelApiClient.PutBytesRawAsync(
-                        $"{root}/chunk?uploadId={uploadId}&part={part}&index={index}&total={chunks}",
+                        $"{root}/chunk?uploadId={uploadId}&index={index}&total={chunks}{extra}",
                         body, "application/octet-stream",
                         new Progress<float>(p => progress?.Report(Math.Min(1f, (done + p) / chunks))), ct);
                 }
             }
-            return await ParelApiClient.PostJsonAsync<QuestResponse>(
-                $"{root}/complete?uploadId={uploadId}&part={part}&total={chunks}&sha256={sha}&sdk={Uri.EscapeDataString(sdkVersion ?? string.Empty)}",
-                null, ct);
+            string complete = string.IsNullOrEmpty(completeQuery) ? string.Empty : "&" + completeQuery;
+            return await ParelApiClient.PostJsonAsync<T>($"{root}/complete?uploadId={uploadId}&total={chunks}&sha256={sha}{extra}{complete}", null, ct);
         }
     }
 }

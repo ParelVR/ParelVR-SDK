@@ -10,6 +10,7 @@ using ParelVR.SDK.Avatars.Build;
 using ParelVR.SDK.Avatars.Tools;
 using ParelVR.SDK.Avatars.Validation;
 using ParelVR.SDK.Backend;
+using ParelVR.SDK.Build.Protected;
 using ParelVR.SDK.Core.Auth;
 using ParelVR.SDK.Core.ControlPanel;
 using ParelVR.SDK.Core.Http;
@@ -1215,6 +1216,10 @@ namespace ParelVR.SDK.Avatars.UI
                 return;
             }
 
+            // Protected content by another creator: the project only has stand-ins, so ParelVR's build server builds it.
+            List<ParelLockedMap> locked = ParelLocked.MapsUsedBy(descriptor.gameObject);
+            bool serverBuild = locked.Count > 0;
+
             string workDir = Path.Combine(Path.GetTempPath(), "ParelVRAvatarUpload", Guid.NewGuid().ToString("N"));
             var notes = new List<string>();
 
@@ -1225,14 +1230,28 @@ namespace ParelVR.SDK.Avatars.UI
             {
                 // 1. Build first so a broken build never leaves an empty avatar on your account. One PC build; with
                 //    Meta / Standalone VR on, what it was built from is packed for ParelVR's servers too.
-                string questSourceFile = forStandalone ? Path.Combine(workDir, "standalone.unitypackage") : null;
+                if (serverBuild)
+                {
+                    foreach (ParelLockedMap map in locked)
+                    {
+                        ParelProtectedKeyInfo access = await ParelCopyrightApiClient.GetKeyAsync(map.keyId, ct);
+                        if (access == null || !access.MayPublish)
+                        {
+                            string who = string.IsNullOrEmpty(map.owner) ? "its creator" : map.owner;
+                            throw new Exception(access != null && access.access == "blacklisted"
+                                ? $"This avatar uses '{map.name}', protected by {who}, and they haven't allowed you to publish it."
+                                : $"This avatar uses '{map.name}', protected by {who}. You can publish it once they approve you (you're on their pending list).");
+                        }
+                    }
+                }
+                string questSourceFile = forStandalone && !serverBuild ? Path.Combine(workDir, "standalone.unitypackage") : null;
                 ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
                     () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questSourceFile));
                 if (forPc && windows.BundleBytes > MaxWindowsBundleBytes)
                 {
                     throw new Exception($"The PC build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
                 }
-                if (forStandalone && windows.QuestSource == null)
+                if (forStandalone && !serverBuild && windows.QuestSource == null)
                 {
                     notes.Add("The Meta / Standalone VR version wasn't sent: " + (windows.QuestSourceError ?? "the package wasn't made") + ". Publish again to retry.");
                 }
@@ -1256,9 +1275,22 @@ namespace ParelVR.SDK.Avatars.UI
                 }
 
                 // 3. The PC bundle.
-                bool sendStandalone = forStandalone && windows.QuestSource != null;
+                bool sendStandalone = forStandalone && !serverBuild && windows.QuestSource != null;
                 float pcEnd = sendStandalone ? 65f : 90f;
-                if (forPc)
+                if (serverBuild)
+                {
+                    // What was built here has stand-ins in it, so it never goes up: the avatar and its stand-ins go to the
+                    // build server, which puts the real files back and builds every platform.
+                    SetProgress(35, "Packing for ParelVR's build server...");
+                    var lockedSource = ParelLocked.ExportLockedSource(descriptor.gameObject, locked, Path.Combine(workDir, "locked.unitypackage"));
+                    ParelLockedBuildResponse queued = await ParelCopyrightApiClient.UploadLockedSourceAsync(
+                        record.id, lockedSource.PackagePath, locked.Select(m => m.keyId), targets, ParelVR.SDK.Build.Quest.ParelQuestSource.SdkVersion(),
+                        new Progress<float>(p => SetProgress(40 + p * 50, $"Sending to ParelVR's build server... {(int)(p * 100)}%")), ct);
+                    string owners = string.Join(", ", locked.Select(m => string.IsNullOrEmpty(m.owner) ? m.name : m.owner).Distinct());
+                    notes.Add($"This avatar uses content protected by {owners}. ParelVR's build server is putting the real models and textures in and building it now; it shows on the Avatars page when it's ready (usually a few minutes).");
+                    if (queued?.protectedBuild != null && queued.protectedBuild.Failed) notes.Add(queued.protectedBuild.message);
+                }
+                else if (forPc)
                 {
                     SetProgress(35, "Uploading PC / PCVR build...");
                     byte[] windowsBytes = File.ReadAllBytes(windows.BundlePath);
@@ -1292,7 +1324,7 @@ namespace ParelVR.SDK.Avatars.UI
                 // 5. Thumbnail -- the one you picked, or an automatic portrait for brand-new avatars.
                 byte[] thumbnail = _pendingThumbnail;
                 bool thumbnailIsPng = _pendingThumbnailIsPng;
-                if (thumbnail == null && string.IsNullOrEmpty(record.thumbnailUrl))
+                if (thumbnail == null && string.IsNullOrEmpty(record.thumbnailUrl) && !serverBuild)
                 {
                     Texture2D portrait = ParelAvatarThumbnail.CapturePortrait(descriptor.gameObject);
                     if (portrait != null)
@@ -1326,7 +1358,9 @@ namespace ParelVR.SDK.Avatars.UI
                 UpdateHeader();
                 RenderStats();
 
-                string message = forPc
+                string message = serverBuild
+                    ? $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}). It goes live once ParelVR's build server has built it with the protected parts."
+                    : forPc
                     ? $"'{record.name}' is live on ParelVR ({VisibilityLabel(record.releaseStatus)}).\n\nYou'll find it on the Avatars page in game."
                     : $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}). It shows on the Avatars page once its Meta / Standalone VR version is ready.";
                 if (notes.Count > 0) message += "\n\n" + string.Join("\n\n", notes);
