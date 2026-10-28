@@ -770,6 +770,11 @@ namespace ParelVR.SDK.Worlds.UI
                 return;
             }
             if (!EnsureEditorOnPc()) return;
+            if (!await ParelSession.ValidateAsync(force: true))
+            {
+                EditorUtility.DisplayDialog("Build & Publish", "Your ParelVR session has ended. Sign in again on the Authentication tab, then publish.", "OK");
+                return;
+            }
 
             // ── 1. Validate ──
             _progressContainer.style.display = DisplayStyle.Flex;

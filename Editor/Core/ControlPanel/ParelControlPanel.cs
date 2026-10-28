@@ -134,6 +134,9 @@ namespace ParelVR.SDK.Core.ControlPanel
             ParelModeManager.OnModeChanged += OnModeChanged;
         }
 
+        // Coming back to the panel re-checks the session (at most every two minutes), so lists and uploads never run on a dead one.
+        private void OnFocus() => _ = ParelSession.ValidateAsync();
+
         private void OnDestroy()
         {
             ParelSession.OnSessionChanged -= OnSessionChanged;
@@ -433,6 +436,8 @@ namespace ParelVR.SDK.Core.ControlPanel
             {
                 if (_loginServerLabel != null) _loginServerLabel.text = "Server: " + ParelEnvironment.Current + " (" + ParelEnvironment.BaseUrl + ")";
                 CancelTotp();
+                // Ended by the server (expired, or signed out elsewhere): say so, instead of a silent sign-in form.
+                if (_statusLabel != null && !string.IsNullOrEmpty(ParelSession.EndedReason)) _statusLabel.text = ParelSession.EndedReason;
                 return;
             }
 
@@ -649,8 +654,8 @@ namespace ParelVR.SDK.Core.ControlPanel
             var envDropdown = new EnumField(ParelEnvironment.Current);
             envDropdown.RegisterValueChangedCallback(evt =>
             {
+                if (ParelSession.IsLoggedIn) ParelAuth.Logout(); // with the old environment's server, which issued the ticket
                 ParelPreferences.SetEnvironment((ParelEnvironmentType)evt.newValue);
-                if (ParelSession.IsLoggedIn) ParelAuth.Logout();
             });
             Setting(card, "API Environment", envDropdown,
                 "Connects the SDK to different backend instances (Development, Staging, Production). Changing it signs you out.");

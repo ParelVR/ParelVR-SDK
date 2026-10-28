@@ -6,7 +6,8 @@
         "ParelVR.SDK.Build",
         "ParelVR.Volt.Simulator",
         "ParelVR.AvatarSDK",
-        "ParelVR.SDK.Avatars"
+        "ParelVR.SDK.Avatars",
+        "ParelVR.SDK.Worlds.Components"
     ],
     "includePlatforms": [
         "Editor"

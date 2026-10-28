@@ -25,5 +25,8 @@ namespace ParelVR.SDK.Worlds.Components
 
         [HideInInspector]
         public ParelWorldMonetization monetization = new ParelWorldMonetization();
+
+        [Tooltip("Named values every player carries in this world (team, role, toggles), read and written by world scripts. Edit them in ParelVR SDK > Volt > Settings > Player Parameters.")]
+        public ParelPlayerParameters playerParameters;
     }
 }

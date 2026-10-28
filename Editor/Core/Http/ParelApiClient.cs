@@ -16,7 +16,14 @@ namespace ParelVR.SDK.Core.Http
     /// </summary>
     public static class ParelApiClient
     {
-        public static string BaseUrl => ParelEnvironment.BaseUrl;
+        public static string BaseUrl
+        {
+            get
+            {
+                ParelPreferences.EnsureLoaded();
+                return ParelEnvironment.BaseUrl;
+            }
+        }
 
         [Serializable]
         private sealed class ErrorEnvelope
@@ -47,6 +54,22 @@ namespace ParelVR.SDK.Core.Http
         }
 
         private static void ThrowIfFailed(UnityWebRequest request)
+        {
+            try { ThrowIfFailedCore(request); }
+            catch (ParelApiException ex) when (ex.StatusCode == 401 && !IsSignInCall(request.url))
+            {
+                // The server refused the ticket this request carried: the session is over, whatever the screen says.
+                string auth = request.GetRequestHeader("Authorization");
+                if (!string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.Ordinal))
+                    ParelSession.Expire(auth.Substring(7), "Your ParelVR session has ended (the server no longer accepts it). Sign in again in the ParelVR control panel.");
+                throw;
+            }
+        }
+
+        private static bool IsSignInCall(string url) =>
+            url != null && (url.Contains("/api/auth/login") || url.Contains("/api/auth/logout") || url.Contains("/api/auth/register"));
+
+        private static void ThrowIfFailedCore(UnityWebRequest request)
         {
             bool networkFailure = request.result == UnityWebRequest.Result.ConnectionError
                 || request.result == UnityWebRequest.Result.DataProcessingError;

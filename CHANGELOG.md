@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.11.0 (2026-10-28)
+
+### Player Parameters
+
+- **ParelVR SDK > Volt > Player Parameters** (also a page of Volt Settings): named values every player carries in your
+  world, laid out like the Animator's Parameters list. Add Bool, Int or Float rows with **+**, set each one's default,
+  and tick **Saved** (kept on the player's account and restored on their next visit to the world) and **Synced** (sent
+  to everyone in the instance). Synced values share 256 bits: Bool 1 bit, Int and Float 8 bits. Right-click a row to
+  change its type, duplicate or delete it; the search field filters the list.
+- **Create Player Parameters** makes the asset, points the World Descriptor at it and installs the `PlayerParameters`
+  world script, which reads and writes them from any of your scripts:
+  `PlayerParameters.GetBool(player, "IsVIP")`, `PlayerParameters.SetInt("Team", 2)` for the local player,
+  `PlayerParameters.SetFor(player, "Team", 1)` from the instance master, and
+  `PlayerParameters.AddListener(this, nameof(OnChanged))` to hear about changes (`ChangedPlayer` / `ChangedName`).
+- Each player's own client sets their values, clamps them and sends only changes (at most ten times a second);
+  defaults are never sent, since every client starts from the same list. Players who join later get everyone's current
+  values. A schema hash keeps clients with a different list from applying each other's values. The world needs the
+  Networking and Storage capabilities, which are turned on for you.
+- This first version runs as a world script. A built-in `VoltPlayer` API for player parameters comes in a later SDK and
+  game update.
+
+### Fixes
+
+- **World Play Mode always spawns you.** A world without Volt scripts, a world whose scripts failed to load, and Enter
+  Play Mode settings without a scene reload all used to leave Play Mode with no player at all. The stand-in player now
+  spawns at the spawn point in every case, and the scripts are prepared even when the scene is not reloaded.
+- **Sign-in no longer goes stale.** The SDK now checks your saved session with ParelVR when Unity starts, when you come
+  back to the control panel (at most every two minutes) and before every Build & Publish. When ParelVR no longer
+  accepts it (it expired, or you signed out elsewhere), the control panel tells you and asks you to sign in again,
+  instead of showing an empty Content Manager or failing an upload with an authentication error half way through.
+- The saved API environment is read before the first request, so requests no longer go to the wrong server right
+  after Unity starts; a session is kept per environment, and changing the environment signs you out of the server that
+  issued your session.
+
 ## 1.10.0 (2026-10-27)
 
 ### Protected avatars

@@ -1201,9 +1201,9 @@ namespace ParelVR.SDK.Avatars.UI
                 EditorUtility.DisplayDialog("Build & Publish", "Tick the box confirming you have the rights to upload this avatar.", "OK");
                 return;
             }
-            if (!ParelSession.IsLoggedIn)
+            if (!ParelSession.IsLoggedIn || !await ParelSession.ValidateAsync(force: true))
             {
-                EditorUtility.DisplayDialog("Build & Publish", "Sign in to the ParelVR SDK first.", "OK");
+                EditorUtility.DisplayDialog("Build & Publish", "Sign in to the ParelVR SDK first" + (string.IsNullOrEmpty(ParelSession.EndedReason) ? "." : ": your session has ended."), "OK");
                 return;
             }
 

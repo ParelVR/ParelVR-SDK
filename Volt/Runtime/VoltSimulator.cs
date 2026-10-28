@@ -227,7 +227,39 @@ namespace ParelVR.Volt.Simulator
             try { VoltWorld.Current?.Unload(); } catch (Exception) { }
             World = null;
             _player = null;
-            StartActiveScene(NextDebugger, false);
+            Scene active = SceneManager.GetActiveScene();
+            // Enter Play Mode settings without a scene reload skip the scene processing, so the scripts are put in here.
+            if (FindWorldScene(active) == null)
+            {
+                try { PrepareLoadedScene?.Invoke(active); }
+                catch (Exception e) { Debug.LogWarning("[Volt] The scene could not be prepared for play mode: " + e.Message); }
+            }
+            // A world without scripts still gets the stand-in player, as it would in ParelVR.
+            StartActiveScene(NextDebugger, IsWorld(active));
+        }
+
+        private static VoltWorldScene FindWorldScene(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded) return null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                VoltWorldScene data = root.GetComponentInChildren<VoltWorldScene>(true);
+                if (data != null) return data;
+            }
+            return null;
+        }
+
+        /// <summary>A ParelVR world scene: it has the world descriptor or a ParelVR Spawn Point.</summary>
+        private static bool IsWorld(Scene scene)
+        {
+            if (!scene.IsValid() || !scene.isLoaded) return false;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                if (root.GetComponentInChildren<ParelVRSpawnPoint>(true) != null) return true;
+                foreach (MonoBehaviour behaviour in root.GetComponentsInChildren<MonoBehaviour>(true))
+                    if (behaviour != null && behaviour.GetType().Name == "ParelWorldDescriptor") return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -236,12 +268,7 @@ namespace ParelVR.Volt.Simulator
         /// </summary>
         internal static void StartActiveScene(VoltDebugger debugger, bool playerWithoutScripts, VoltSimulatorOptions before = null)
         {
-            VoltWorldScene data = null;
-            foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
-            {
-                data = root.GetComponentInChildren<VoltWorldScene>(true);
-                if (data != null) break;
-            }
+            VoltWorldScene data = FindWorldScene(SceneManager.GetActiveScene());
             bool scripts = data != null && data.editorModule != null && data.editorModule.Length > 0;
             if (!scripts && !playerWithoutScripts) return;
             try
@@ -255,17 +282,29 @@ namespace ParelVR.Volt.Simulator
             }
             catch (VoltFormatException e)
             {
-                Debug.LogError("[Volt] The compiled scripts were not accepted by the VM: " + e.Message);
-                Stop();
+                Debug.LogError("[Volt] The compiled scripts were not accepted by the VM, so the world runs without scripts: " + e.Message);
+                StartWithoutScripts(debugger, before);
             }
             catch (Exception e)
             {
                 // Whatever went wrong, play mode goes on without scripts instead of taking the editor down with it.
                 Debug.LogError("[Volt] The simulator could not start, so the world runs without scripts: " + e);
-                try { Stop(); } catch (Exception) { }
+                StartWithoutScripts(debugger, before);
             }
             Application.quitting -= Stop;
             Application.quitting += Stop;
+        }
+
+        /// <summary>The scripts failed: the player still spawns, so the rest of the world can be walked and tested.</summary>
+        private static void StartWithoutScripts(VoltDebugger debugger, VoltSimulatorOptions before)
+        {
+            try { Stop(); } catch (Exception) { }
+            try { Start(new VoltSimulatorOptions { Debugger = debugger, VR = before != null && before.VR, PlayerName = before?.PlayerName }); }
+            catch (Exception e)
+            {
+                Debug.LogError("[Volt] The stand-in player could not spawn: " + e);
+                try { Stop(); } catch (Exception) { }
+            }
         }
     }
 

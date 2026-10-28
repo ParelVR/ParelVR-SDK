@@ -151,6 +151,7 @@ public class #SCRIPTNAME# : VoltBehaviour
         private static void AddPlayers() => VoltMultiClient.OpenPlayers();
 
         [MenuItem("ParelVR SDK/Volt/Settings", priority = 80)] private static void Settings() => EditorWindow.GetWindow<VoltSettingsWindow>("Volt Settings").Show();
+        [MenuItem("ParelVR SDK/Volt/Player Parameters", priority = 81)] private static void PlayerParameters() => VoltSettingsWindow.OpenPlayerParameters();
     }
 
     /// <summary>
@@ -407,6 +408,31 @@ public class #SCRIPTNAME# : VoltBehaviour
 
     public sealed class VoltSettingsWindow : EditorWindow
     {
+        private static readonly string[] Pages = { "Settings", "Player Parameters" };
+        [SerializeField] private int _page;
+        private VoltPlayerParametersPage _playerParameters;
+
+        /// <summary>Opens the window on its Player Parameters page.</summary>
+        public static void OpenPlayerParameters()
+        {
+            var window = GetWindow<VoltSettingsWindow>("Volt Settings");
+            window._page = 1;
+            window.Show();
+        }
+
+        private void OnGUI()
+        {
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            {
+                _page = GUILayout.Toolbar(_page, Pages, EditorStyles.toolbarButton, GUI.ToolbarButtonSize.FitToContents);
+                GUILayout.FlexibleSpace();
+            }
+            EditorGUILayout.Space(4);
+            if (_page == 1) (_playerParameters ??= new VoltPlayerParametersPage()).OnGUI();
+            else SettingsPage();
+        }
+
+        private void OnHierarchyChange() => Repaint();
         private static readonly (VoltCapability Bit, string Label)[] Capabilities =
         {
             (VoltCapability.World, "Change world objects"), (VoltCapability.Network, "Networking"), (VoltCapability.Players, "Act on players"),
@@ -414,7 +440,7 @@ public class #SCRIPTNAME# : VoltBehaviour
             (VoltCapability.Video, "Video"), (VoltCapability.Economy, "Purchases")
         };
 
-        private void OnGUI()
+        private void SettingsPage()
         {
             VoltSettings s = VoltSettings.instance;
             EditorGUI.BeginChangeCheck();

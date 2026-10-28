@@ -138,6 +138,7 @@ namespace ParelVR.Volt.EditorTools
         public static VoltCompileOutput Compile(bool logToConsole = true, bool sceneComponents = false)
         {
             var output = new VoltCompileOutput();
+            VoltPlayerParameterSync.EnsureCapabilities();
             try
             {
                 var scriptAssemblies = new HashSet<string>(TypeCache.GetTypesDerivedFrom<VoltBehaviour>().Select(t => t.Assembly.GetName().Name));
@@ -614,6 +615,7 @@ namespace ParelVR.Volt.EditorTools
                 if (!VoltSceneProcessor.HasScripts(scene) || !File.Exists(VoltCompilerService.ModulePath)) return;
                 foreach (GameObject root in scene.GetRootGameObjects())
                     if (root.GetComponentInChildren<VoltWorldScene>(true) != null) return; // already prepared as it loaded
+                VoltPlayerParameterSync.Apply(scene, false);
                 VoltSceneProcessor.Process(scene, File.ReadAllBytes(VoltCompilerService.ModulePath), true);
             };
         }
@@ -641,6 +643,7 @@ namespace ParelVR.Volt.EditorTools
             {
                 PushMultiClient();
                 PushScenes();
+                VoltPlayerParameterSync.Apply(SceneManager.GetActiveScene(), true);
             }
             if (change != PlayModeStateChange.ExitingEditMode || !VoltSettings.instance.compileOnPlay) return;
             if (!VoltSceneProcessor.HasScripts(SceneManager.GetActiveScene())) return;
@@ -654,6 +657,7 @@ namespace ParelVR.Volt.EditorTools
         public void OnProcessScene(Scene scene, BuildReport report)
         {
             if (!EditorApplication.isPlayingOrWillChangePlaymode || BuildPipeline.isBuildingPlayer) return;
+            VoltPlayerParameterSync.Apply(scene, false);
             if (!VoltSceneProcessor.HasScripts(scene) || !File.Exists(VoltCompilerService.ModulePath)) return;
             VoltSceneProcessor.Process(scene, File.ReadAllBytes(VoltCompilerService.ModulePath), true);
         }
@@ -744,6 +748,7 @@ namespace ParelVR.Volt.EditorTools
                 Scene copy = EditorSceneManager.OpenScene(copyPath, OpenSceneMode.Additive);
                 try
                 {
+                    VoltPlayerParameterSync.Apply(copy, false);
                     VoltSceneProcessor.Result result = VoltSceneProcessor.Process(copy, output.bytes, false, all.LastNetId, all.LastGroup);
                     all.Entries.AddRange(result.Entries);
                     all.Behaviours += result.Behaviours;

@@ -26,12 +26,17 @@ namespace ParelVR.SDK.Core.Settings
         public static event Action OnPreferencesChanged;
 
         private static string PreferencesFilePath =>
-            Path.Combine(Application.dataPath, "..", "Library", LibraryFolder, "preferences.json");
+            Path.Combine(ProjectDir, "Library", LibraryFolder, "preferences.json");
+
+        private static readonly string ProjectDir = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
 
         static ParelPreferences()
         {
             Restore();
         }
+
+        /// <summary>Reads the preferences now (the static constructor), so the saved API environment is in place before any request.</summary>
+        public static void EnsureLoaded() { }
 
         [Serializable]
         private sealed class StoredPreferences

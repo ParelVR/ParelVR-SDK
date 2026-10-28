@@ -1,0 +1,458 @@
+// ParelVR Player Parameters, script version 1. Installed by the ParelVR SDK (Volt > Settings > Player Parameters),
+// which also fills in the fields below from the world's Player Parameters asset every time the world plays or builds.
+// Edit the parameters there, not here; a newer SDK can replace this file with a newer version.
+using ParelVR.Volt;
+using ParelVR.Volt.Networking;
+using ParelVR.Volt.Players;
+using ParelVR.Volt.Storage;
+using ParelVR.Volt.Worlds;
+using UnityEngine;
+
+/// <summary>
+/// Named values every player carries in this world (team, role, VIP, a toggle), defined in the Player Parameters
+/// asset. Read them for any player and change them for the local player from any world script:
+///
+///     if (PlayerParameters.GetBool(player, "IsVIP")) ...
+///     PlayerParameters.SetInt("Team", 2);
+///
+/// Each player's client owns that player's values: it sets them, clamps them and sends the synced ones to everyone
+/// else. Defaults are never sent, since every client starts from the same asset. The instance master may ask another
+/// player's client to change one of its values with SetFor. Saved values are kept on the player's own account for
+/// this world and come back on their next visit.
+/// </summary>
+public class PlayerParameters : VoltBehaviour
+{
+    // ── filled by the SDK from the Player Parameters asset ──
+    public string[] names = new string[0];
+    /// <summary>0 Bool, 1 Int (0 to 255), 2 Float (-1 to 1).</summary>
+    public int[] types = new int[0];
+    public float[] defaults = new float[0];
+    public bool[] saved = new bool[0];
+    public bool[] synced = new bool[0];
+    public int schemaHash;
+    /// <summary>Changes are gathered and sent at most this often (seconds).</summary>
+    public float sendInterval = 0.1f;
+    /// <summary>Saved values are written at most this often (seconds); storage allows 60 operations a minute.</summary>
+    public float saveInterval = 5f;
+
+    private const string StorageKey = "pvr.player-parameters";
+
+    private static PlayerParameters _self;
+    private static VoltBehaviour[] _listeners = new VoltBehaviour[0];
+    private static string[] _listenerEvents = new string[0];
+
+    /// <summary>The player whose value changed, while a listener's event runs.</summary>
+    public static VoltPlayer ChangedPlayer;
+    /// <summary>The name of the parameter that changed, while a listener's event runs.</summary>
+    public static string ChangedName = "";
+
+    // One row of values per player who is in the instance; the slot of a player is where their id is in _ids.
+    private int[] _ids = new int[0];
+    private float[] _values = new float[0];
+    private int _count;
+    private int[] _bitOffset = new int[0];
+    private int _words;
+    private bool _dirty, _saveDirty, _loaded, _warnedSchema;
+    private float _sendClock, _saveClock;
+
+    // ── reading ──────────────────────────────────────────────────────────
+
+    /// <summary>True once the parameters are running in this world.</summary>
+    public static bool IsReady => _self != null;
+
+    /// <summary>The position of a parameter, or -1 when the world has none with that name.</summary>
+    public static int IndexOf(string name)
+    {
+        if (_self == null || name == null) return -1;
+        for (int i = 0; i < _self._count; i++)
+            if (_self.names[i] == name) return i;
+        return -1;
+    }
+
+    public static bool Has(string name) => IndexOf(name) >= 0;
+
+    /// <summary>A player's value: 0 or 1 for a Bool, 0 to 255 for an Int, -1 to 1 for a Float. 0 for an unknown name.</summary>
+    public static float Get(VoltPlayer player, string name)
+    {
+        int index = IndexOf(name);
+        if (index < 0) { WarnUnknown(name); return 0f; }
+        if (player == null || !player.IsValid) return _self.defaults[index];
+        int slot = _self.SlotOf(player.PlayerId, false);
+        if (slot < 0) return _self.defaults[index];
+        return _self._values[slot * _self._count + index];
+    }
+
+    public static bool GetBool(VoltPlayer player, string name) => Get(player, name) >= 0.5f;
+    public static int GetInt(VoltPlayer player, string name) => Mathf.RoundToInt(Get(player, name));
+    public static float GetFloat(VoltPlayer player, string name) => Get(player, name);
+
+    // ── writing ──────────────────────────────────────────────────────────
+
+    /// <summary>Changes a value of the local player; synced ones reach everyone else within a moment.</summary>
+    public static void Set(string name, float value)
+    {
+        int index = IndexOf(name);
+        if (index < 0) { WarnUnknown(name); return; }
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (local == null) return;
+        _self.Apply(local, index, value, true);
+    }
+
+    public static void SetBool(string name, bool value) => Set(name, value ? 1f : 0f);
+    public static void SetInt(string name, int value) => Set(name, value);
+    public static void SetFloat(string name, float value) => Set(name, value);
+
+    /// <summary>
+    /// Changes a value of any player. For the local player it is Set. The instance master can change another
+    /// player's synced value: their client is asked to make the change. A value that is not synced only changes on
+    /// this client. Returns false when this client may not make the change.
+    /// </summary>
+    public static bool SetFor(VoltPlayer player, string name, float value)
+    {
+        int index = IndexOf(name);
+        if (index < 0) { WarnUnknown(name); return false; }
+        if (player == null || !player.IsValid) return false;
+        if (player.IsLocal)
+        {
+            _self.Apply(player, index, value, true);
+            return true;
+        }
+        if (!_self.synced[index])
+        {
+            _self.Apply(player, index, value, false);
+            return true;
+        }
+        if (!VoltNetworking.IsMaster) return false;
+        _self.SendNetworkEvent(player, nameof(ReceiveRequest), VoltNetworking.LocalPlayer.PlayerId, _self.schemaHash, index, value);
+        return true;
+    }
+
+    /// <summary>Puts every value of the local player back to its default.</summary>
+    public static void ResetLocal()
+    {
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (_self == null || local == null) return;
+        for (int i = 0; i < _self._count; i++) _self.Apply(local, i, _self.defaults[i], true);
+    }
+
+    /// <summary>
+    /// Calls a method of a behaviour by name whenever any player's value changes. Inside it, ChangedPlayer and
+    /// ChangedName say which.
+    /// </summary>
+    public static void AddListener(VoltBehaviour behaviour, string eventName)
+    {
+        if (behaviour == null || string.IsNullOrEmpty(eventName)) return;
+        int n = _listeners.Length;
+        for (int i = 0; i < n; i++)
+            if (_listeners[i] == behaviour && _listenerEvents[i] == eventName) return;
+        VoltBehaviour[] listeners = new VoltBehaviour[n + 1];
+        string[] events = new string[n + 1];
+        System.Array.Copy(_listeners, listeners, n);
+        System.Array.Copy(_listenerEvents, events, n);
+        listeners[n] = behaviour;
+        events[n] = eventName;
+        _listeners = listeners;
+        _listenerEvents = events;
+    }
+
+    // ── running ──────────────────────────────────────────────────────────
+
+    public override void OnStart()
+    {
+        if (_self != null && _self != this)
+        {
+            VoltDebug.LogWarning("[PlayerParameters] The scene has more than one Player Parameters object; only the first is used.");
+            return;
+        }
+        _self = this;
+        _count = Mathf.Min(names.Length, Mathf.Min(types.Length, Mathf.Min(defaults.Length, Mathf.Min(saved.Length, synced.Length))));
+        for (int i = 0; i < _count; i++) defaults[i] = Clamp(types[i], defaults[i]);
+
+        // Byte-sized values first, so none of them straddles two words; the Bools after them.
+        _bitOffset = new int[_count];
+        int bit = 0;
+        for (int i = 0; i < _count; i++)
+        {
+            _bitOffset[i] = -1;
+            if (synced[i] && types[i] != 0) { _bitOffset[i] = bit; bit += 8; }
+        }
+        for (int i = 0; i < _count; i++)
+            if (synced[i] && types[i] == 0) { _bitOffset[i] = bit; bit += 1; }
+        _words = (bit + 31) / 32;
+
+        VoltPlayer[] players = VoltWorld.GetPlayers();
+        for (int i = 0; i < players.Length; i++)
+            if (players[i] != null && players[i].IsValid) SlotOf(players[i].PlayerId, true);
+
+        bool anySaved = false;
+        for (int i = 0; i < _count; i++) if (saved[i]) anySaved = true;
+        if (anySaved) VoltStorage.Get(VoltStorageScope.PlayerWorld, StorageKey);
+        else Loaded();
+    }
+
+    public override void OnDestroyed()
+    {
+        if (_self == this) _self = null;
+    }
+
+    public override void OnPlayerJoined(VoltPlayer player)
+    {
+        if (_self != this || player == null) return;
+        SlotOf(player.PlayerId, true);
+        // The newcomer starts everyone at the defaults; only what differs is theirs to hear.
+        if (!player.IsLocal && _loaded && _words > 0 && VoltWorld.LocalPlayer != null)
+            SendNetworkEvent(player, nameof(ReceiveState), VoltWorld.LocalPlayer.PlayerId, schemaHash, Pack(VoltWorld.LocalPlayer.PlayerId));
+    }
+
+    public override void OnPlayerLeft(VoltPlayer player)
+    {
+        if (_self != this || player == null) return;
+        RemoveSlot(player.PlayerId);
+    }
+
+    public override void OnUpdate()
+    {
+        if (_self != this) return;
+        float dt = VoltWorld.DeltaTime;
+        _sendClock -= dt;
+        _saveClock -= dt;
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (local == null) return;
+        if (_dirty && _sendClock <= 0f && _loaded)
+        {
+            _dirty = false;
+            _sendClock = Mathf.Max(0.05f, sendInterval);
+            if (_words > 0) SendNetworkEvent(VoltNetworkTarget.Others, nameof(ReceiveState), local.PlayerId, schemaHash, Pack(local.PlayerId));
+        }
+        if (_saveDirty && _saveClock <= 0f && _loaded)
+        {
+            _saveDirty = false;
+            _saveClock = Mathf.Max(1f, saveInterval);
+            VoltStorage.Set(VoltStorageScope.PlayerWorld, StorageKey, SaveText(local.PlayerId));
+        }
+    }
+
+    public override void OnStorageResult(VoltStorageRequest request)
+    {
+        if (_self != this || request == null || request.Key != StorageKey || _loaded) return;
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (request.Success && request.Exists && local != null) LoadText(local, request.Value);
+        Loaded();
+    }
+
+    /// <summary>A player's synced values, sent by their own client.</summary>
+    [VoltNetworkEvent]
+    public void ReceiveState(int playerId, int hash, int[] packed)
+    {
+        if (_self != this || packed == null) return;
+        if (hash != schemaHash)
+        {
+            if (!_warnedSchema) VoltDebug.LogWarning("[PlayerParameters] Another client runs a different version of this world's player parameters; its values are ignored.");
+            _warnedSchema = true;
+            return;
+        }
+        VoltPlayer player = VoltWorld.GetPlayer(playerId);
+        if (player == null || !player.IsValid || player.IsLocal) return; // nobody else speaks for the local player
+        if (packed.Length < _words) return;
+        for (int i = 0; i < _count; i++)
+        {
+            int at = _bitOffset[i];
+            if (at < 0) continue;
+            int word = packed[at / 32] >> (at % 32);
+            float value = types[i] == 0 ? (word & 1) : Decode(types[i], word & 0xFF);
+            Apply(player, i, value, false);
+        }
+    }
+
+    /// <summary>A client that just started asks for everyone's values (theirs may have been sent before it was listening).</summary>
+    [VoltNetworkEvent]
+    public void ReceiveAsk(int playerId)
+    {
+        if (_self != this || !_loaded || _words == 0) return;
+        VoltPlayer asker = VoltWorld.GetPlayer(playerId);
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (asker == null || !asker.IsValid || asker.IsLocal || local == null) return;
+        SendNetworkEvent(asker, nameof(ReceiveState), local.PlayerId, schemaHash, Pack(local.PlayerId));
+    }
+
+    /// <summary>The instance master asks this client to change one of the local player's synced values.</summary>
+    [VoltNetworkEvent]
+    public void ReceiveRequest(int fromId, int hash, int index, float value)
+    {
+        if (_self != this || hash != schemaHash || index < 0 || index >= _count || !synced[index]) return;
+        VoltPlayer master = VoltNetworking.Master;
+        if (master == null || master.PlayerId != fromId) return;
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (local != null) Apply(local, index, value, true);
+    }
+
+    // ── inside ───────────────────────────────────────────────────────────
+
+    private void Loaded()
+    {
+        _loaded = true;
+        VoltPlayer local = VoltWorld.LocalPlayer;
+        if (local != null && _words > 0) SendNetworkEvent(VoltNetworkTarget.Others, nameof(ReceiveAsk), local.PlayerId);
+        // Saved values that differ from the defaults are news to the players already here.
+        if (_dirty && local != null && _words > 0)
+        {
+            _dirty = false;
+            _sendClock = sendInterval;
+            SendNetworkEvent(VoltNetworkTarget.Others, nameof(ReceiveState), local.PlayerId, schemaHash, Pack(local.PlayerId));
+        }
+    }
+
+    private void Apply(VoltPlayer player, int index, float value, bool own)
+    {
+        int slot = SlotOf(player.PlayerId, true);
+        float clamped = Clamp(types[index], value);
+        int at = slot * _count + index;
+        if (_values[at] == clamped) return;
+        _values[at] = clamped;
+        if (own && player.IsLocal)
+        {
+            if (synced[index]) _dirty = true;
+            if (saved[index]) _saveDirty = true;
+        }
+        Notify(player, names[index]);
+    }
+
+    private static void Notify(VoltPlayer player, string name)
+    {
+        for (int i = 0; i < _listeners.Length; i++)
+        {
+            if (_listeners[i] == null) continue;
+            ChangedPlayer = player;
+            ChangedName = name;
+            _listeners[i].SendCustomEvent(_listenerEvents[i]);
+        }
+    }
+
+    private int SlotOf(int playerId, bool create)
+    {
+        for (int i = 0; i < _ids.Length; i++)
+            if (_ids[i] == playerId) return i;
+        if (!create) return -1;
+        int n = _ids.Length;
+        int[] ids = new int[n + 1];
+        float[] values = new float[(n + 1) * _count];
+        System.Array.Copy(_ids, ids, n);
+        System.Array.Copy(_values, values, n * _count);
+        ids[n] = playerId;
+        for (int i = 0; i < _count; i++) values[n * _count + i] = defaults[i];
+        _ids = ids;
+        _values = values;
+        return n;
+    }
+
+    private void RemoveSlot(int playerId)
+    {
+        int slot = SlotOf(playerId, false);
+        if (slot < 0) return;
+        int n = _ids.Length;
+        int[] ids = new int[n - 1];
+        float[] values = new float[(n - 1) * _count];
+        for (int i = 0, j = 0; i < n; i++)
+        {
+            if (i == slot) continue;
+            ids[j] = _ids[i];
+            for (int k = 0; k < _count; k++) values[j * _count + k] = _values[i * _count + k];
+            j++;
+        }
+        _ids = ids;
+        _values = values;
+    }
+
+    private int[] Pack(int playerId)
+    {
+        int[] packed = new int[_words];
+        int slot = SlotOf(playerId, true);
+        for (int i = 0; i < _count; i++)
+        {
+            int at = _bitOffset[i];
+            if (at < 0) continue;
+            float value = _values[slot * _count + i];
+            int bits = types[i] == 0 ? (value >= 0.5f ? 1 : 0) : Encode(types[i], value);
+            packed[at / 32] = packed[at / 32] | (bits << (at % 32));
+        }
+        return packed;
+    }
+
+    /// <summary>"name=value;name=value" with values as 0 to 255, so a renamed or removed parameter simply drops out.</summary>
+    private string SaveText(int playerId)
+    {
+        int slot = SlotOf(playerId, true);
+        string text = "";
+        for (int i = 0; i < _count; i++)
+        {
+            if (!saved[i]) continue;
+            if (text.Length > 0) text = text + ";";
+            text = text + names[i] + "=" + Encode(types[i], _values[slot * _count + i]);
+        }
+        return text;
+    }
+
+    private void LoadText(VoltPlayer local, string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        string[] pairs = text.Split(';');
+        for (int p = 0; p < pairs.Length; p++)
+        {
+            string pair = pairs[p];
+            int equals = pair.IndexOf('=');
+            if (equals <= 0) continue;
+            string name = pair.Substring(0, equals);
+            int number = ParseByte(pair.Substring(equals + 1));
+            if (number < 0) continue;
+            for (int i = 0; i < _count; i++)
+                if (saved[i] && names[i] == name) Apply(local, i, Decode(types[i], number), true);
+        }
+        _saveDirty = false; // what was loaded is what is stored
+    }
+
+    private static int ParseByte(string text)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length > 3) return -1;
+        int value = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (c < '0' || c > '9') return -1;
+            value = value * 10 + (c - '0');
+        }
+        return value > 255 ? -1 : value;
+    }
+
+    private static float Clamp(int type, float value)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value)) value = 0f;
+        if (type == 0) return value >= 0.5f ? 1f : 0f;
+        if (type == 1) return Mathf.Clamp(Mathf.Round(value), 0f, 255f);
+        return Mathf.Round(Mathf.Clamp(value, -1f, 1f) * 127f) / 127f;
+    }
+
+    /// <summary>A value as 0 to 255: Bools 0 or 1, Ints as they are, Floats -1..1 as 0..254.</summary>
+    private static int Encode(int type, float value)
+    {
+        if (type == 0) return value >= 0.5f ? 1 : 0;
+        if (type == 1) return Mathf.Clamp(Mathf.RoundToInt(value), 0, 255);
+        return Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp(value, -1f, 1f) * 127f) + 127, 0, 254);
+    }
+
+    private static float Decode(int type, int bits)
+    {
+        if (type == 0) return bits != 0 ? 1f : 0f;
+        if (type == 1) return bits;
+        return Mathf.Clamp((bits - 127) / 127f, -1f, 1f);
+    }
+
+    private static string _lastWarned = "";
+
+    private static void WarnUnknown(string name)
+    {
+        if (name == _lastWarned) return; // once, not every frame
+        _lastWarned = name;
+        if (_self == null) VoltDebug.LogWarning("[PlayerParameters] Not running yet (or the scene has no Player Parameters object): '" + name + "' reads as 0.");
+        else VoltDebug.LogWarning("[PlayerParameters] This world has no player parameter named '" + name + "'.");
+    }
+}
