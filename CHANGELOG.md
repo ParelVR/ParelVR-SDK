@@ -325,7 +325,7 @@ Volt API 1.2. Worlds built with this SDK need the ParelVR client update that bri
 - It also warns about GrabPass shaders, texture compression other than ASTC, textures over 2048px, point and spot
   lights with realtime shadows, Realtime reflection probes and missing scripts.
 - Every Quest issue has an Auto Fix, and Auto Fix All applies them all at once. Shader fixes switch materials to
-  Simple Lit (URP) or Legacy Diffuse, which also changes how they look on Windows; texture fixes cap the size for
+  mobile shaders, which also changes how they look on Windows; texture fixes cap the size for
   Android only.
 - Warnings are now listed under Validations without stopping the build.
 
