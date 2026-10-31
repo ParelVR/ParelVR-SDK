@@ -14,7 +14,11 @@ namespace ParelVR.SDK.Avatars.Validation
         public Task<ValidationReport> ValidateAsync()
         {
             var report = new ValidationReport();
+#if UNITY_6000_4_OR_NEWER
             ParelAvatarDescriptor[] descriptors = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include);
+#else
+            ParelAvatarDescriptor[] descriptors = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
 
             if (descriptors.Length == 0)
             {

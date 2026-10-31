@@ -154,7 +154,11 @@ namespace ParelVR.SDK.Avatars.UI
             GameObject selected = Selection.activeGameObject;
             ParelAvatarDescriptor descriptor = selected != null ? selected.GetComponentInParent<ParelAvatarDescriptor>(true) : null;
             if (descriptor != null && !EditorUtility.IsPersistent(descriptor)) return descriptor;
+#if UNITY_6000_4_OR_NEWER
             ParelAvatarDescriptor[] inScene = UnityEngine.Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Exclude);
+#else
+            ParelAvatarDescriptor[] inScene = UnityEngine.Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+#endif
             return inScene.Length == 1 ? inScene[0] : null;
         }
 

@@ -134,7 +134,11 @@ namespace ParelVR.SDK.Avatars.Inspectors
             ParelAvatarDescriptor avatar = clothing.GetComponentInParent<ParelAvatarDescriptor>(true);
             if (avatar == null)
             {
+#if UNITY_6000_4_OR_NEWER
                 ParelAvatarDescriptor[] avatars = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include);
+#else
+                ParelAvatarDescriptor[] avatars = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
                 if (avatars.Length != 1)
                 {
                     EditorUtility.DisplayDialog("Set Up Clothing", "Drag the clothing onto your avatar in the Hierarchy first (so it's a child of the avatar), then run this again.", "OK");

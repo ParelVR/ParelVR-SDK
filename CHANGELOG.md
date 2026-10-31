@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the SDK not compiling on Unity 6.0 to 6.3 (`CS1503: cannot convert from 'UnityEngine.FindObjectsInactive' to
+  'UnityEngine.FindObjectsSortMode'` in four avatar editor scripts). They used a call that only exists in Unity 6.4.
+
 ## 1.11.0 (2026-10-28)
 
 ### Player Parameters

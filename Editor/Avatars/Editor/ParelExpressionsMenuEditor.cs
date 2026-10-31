@@ -33,7 +33,11 @@ namespace ParelVR.SDK.Avatars.Inspectors
         private void FindOwner()
         {
             var menu = (ParelExpressionsMenu)target;
+#if UNITY_6000_4_OR_NEWER
             ParelAvatarDescriptor[] descriptors = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include);
+#else
+            ParelAvatarDescriptor[] descriptors = Object.FindObjectsByType<ParelAvatarDescriptor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+#endif
             foreach (ParelAvatarDescriptor descriptor in descriptors)
             {
                 if (descriptor.ExpressionsMenu == null) continue;
