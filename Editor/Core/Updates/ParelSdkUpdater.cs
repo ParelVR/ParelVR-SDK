@@ -37,6 +37,8 @@ namespace ParelVR.SDK.Core.Updates
         {
             public string Version = "unknown";
             public string Commit;
+            /// <summary>The newest section of the installed CHANGELOG.md, to spot a newer push with the same version number.</summary>
+            public string Notes;
             public InstallKind Kind = InstallKind.Unknown;
             public string GitUrl;
 
@@ -86,6 +88,8 @@ namespace ParelVR.SDK.Core.Updates
             if (info == null) return installed;
 
             installed.Version = info.version;
+            try { installed.Notes = NewestChangelogSection(File.ReadAllText(Path.Combine(info.resolvedPath, "CHANGELOG.md"))); }
+            catch (Exception) { installed.Notes = null; }
             switch (info.source)
             {
                 case PackageSource.Git:
@@ -146,10 +150,16 @@ namespace ParelVR.SDK.Core.Updates
             int order = CompareVersions(latest.Version, installed.Version);
             if (order != 0) return order > 0;
             // Same version number: a newer commit still counts when this project knows which commit it has.
-            return !string.IsNullOrEmpty(installed.Commit) &&
-                   !latest.Commit.StartsWith(installed.Commit, StringComparison.OrdinalIgnoreCase) &&
-                   !installed.Commit.StartsWith(latest.Commit, StringComparison.OrdinalIgnoreCase);
+            if (!string.IsNullOrEmpty(installed.Commit))
+                return !latest.Commit.StartsWith(installed.Commit, StringComparison.OrdinalIgnoreCase) &&
+                       !installed.Commit.StartsWith(latest.Commit, StringComparison.OrdinalIgnoreCase);
+            // A copied folder or an old download doesn't know its commit: the newest changelog notes differing means
+            // GitHub has changes this project doesn't (every push adds to them).
+            return !string.IsNullOrEmpty(latest.Notes) && !string.IsNullOrEmpty(installed.Notes) &&
+                   Normalize(latest.Notes) != Normalize(installed.Notes);
         }
+
+        private static string Normalize(string notes) => string.Join(" ", notes.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
 
         // ------------------------------------------------------------------------------------------ updating
 

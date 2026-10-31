@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.11.1 (2026-10-31)
 
 - New **Feedback** tab in the Control Panel (also **ParelVR SDK > Help > Send Feedback**). Send a bug report, an idea
   or anything else about the SDK straight to ParelVR Support as a ticket, with up to three pictures (a PNG / JPG file
   or a snap of the Scene view). The reply comes to your email. It works signed out too; signed in, the ticket is linked
   to your account. SDK and system details are added only while that option is on, and the tab shows exactly what they are.
+- **Check for Updates** now also finds a newer SDK with the same version number when it was copied in by hand or
+  downloaded before (it compares the newest changelog notes). Those installs used to stay on "up to date".
 - Fixed the SDK not compiling on Unity 6.0 to 6.3 (`CS1503: cannot convert from 'UnityEngine.FindObjectsInactive' to
   'UnityEngine.FindObjectsSortMode'` in four avatar editor scripts). They used a call that only exists in Unity 6.4.
 - Fixed the avatar's head spinning in full circles in avatar test play mode when you looked up or down on desktop.
