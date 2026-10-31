@@ -81,6 +81,12 @@ namespace ParelVR.SDK.Core
             Application.OpenURL("https://support-parelvr.parelllc.com/");
         }
 
+        [MenuItem("ParelVR SDK/Help/Send Feedback", priority = 203)]
+        private static void OpenFeedback()
+        {
+            ParelVR.SDK.Core.ControlPanel.ParelControlPanel.ShowTab("Feedback");
+        }
+
         [MenuItem("ParelVR SDK/Help/Discord", priority = 202)]
         private static void OpenDiscord()
         {

@@ -759,3 +759,183 @@
 .bk-search-result:disabled {
     opacity: 0.55;
 }
+
+/* ── Feedback tab ──────────────────────────────────────────────── */
+
+/* Bug / Idea / Other: three mode tiles side by side. */
+.bk-kind-row {
+    flex-direction: row;
+    margin-bottom: 2px;
+}
+
+.bk-kind-row > .bk-mode-option {
+    flex-grow: 1;
+    flex-basis: 0;
+    margin-right: 6px;
+    margin-bottom: 0;
+    padding: 10px 12px;
+}
+
+/* A row of chips where one is chosen (the area, how often). */
+.bk-chip-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.bk-chip {
+    padding: 3px 10px;
+    margin: 0 4px 4px 0;
+    font-size: 11px;
+    color: var(--bk-ink-soft);
+    background-color: var(--bk-paper-3);
+    border-width: 1px;
+    border-color: var(--bk-line);
+    border-radius: 0;
+    -unity-text-align: middle-center;
+    transition-property: background-color, border-color;
+    transition-duration: 0.1s;
+}
+
+.bk-chip:hover {
+    background-color: var(--bk-line-strong);
+    color: var(--bk-ink);
+}
+
+.bk-chip-active,
+.bk-chip-active:hover {
+    background-color: var(--bk-accent-wash);
+    border-color: var(--bk-accent);
+    color: var(--bk-accent-ink);
+    -unity-font-style: bold;
+}
+
+.bk-counter {
+    font-size: 10px;
+    color: var(--bk-ink-faint);
+    -unity-text-align: middle-right;
+}
+
+.bk-counter-over {
+    color: var(--bk-bad);
+    -unity-font-style: bold;
+}
+
+.bk-input-multiline {
+    min-height: 140px;
+    white-space: normal;
+}
+
+.bk-input-multiline #unity-text-input {
+    -unity-text-align: upper-left;
+    min-height: 130px;
+}
+
+/* An attached picture: its thumbnail, its name along the bottom and a remove button in the corner. */
+.bk-thumb {
+    width: 112px;
+    height: 70px;
+    margin: 0 6px 6px 0;
+    background-color: var(--bk-field);
+    border-width: 1px;
+    border-color: var(--bk-line-strong);
+    border-radius: 0;
+    overflow: hidden;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.bk-thumb-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1px 5px;
+    font-size: 9px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bk-thumb-remove {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    font-size: 12px;
+    color: rgb(255, 255, 255);
+    background-color: rgba(0, 0, 0, 0.65);
+    border-width: 0;
+    border-radius: 0;
+    -unity-text-align: middle-center;
+}
+
+.bk-thumb-remove:hover {
+    background-color: var(--bk-bad);
+}
+
+/* What "Include SDK and system details" adds to the ticket, shown so nothing is sent unseen. */
+.bk-feedback-details {
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: var(--bk-ink-faint);
+    background-color: var(--bk-field);
+    border-width: 1px;
+    border-color: var(--bk-line);
+    border-left-width: 3px;
+    border-left-color: var(--bk-line-strong);
+    white-space: normal;
+}
+
+.bk-feedback-recent {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 0;
+    border-top-width: 1px;
+    border-top-color: var(--bk-line-strong);
+}
+
+.bk-feedback-recent:hover {
+    background-color: var(--bk-paper-3);
+}
+
+.bk-feedback-recent-subject {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0 8px;
+    font-size: 12px;
+    color: var(--bk-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* After sending: a check mark, the ticket number and where the reply goes. */
+.bk-feedback-sent {
+    align-items: center;
+    padding: 28px 16px 22px 16px;
+}
+
+.bk-feedback-mark {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 12px;
+    border-radius: 24px;
+    border-width: 2px;
+    border-color: var(--bk-good);
+    background-color: var(--bk-good-wash);
+    color: var(--bk-good);
+}
+
+.bk-feedback-ticket {
+    margin: 2px 0 8px 0;
+    font-size: 20px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: var(--bk-accent);
+    -unity-text-align: middle-center;
+}

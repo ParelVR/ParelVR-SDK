@@ -79,6 +79,9 @@ namespace ParelVR.Volt.Simulator
         private Transform _headBone;
         private Vector3 _headScale;
         private bool _headHidden;
+        // The neck and head before and after the desktop look, so a bone nothing animates is not turned again every frame.
+        private Quaternion _neckRest, _neckLooked, _headRest, _headLooked;
+        private bool _looked;
 
         // A humanoid without a Base layer is posed here, so it does not stand in its import pose.
         private HumanPoseHandler _poseHandler;
@@ -672,8 +675,25 @@ namespace ParelVR.Volt.Simulator
             Transform head = _animator.GetBoneTransform(HumanBodyBones.Head);
             Vector3 axis = transform.right;
             float amount = Mathf.Clamp(pitch, -70f, 70f);
-            if (neck != null) neck.rotation = Quaternion.AngleAxis(amount * 0.4f, axis) * neck.rotation;
-            if (head != null) head.rotation = Quaternion.AngleAxis(amount * (neck != null ? 0.6f : 1f), axis) * head.rotation;
+            // When no animation wrote the bones since last frame they still hold last frame's look: undo it first.
+            if (_looked)
+            {
+                if (neck != null && neck.localRotation == _neckLooked) neck.localRotation = _neckRest;
+                if (head != null && head.localRotation == _headLooked) head.localRotation = _headRest;
+            }
+            if (neck != null)
+            {
+                _neckRest = neck.localRotation;
+                neck.rotation = Quaternion.AngleAxis(amount * 0.4f, axis) * neck.rotation;
+                _neckLooked = neck.localRotation;
+            }
+            if (head != null)
+            {
+                _headRest = head.localRotation;
+                head.rotation = Quaternion.AngleAxis(amount * (neck != null ? 0.6f : 1f), axis) * head.rotation;
+                _headLooked = head.localRotation;
+            }
+            _looked = true;
         }
 
         private void HideHead()
@@ -724,6 +744,13 @@ namespace ParelVR.Volt.Simulator
             Muscle("Right Upper Leg Front-Back", -swing * stride);
             Muscle("Left Lower Leg Stretch", 1f - Mathf.Max(0f, -swing) * stride * 1.4f);
             Muscle("Right Lower Leg Stretch", 1f - Mathf.Max(0f, swing) * stride * 1.4f);
+            // GetHumanPose read back last frame's look; start the neck and head straight so it does not add up.
+            Muscle("Neck Nod Down-Up", 0f);
+            Muscle("Neck Tilt Left-Right", 0f);
+            Muscle("Neck Turn Left-Right", 0f);
+            Muscle("Head Nod Down-Up", 0f);
+            Muscle("Head Tilt Left-Right", 0f);
+            Muscle("Head Turn Left-Right", 0f);
             _poseHandler.SetHumanPose(ref _pose);
         }
 

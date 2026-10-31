@@ -20,6 +20,7 @@ namespace ParelVR.SDK.Core.ControlPanel
     {
         private static string UiRoot => ParelPackagePaths.Combine("Editor/UI/");
         private const string AuthenticationTab = "Authentication";
+        private const string FeedbackTab = "Feedback";
         private const string SettingsTab = "Settings";
 
         /// <summary>Raised after a tab is shown, with its name.</summary>
@@ -76,6 +77,9 @@ namespace ParelVR.SDK.Core.ControlPanel
         private Label _navProjectType;
         private Label _navPreferences;
         private VisualElement _autoPortReportContainer;
+
+        // ---- Feedback tab: kept across tab rebuilds so a draft survives a project type change ---
+        private readonly ParelFeedbackTab _feedback = new ParelFeedbackTab();
 
         // =========================================================================================
         // Opening
@@ -147,7 +151,7 @@ namespace ParelVR.SDK.Core.ControlPanel
         {
             string current = _active?.Name;
             BuildEntries();
-            SelectByName(current == AuthenticationTab || current == SettingsTab ? current : null);
+            SelectByName(current == AuthenticationTab || current == FeedbackTab || current == SettingsTab ? current : null);
         }
 
         private Texture2D LoadLogo() => AssetDatabase.LoadAssetAtPath<Texture2D>(UiRoot + "logo.png");
@@ -219,6 +223,8 @@ namespace ParelVR.SDK.Core.ControlPanel
                 });
             }
 
+            // Feedback works signed out too: the ticket just is not linked to an account.
+            _entries.Add(new TabEntry { Name = FeedbackTab, Build = _feedback.Build, Shown = _feedback.Shown });
             _entries.Add(new TabEntry { Name = SettingsTab, Build = BuildSettingsTab, Shown = RenderSettingsSection });
 
             foreach (TabEntry entry in _entries)
