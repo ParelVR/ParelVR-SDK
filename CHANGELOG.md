@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.12.0 (2026-10-31)
+
+- **Upload for someone else.** In the avatar and world Builders, above the upload button, turn on **Upload for someone
+  else** and search for the player by name or username (results show their picture, name and @username). Build &
+  Send Upload Request builds it as usual, then sends the build to ParelVR, where it's held privately, and asks the other
+  player. They get an email with a **Review** button and approve or deny it on their dashboard. While you wait, the
+  Builder shows the request as pending (with its request ID and a Cancel Request button). Denied or cancelled: nothing
+  is uploaded and the build is deleted from your computer. Approved: it's uploaded to their account as a new avatar or
+  world, and your scene's Blueprint ID stays the same. Avatars that use another creator's protected content can't be
+  sent this way. The build, its details and three pictures (the model without textures, its textures, and both
+  together) are kept for ParelVR Support, so a player who didn't expect a request can report it with the request ID.
+
 ## 1.11.1 (2026-10-31)
 
 - New **Feedback** tab in the Control Panel (also **ParelVR SDK > Help > Send Feedback**). Send a bug report, an idea

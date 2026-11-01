@@ -140,6 +140,8 @@ namespace ParelVR.SDK.Backend
             public bool allowDebugging;
             public bool portalEnabled;
             public List<string> contentWarnings;
+            /// <summary>Upload for someone else: the approved request this new world is created for (it becomes theirs).</summary>
+            public string uploadRequestId;
         }
 
         /// <summary>

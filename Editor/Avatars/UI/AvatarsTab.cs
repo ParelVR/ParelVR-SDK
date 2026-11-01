@@ -108,6 +108,7 @@ namespace ParelVR.SDK.Avatars.UI
         private Toggle _rightsToggle;
         private Button _testButton;
         private Button _publishButton;
+        private ParelUploadForOther _forOther;
         private VisualElement _progressCard;
         private Label _progressLabel;
         private ProgressBar _progressBar;
@@ -438,6 +439,15 @@ namespace ParelVR.SDK.Avatars.UI
             rightsRow.Add(rightsText);
             buildFold.Add(rightsRow);
 
+            // Upload for someone else: build here, the other player approves before it goes to their account.
+            _forOther = new ParelUploadForOther("avatar");
+            _forOther.Changed += () =>
+            {
+                UpdateHeader();
+                UpdateButtons();
+            };
+            buildFold.Add(_forOther);
+
             VisualElement buttons = Row();
             buttons.style.marginTop = 12;
             _testButton = new Button(() => _ = BuildAndTestAsync()) { text = "Build & Test" };
@@ -723,6 +733,7 @@ namespace ParelVR.SDK.Avatars.UI
                     : $"Blueprint ID: {avatarId}";
                 _publishButton.text = "Build & Publish Update";
             }
+            if (_forOther != null && _forOther.Enabled) _publishButton.text = "Build & Send Upload Request";
         }
 
         private void SetUpSelectedObject()
@@ -971,7 +982,7 @@ namespace ParelVR.SDK.Avatars.UI
             if (_testButton == null) return;
             bool canBuild = !_busy && _current != null && _report != null && _report.CanBuild;
             _testButton.SetEnabled(canBuild);
-            _publishButton.SetEnabled(canBuild && _rightsAccepted);
+            _publishButton.SetEnabled(canBuild && _rightsAccepted && (_forOther == null || !_forOther.Enabled || _forOther.Ready));
         }
 
         private void AddTag()
@@ -1220,6 +1231,22 @@ namespace ParelVR.SDK.Avatars.UI
             List<ParelLockedMap> locked = ParelLocked.MapsUsedBy(descriptor.gameObject);
             bool serverBuild = locked.Count > 0;
 
+            if (_forOther != null && _forOther.Enabled)
+            {
+                if (!_forOther.Ready)
+                {
+                    EditorUtility.DisplayDialog("Upload for Someone Else", "Pick the player you're uploading for, or turn off \"Upload for someone else\".", "OK");
+                    return;
+                }
+                if (serverBuild)
+                {
+                    EditorUtility.DisplayDialog("Upload for Someone Else", "This avatar uses protected content by another creator, so it can't be uploaded for someone else. Turn off \"Upload for someone else\" to publish it to your own account.", "OK");
+                    return;
+                }
+                await PublishForSomeoneElseAsync(descriptor, avatarName, targets);
+                return;
+            }
+
             string workDir = Path.Combine(Path.GetTempPath(), "ParelVRAvatarUpload", Guid.NewGuid().ToString("N"));
             var notes = new List<string>();
 
@@ -1383,6 +1410,157 @@ namespace ParelVR.SDK.Avatars.UI
             }
         }
 
+        /// <summary>
+        /// Upload for someone else: build, send the build and its pictures to ParelVR as a request, wait until the
+        /// other player approves it, then publish it to their account the usual way (the PC build ParelVR already
+        /// holds goes live without being uploaded again). This project's Blueprint ID is not changed. Denied or
+        /// cancelled: nothing is uploaded and the build made here is deleted.
+        /// </summary>
+        private async Task PublishForSomeoneElseAsync(ParelAvatarDescriptor descriptor, string avatarName, List<string> targets)
+        {
+            ParelUploadForOther.Pick target = _forOther.Target;
+            bool forPc = targets.Contains(ParelPlatformTargets.Pc);
+            bool forStandalone = targets.Contains(ParelPlatformTargets.Standalone);
+            string workDir = Path.Combine(Path.GetTempPath(), "ParelVRAvatarUpload", Guid.NewGuid().ToString("N"));
+            var notes = new List<string>();
+
+            BeginBusy("Building...", true);
+            _cts = new CancellationTokenSource();
+            CancellationToken ct = _cts.Token;
+            try
+            {
+                // 1. Build, the same as for your own account.
+                string questSourceFile = forStandalone ? Path.Combine(workDir, "standalone.unitypackage") : null;
+                ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
+                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questSourceFile));
+                if (windows.BundleBytes > MaxWindowsBundleBytes)
+                {
+                    throw new Exception($"The PC build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
+                }
+                if (forStandalone && windows.QuestSource == null)
+                {
+                    notes.Add("The Meta / Standalone VR version wasn't sent: " + (windows.QuestSourceError ?? "the package wasn't made") + ".");
+                }
+                if (windows.RemovedComponents.Count > 0) notes.Add("Left out of the upload: " + string.Join(", ", windows.RemovedComponents.Distinct()));
+
+                // 2. The request. The build is held by ParelVR (not public) until the other player answers.
+                SetProgress(20, "Taking pictures of the avatar for the request...");
+                ParelBuildPictures pictures = ParelBuildPictures.ForAvatar(descriptor.gameObject);
+                ParelAvatarPerformance perf = windows.Performance ?? _performance;
+                UploadRequestRecord request = await ParelUploadRequestFlow.SendAndWaitAsync(new ParelUploadRequestFlow.Options
+                {
+                    Kind = "avatar",
+                    Target = target,
+                    Title = avatarName,
+                    Description = _descriptionField.value ?? string.Empty,
+                    BuildPath = windows.BundlePath,
+                    Platforms = targets,
+                    Pictures = pictures,
+                    Stats = new UploadRequestApiClient.Stats
+                    {
+                        triangles = perf?.Triangles ?? pictures.Triangles,
+                        materials = perf?.MaterialSlots ?? pictures.MaterialSlots,
+                        meshes = pictures.Meshes,
+                        rank = perf != null ? ParelAvatarPerformance.RankLabel(perf.OverallRank) : "Unknown",
+                    },
+                    Cancel = () => _cts?.Cancel(),
+                }, _forOther, (p, text) => SetProgress(20 + p * 40, text), ct);
+
+                // 3. Approved: the avatar is created on their account (theirs from the start).
+                SetProgress(62, $"Approved. Creating the avatar on {target.Label}'s account...");
+                AvatarApiClient.AvatarUpsertRequest details = BuildRequest(avatarName, windows);
+                details.uploadRequestId = request.id;
+                details.authorName = target.username;
+                AvatarRecord record = await AvatarApiClient.CreateAvatarAsync(details, ct);
+                if (record == null || string.IsNullOrEmpty(record.id)) throw new Exception("ParelVR didn't create the avatar.");
+                await ParelQuestApiClient.SetTargetsAsync(ParelQuestApiClient.Avatars, record.id, targets, ct);
+
+                // 4. The PC build: the copy ParelVR holds goes live (sent again only if it's gone).
+                if (forPc)
+                {
+                    SetProgress(66, "Publishing the PC / PCVR build...");
+                    try
+                    {
+                        await UploadRequestApiClient.PublishHeldBuildAsync<AvatarResponse>(request.id, ct);
+                    }
+                    catch (ParelApiException ex) when (ex.StatusCode == 410)
+                    {
+                        byte[] windowsBytes = File.ReadAllBytes(windows.BundlePath);
+                        await AvatarApiClient.UploadBundleAsync(record.id, "windows", windowsBytes,
+                            new Progress<float>(p => SetProgress(66 + p * 20, $"Uploading PC / PCVR build... {(int)(p * 100)}%")), ct);
+                    }
+                }
+
+                // 5. What the Meta / Standalone VR version is built from.
+                if (forStandalone && windows.QuestSource != null)
+                {
+                    try
+                    {
+                        await ParelQuestApiClient.UploadSourceAsync(
+                            ParelQuestApiClient.Avatars, record.id, windows.QuestSource.PackagePath, null,
+                            ParelVR.SDK.Build.Quest.ParelQuestSource.SdkVersion(),
+                            new Progress<float>(p => SetProgress(86 + p * 6, $"Sending to ParelVR for Meta / Standalone VR... {(int)(p * 100)}%")),
+                            ct);
+                        notes.Add("ParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes.");
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception questError)
+                    {
+                        notes.Add("The Meta / Standalone VR version wasn't sent: " + questError.Message);
+                    }
+                }
+
+                // 6. Thumbnail: the one picked here, or a portrait. Your own pending thumbnail is left as it is.
+                byte[] thumbnail = _pendingThumbnail;
+                bool thumbnailIsPng = _pendingThumbnailIsPng;
+                if (thumbnail == null)
+                {
+                    Texture2D portrait = ParelAvatarThumbnail.CapturePortrait(descriptor.gameObject);
+                    if (portrait != null)
+                    {
+                        thumbnail = portrait.EncodeToJPG(92);
+                        thumbnailIsPng = false;
+                        UnityEngine.Object.DestroyImmediate(portrait);
+                    }
+                }
+                if (thumbnail != null)
+                {
+                    SetProgress(94, "Uploading thumbnail...");
+                    try { await AvatarApiClient.UploadImageAsync(record.id, thumbnail, thumbnailIsPng, ct); }
+                    catch (ParelApiException ex) { notes.Add($"The thumbnail didn't upload ({ex.Message})."); }
+                }
+
+                await ParelUploadRequestFlow.FinishAsync(request.id);
+                SetProgress(100, "Uploaded");
+                _forOther.ShowStatus(ParelUploadForOther.Tone.Good, $"Uploaded to {target.Label}'s avatars",
+                    $"'{record.name}' is on {target.LabelWithHandle}'s account ({VisibilityLabel(record.releaseStatus)}). Request ID {request.id}.",
+                    "Dismiss", () => _forOther.HideStatus());
+
+                string message = $"'{record.name}' is uploaded to {target.LabelWithHandle}'s avatars ({VisibilityLabel(record.releaseStatus)}). It's their avatar now: it shows on their Avatars page, not yours.\n\nRequest ID {request.id}";
+                if (notes.Count > 0) message += "\n\n" + string.Join("\n\n", notes);
+                EditorUtility.DisplayDialog("Avatar Uploaded", message, "OK");
+            }
+            catch (ParelUploadRequestDeniedException denied)
+            {
+                EditorUtility.DisplayDialog("Upload Request Denied", denied.Message, "OK");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("[ParelVR SDK] Upload for someone else canceled.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[ParelVR SDK] Upload for someone else failed: " + ex);
+                EditorUtility.DisplayDialog("Upload Failed", ex.Message, "OK");
+            }
+            finally
+            {
+                EndBusy();
+                TryDeleteDirectory(workDir); // also how a denied request's build is removed
+                QueueRefresh();
+            }
+        }
+
         private AvatarApiClient.AvatarUpsertRequest BuildRequest(string avatarName, ParelAvatarBuildResult windows)
         {
             ParelAvatarPerformance perf = windows.Performance ?? _performance;
@@ -1464,6 +1642,7 @@ namespace ParelVR.SDK.Avatars.UI
         private void BeginBusy(string status, bool cancellable)
         {
             _busy = true;
+            _forOther?.SetLocked(true);
             _builderBody?.SetEnabled(false);
             _contentPage?.SetEnabled(false);
             _progressCard.style.display = DisplayStyle.Flex;
@@ -1475,6 +1654,7 @@ namespace ParelVR.SDK.Avatars.UI
         private void EndBusy()
         {
             _busy = false;
+            _forOther?.SetLocked(false);
             _builderBody?.SetEnabled(true);
             _contentPage?.SetEnabled(true);
             _progressCard.style.display = DisplayStyle.None;

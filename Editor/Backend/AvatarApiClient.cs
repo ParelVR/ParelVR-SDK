@@ -94,6 +94,8 @@ namespace ParelVR.SDK.Backend
             public List<string> tags = new List<string>();
             public List<string> contentWarnings = new List<string>();
             public AvatarPerformanceRecord performance = new AvatarPerformanceRecord();
+            /// <summary>Upload for someone else: the approved request this new avatar is created for (it becomes theirs).</summary>
+            public string uploadRequestId;
         }
 
         /// <summary>The page details alone (no performance numbers), for saving them without a new build.</summary>

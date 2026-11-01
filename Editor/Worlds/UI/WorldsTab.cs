@@ -10,6 +10,7 @@ using ParelVR.SDK.Build.Quest;
 using ParelVR.SDK.Core.ControlPanel;
 using ParelVR.SDK.Core.Settings;
 using ParelVR.SDK.Core.Auth;
+using ParelVR.SDK.Core.Http;
 using ParelVR.SDK.Worlds.Components;
 using ParelVR.SDK.Worlds.Validation;
 using UnityEditor;
@@ -55,6 +56,7 @@ namespace ParelVR.SDK.Worlds.UI
         private Button _btnSelectImage;
         private Button _btnBuildPublish;
         private Button _btnSaveDetails;
+        private ParelUploadForOther _forOther;
         private Toggle _platformPc;
         private Toggle _platformStandalone;
         private Label _platformStatus;
@@ -175,6 +177,12 @@ namespace ParelVR.SDK.Worlds.UI
             _btnSaveDetails.style.marginTop = 6;
             _btnSaveDetails.style.display = DisplayStyle.None;
             if (_btnBuildPublish.parent != null) _btnBuildPublish.parent.Insert(_btnBuildPublish.parent.IndexOf(_btnBuildPublish) + 1, _btnSaveDetails);
+
+            // Upload for someone else: build here, the other player approves before it goes to their account.
+            _forOther = new ParelUploadForOther("world");
+            _forOther.style.marginBottom = 8;
+            _forOther.Changed += ApplyForOther;
+            if (_btnBuildPublish.parent != null) _btnBuildPublish.parent.Insert(_btnBuildPublish.parent.IndexOf(_btnBuildPublish), _forOther);
 
             ParelSession.OnSessionChanged += RefreshState;
             EditorApplication.hierarchyChanged += RefreshState;
@@ -373,6 +381,7 @@ namespace ParelVR.SDK.Worlds.UI
                         _ = FetchExistingWorldDataAsync(_currentDescriptor.blueprintId);
                     }
                 }
+                ApplyForOther();
             }
         }
 
@@ -775,6 +784,16 @@ namespace ParelVR.SDK.Worlds.UI
                 EditorUtility.DisplayDialog("Build & Publish", "Your ParelVR session has ended. Sign in again on the Authentication tab, then publish.", "OK");
                 return;
             }
+            if (_forOther != null && _forOther.Enabled)
+            {
+                if (!_forOther.Ready)
+                {
+                    EditorUtility.DisplayDialog("Upload for Someone Else", "Pick the player you're uploading for, or turn off \"Upload for someone else\".", "OK");
+                    return;
+                }
+                await PublishForSomeoneElseAsync(targets);
+                return;
+            }
 
             // ── 1. Validate ──
             _progressContainer.style.display = DisplayStyle.Flex;
@@ -998,6 +1017,221 @@ namespace ParelVR.SDK.Worlds.UI
                     _uploadCts = null;
                 }
                 RefreshState();
+                ApplyForOther();
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        //  Upload for someone else
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>The upload button's label and state for the "Upload for someone else" box.</summary>
+        private void ApplyForOther()
+        {
+            if (_forOther == null || _btnBuildPublish == null || _currentDescriptor == null) return;
+            if (_forOther.Enabled) _btnBuildPublish.text = "Build & Send Upload Request";
+            else _btnBuildPublish.text = string.IsNullOrEmpty(_currentDescriptor.blueprintId) ? "Build & Publish New World" : "Build & Update World";
+            if (_uploadCts == null) _btnBuildPublish.SetEnabled(!_forOther.Enabled || _forOther.Ready);
+        }
+
+        /// <summary>
+        /// Build, send the build and its pictures to ParelVR as a request, wait until the other player approves it,
+        /// then publish it to their account as a new world (the PC build ParelVR already holds goes live without
+        /// being uploaded again). The scene's Blueprint ID is not changed and the project isn't saved for Import
+        /// World (it stays yours). Denied or cancelled: nothing is uploaded and the build made here is deleted.
+        /// </summary>
+        private async Task PublishForSomeoneElseAsync(List<string> targets)
+        {
+            ParelUploadForOther.Pick target = _forOther.Target;
+            bool forPc = targets.Contains(ParelPlatformTargets.Pc);
+            bool forStandalone = targets.Contains(ParelPlatformTargets.Standalone);
+
+            _progressContainer.style.display = DisplayStyle.Flex;
+            _progressStatus.text = "Validating scene...";
+            _progressBar.value = 0;
+            _btnBuildPublish.SetEnabled(false);
+            _forOther.SetLocked(true);
+            if (!await RunValidationAsync())
+            {
+                _progressContainer.style.display = DisplayStyle.None;
+                _forOther.SetLocked(false);
+                ApplyForOther();
+                return;
+            }
+
+            _uploadCts = new CancellationTokenSource();
+            CancellationToken ct = _uploadCts.Token;
+            string bundlePath = null;
+            string voltPackage = null;
+            ParelQuestSourceResult questSource = null;
+            try
+            {
+                WorldPagePublisher.BuildJson(_currentDescriptor); // credits and store are checked before the long build
+
+                // 1. Build, the same as for your own account.
+                _progressStatus.text = "Building AssetBundle (this may take a while)...";
+                _progressBar.value = 5;
+                WorldBuilder.ExportQuestSource = forStandalone;
+                bundlePath = await OutsidePlayerLoop.Run(WorldBuilder.BuildWorldBundle);
+                if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
+                    throw new Exception("AssetBundle build failed. Check the Unity Console.");
+                questSource = WorldBuilder.QuestSource;
+                string questSourceError = WorldBuilder.QuestSourceError;
+                string platform = WorldBuilder.BuiltPlatform;
+                voltPackage = WorldBuilder.VoltPackagePathFor(bundlePath);
+
+                // 2. The request. The build is held by ParelVR (not public) until the other player answers.
+                _progressStatus.text = "Taking pictures of the world for the request...";
+                _progressBar.value = 25;
+                ParelBuildPictures pictures = ParelBuildPictures.ForWorld(_currentDescriptor.gameObject.scene);
+                UploadRequestRecord request = await ParelUploadRequestFlow.SendAndWaitAsync(new ParelUploadRequestFlow.Options
+                {
+                    Kind = "world",
+                    Target = target,
+                    Title = _worldName.value,
+                    Description = _worldDesc.value,
+                    BuildPath = bundlePath,
+                    Platform = platform,
+                    Platforms = targets,
+                    Pictures = pictures,
+                    Stats = new UploadRequestApiClient.Stats { triangles = pictures.Triangles, materials = pictures.MaterialSlots, meshes = pictures.Meshes },
+                    Cancel = () => _uploadCts?.Cancel(),
+                }, _forOther, (p, text) =>
+                {
+                    _progressBar.value = 25 + p * 35;
+                    _progressStatus.text = text;
+                }, ct);
+
+                // 3. Approved: a new world on their account (theirs from the start).
+                _progressStatus.text = $"Approved. Creating the world on {target.Label}'s account...";
+                _progressBar.value = 62;
+                var worldRecord = await WorldApiClient.CreateWorldAsync(new WorldApiClient.CreateWorldRequest
+                {
+                    blueprintId = string.Empty,
+                    name = _worldName.value,
+                    description = _worldDesc.value,
+                    authorName = target.username,
+                    releaseStatus = "public",
+                    tags = new List<string>(_currentTags),
+                    recommendedCapacity = LobbyCapacity,
+                    maximumCapacity = LobbyCapacity,
+                    allowDebugging = _worldAllowDebug.value,
+                    portalEnabled = true,
+                    contentWarnings = GetSelectedWarnings(),
+                    uploadRequestId = request.id,
+                }, ct);
+                if (worldRecord == null || string.IsNullOrEmpty(worldRecord.id)) throw new Exception("ParelVR didn't create the world.");
+                string worldId = worldRecord.id;
+                await ParelQuestApiClient.SetTargetsAsync(ParelQuestApiClient.Worlds, worldId, targets, ct);
+
+                _progressStatus.text = "Saving credits and store...";
+                _progressBar.value = 64;
+                try { await WorldPagePublisher.PublishAsync(_currentDescriptor, worldId, ct); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception pageError) { Debug.LogWarning($"[WorldsTab] Credits / store were not saved: {pageError.Message}"); }
+
+                if (_pendingThumbnailBytes != null)
+                {
+                    _progressStatus.text = "Uploading thumbnail...";
+                    _progressBar.value = 66;
+                    await WorldApiClient.UploadImageAsync(worldId, _pendingThumbnailBytes, ct);
+                }
+
+                // 4. The PC build: the copy ParelVR holds goes live (sent again only if it's gone), then the scripts.
+                float pcEnd = forStandalone ? 80f : 95f;
+                if (forPc)
+                {
+                    _progressStatus.text = "Publishing the PC / PCVR build...";
+                    _progressBar.value = 70;
+                    try
+                    {
+                        WorldResponse published = await UploadRequestApiClient.PublishHeldBuildAsync<WorldResponse>(request.id, ct);
+                        if (published == null || !published.success) throw new Exception(published?.message ?? "The build wasn't published.");
+                    }
+                    catch (ParelApiException ex) when (ex.StatusCode == 410)
+                    {
+                        byte[] bundleBytes = File.ReadAllBytes(bundlePath);
+                        var progress = new Progress<float>(p =>
+                        {
+                            _progressBar.value = 70f + p * (pcEnd - 70f);
+                            _progressStatus.text = $"Uploading PC / PCVR bundle... {(int)(p * 100)}%";
+                        });
+                        WorldResponse uploaded = await WorldApiClient.UploadBundleAsync(worldId, platform, bundleBytes, progress, ct);
+                        if (uploaded == null || !uploaded.success) throw new Exception(uploaded?.message ?? "Unknown upload error.");
+                    }
+                    if (WorldBuilder.AfterBundleUploaded != null)
+                    {
+                        _progressStatus.text = "Uploading scripts...";
+                        await WorldBuilder.AfterBundleUploaded(worldId, platform, bundlePath, ct);
+                    }
+                }
+
+                // 5. What the Meta / Standalone VR version is built from.
+                string questNote = null;
+                if (forStandalone)
+                {
+                    if (questSource == null)
+                    {
+                        questNote = "The Meta / Standalone VR version wasn't sent: " + (questSourceError ?? "the package wasn't made") + ".";
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var questProgress = new Progress<float>(p =>
+                            {
+                                _progressBar.value = pcEnd + p * (95f - pcEnd);
+                                _progressStatus.text = $"Sending to ParelVR for Meta / Standalone VR... {(int)(p * 100)}%";
+                            });
+                            await ParelQuestApiClient.UploadSourceAsync(ParelQuestApiClient.Worlds, worldId,
+                                questSource.PackagePath, File.Exists(voltPackage) ? voltPackage : null, ParelQuestSource.SdkVersion(),
+                                questProgress, ct);
+                        }
+                        catch (OperationCanceledException) { throw; }
+                        catch (Exception questError)
+                        {
+                            questNote = "The Meta / Standalone VR version wasn't sent: " + questError.Message;
+                            Debug.LogWarning("[WorldsTab] " + questNote);
+                        }
+                    }
+                }
+
+                await ParelUploadRequestFlow.FinishAsync(request.id);
+                _progressBar.value = 100;
+                _progressStatus.text = "Uploaded";
+                _forOther.ShowStatus(ParelUploadForOther.Tone.Good, $"Uploaded to {target.Label}'s worlds",
+                    $"'{worldRecord.name}' is on {target.LabelWithHandle}'s account. Request ID {request.id}.", "Dismiss", () => _forOther.HideStatus());
+
+                string message = $"World '{worldRecord.name}' is uploaded to {target.LabelWithHandle}'s worlds. It's their world now: it shows on their My Worlds page, not yours, and this scene still publishes to your own world.\n\nRequest ID {request.id}";
+                if (forStandalone && questNote == null) message += "\n\nParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes.";
+                if (questNote != null) message += "\n\n" + questNote;
+                EditorUtility.DisplayDialog("World Uploaded", message, "OK");
+            }
+            catch (ParelUploadRequestDeniedException denied)
+            {
+                EditorUtility.DisplayDialog("Upload Request Denied", denied.Message, "OK");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("[WorldsTab] Upload for someone else canceled.");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WorldsTab] Upload for someone else failed: {ex}");
+                EditorUtility.DisplayDialog("Upload Failed", ex.Message, "OK");
+            }
+            finally
+            {
+                // The build made for them is not kept here (this is also how a denied request's build is removed).
+                TryDelete(bundlePath);
+                TryDelete(voltPackage);
+                if (questSource != null) TryDelete(questSource.PackagePath);
+                _progressContainer.style.display = DisplayStyle.None;
+                _uploadCts?.Dispose();
+                _uploadCts = null;
+                _forOther.SetLocked(false);
+                RefreshState();
+                ApplyForOther();
             }
         }
 
