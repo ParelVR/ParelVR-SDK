@@ -6,7 +6,10 @@
         "ParelVR.SDK.Validation",
         "ParelVR.SDK.Build",
         "ParelVR.SDK.Backend",
-        "ParelVR.AvatarSDK"
+        "ParelVR.AvatarSDK",
+        "ParelVR.Rendering.Core",
+        "ParelVR.Rendering",
+        "ParelVR.Rendering.Editor"
     ],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],

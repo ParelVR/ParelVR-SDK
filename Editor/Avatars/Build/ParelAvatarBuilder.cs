@@ -170,6 +170,9 @@ namespace ParelVR.SDK.Avatars.Build
                 }
 
                 result.RemovedComponents.AddRange(ParelAvatarComponentPolicy.RemoveDisallowed(copy));
+                // URP / HDRP materials and ones ParelVR can't draw: converted on this copy (the creator's are untouched).
+                string rendering = ParelVR.SDK.Build.ParelUploadRendering.ConvertAvatar(copy, GeneratedFolder);
+                if (rendering != null) result.Notes.Add(rendering);
                 result.Performance = ParelAvatarPerformance.Measure(copy);
 
                 Animator animator = copiedDescriptor != null ? copiedDescriptor.AvatarAnimator : copy.GetComponentInChildren<Animator>(true);

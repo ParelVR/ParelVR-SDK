@@ -1,0 +1,32 @@
+ParelVR shader property contract
+================================
+
+Every ParelVR shader (ParelVR/* and ParelVR/Mobile/*) uses the Built-in Standard shader's property names, so
+ParelMaterialWriter can fill any of them and a material can move between them without losing settings.
+
+Base         _Color, _MainTex (+ tiling/offset), _Cutoff
+Surface      _Mode (SurfaceType), _SrcBlend, _DstBlend, _ZWrite, _Cull
+             keywords _ALPHATEST_ON, _ALPHABLEND_ON, _ALPHAPREMULTIPLY_ON
+Normal       _BumpMap, _BumpScale                                   keyword _NORMALMAP
+Metallic     _Metallic, _Glossiness, _GlossMapScale, _MetallicGlossMap (R metal, A smoothness)
+                                                                    keyword _METALLICGLOSSMAP
+             _SmoothnessTextureChannel (0 metallic alpha, 1 albedo alpha)
+                                                                    keyword _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+Specular     _SpecColor, _SpecGlossMap                              keywords _SPECULAR_SETUP, _SPECGLOSSMAP
+Occlusion    _OcclusionMap (G), _OcclusionStrength
+Emission     _EmissionColor, _EmissionMap                           keyword _EMISSION
+             (not flagged [HDR], exactly like Standard: Unity colour-space converts the value the same way,
+             so converted emission matches. Readers for [HDR] sources (URP/HDRP) convert when mapping.)
+Detail       _DetailMask (A), _DetailAlbedoMap, _DetailNormalMap, _DetailNormalMapScale
+                                                                    keyword _DETAIL_MULX2
+Height       _ParallaxMap, _Parallax                                keyword _PARALLAXMAP
+Toggles      _SpecularHighlights, _GlossyReflections                keywords _SPECULARHIGHLIGHTS_OFF, _GLOSSYREFLECTIONS_OFF
+Simple Lit   _SpecColor, _Shininess                                 keyword _GLOSS_FROM_ALBEDO_ALPHA
+Skybox       _Tex (cube) or _MainTex (panorama), _Tint, _Exposure, _Rotation
+                                                                    keyword _SKYBOX_PANORAMIC
+
+HDRP mask maps (R metal, G occlusion, B detail mask, A smoothness) are mapped onto _MetallicGlossMap and
+_OcclusionMap with the same texture, which reads the same channels, so no texture is re-baked.
+
+All shaders are vertex/fragment shaders with GPU instancing and single-pass stereo macros
+(UNITY_VERTEX_INPUT_INSTANCE_ID / UNITY_VERTEX_OUTPUT_STEREO).

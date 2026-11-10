@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.13.0 (2026-11-10)
+
+### ParelVR now has its own rendering technology
+
+This is the biggest SDK update yet. **ParelVR Rendering (PVRP)** is now built into the SDK: a rendering framework made
+for ParelVR that takes content from any Unity render pipeline, makes it look right in ParelVR, and keeps it fast on
+PC and on standalone headsets. You don't have to do anything to use it: it works every time you build.
+
+- **Upload from URP and HDRP projects.** Worlds and avatars made in a Universal or High Definition Render Pipeline
+  project now come to ParelVR looking the way you made them. On upload, the SDK turns their materials into ParelVR
+  materials that keep their colours, textures, normal maps, metallic and smoothness (HDRP mask maps used as they are),
+  emission, transparency and cutouts. HDRP worlds go further: their lights, sky, fog and reflection probes are brought
+  over at your scene's own exposure, so a sunlit HDRP scene stays sunlit and its emissive signs keep their glow. All of
+  it happens on the build's own copy. **Your scenes, prefabs, materials, textures and lighting are never changed.**
+- **No more pink.** A material whose shader is missing, broken or can't run gets a ParelVR material that keeps
+  whatever colour and textures it can, instead of rendering magenta. In the SDK at upload, and in ParelVR when your
+  content loads. Each fix is logged with the material's name and its original shader.
+- **The ParelVR shader library.** ParelVR Lit, Cutout, Transparent, Simple Lit, Unlit, Emissive, Particles (Lit and
+  Unlit) and Skybox, built on Unity's Standard lighting so they look like the Standard shader on PC. On Meta /
+  Standalone VR the same materials switch to a lighter version of each lit shader on their own: cheaper lighting and
+  far fewer shader variants, with nothing to set up.
+- **Smarter Meta / Standalone VR versions.** ParelVR's conversion server now gives your world's heavy models distance
+  LODs (Unity 6.2+), keeps lights marked Important within the headset's per-pixel light limit, estimates how much
+  GPU memory your textures need, and tells you in the conversion summary exactly what's over a headset's budget
+  (triangles, draw calls, texture memory, realtime lights).
+- **Rendering checks in the Builder.** New **World Rendering** and **Avatar Rendering** checks (Settings > Scan Now
+  and the Builder) show what will be converted at upload, anything that can't be shown and why, missing textures, and
+  what's over the standalone headset budget. They're advice only and never block an upload.
+- **Compatibility reports.** **ParelVR > Rendering > Compatibility Report** checks your whole project, the open scenes
+  or selected materials for PC and for Meta / Standalone VR, and writes the details to `Logs/PVRP/`.
+- **Nothing changes for content that already works.** A Built-in world or avatar whose materials all render is built
+  exactly as before: no copies, no conversion.
+
+What's not carried over from HDRP (subsurface scattering, extra Layered Lit layers, decals, volumetric fog, HDRP
+post-processing) is listed per material and per scene in the reports, so nothing disappears without you knowing.
+
 ## 1.12.1 (2026-11-10)
 
 - **Publishing survives short connection drops.** Uploads (thumbnail, bundle parts, project) try again for about two

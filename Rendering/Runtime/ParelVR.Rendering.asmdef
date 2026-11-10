@@ -1,0 +1,22 @@
+{
+    "name": "ParelVR.Rendering",
+    "rootNamespace": "ParelVR.Rendering",
+    "references": [
+        "ParelVR.Rendering.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.modules.vr",
+            "expression": "1.0.0",
+            "define": "PVRP_XR"
+        }
+    ],
+    "noEngineReferences": false
+}

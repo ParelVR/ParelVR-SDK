@@ -1,0 +1,19 @@
+{
+    "name": "ParelVR.Rendering.Editor",
+    "rootNamespace": "ParelVR.Rendering.Editor",
+    "references": [
+        "ParelVR.Rendering.Core",
+        "ParelVR.Rendering"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

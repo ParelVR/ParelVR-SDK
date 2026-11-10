@@ -1,0 +1,26 @@
+{
+    "name": "ParelVR.Rendering.Tests",
+    "rootNamespace": "ParelVR.Rendering.Tests",
+    "references": [
+        "ParelVR.Rendering.Core",
+        "ParelVR.Rendering",
+        "ParelVR.Rendering.Editor",
+        "ParelVR.SDK.Build",
+        "ParelVR.SDK.Core",
+        "UnityEditor.TestRunner",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

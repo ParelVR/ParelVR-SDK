@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using ParelVR.Rendering;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -21,7 +23,23 @@ namespace ParelVR.SDK.Build.Quest
         public int componentsRemoved;
         public int particleSystemsCapped;
         public int textureCap;
+        public int meshesWithLods;
+        // What the converted content costs on the headset (ParelVR rendering framework budgets).
+        public long triangles;
+        public int materialSlots;
+        public int skinnedMeshes;
+        public long textureBytes;
+        public int realtimeLights;
+        public int forcedPixelLights;
+        public bool avatar;
         public List<string> notes = new List<string>();
+
+        /// <summary>Where the content is over a standalone headset's budget, for the creator. Empty when it fits.</summary>
+        public List<string> BudgetFindings() => QuestBudgets.Assess(new QuestContentStats
+        {
+            Avatar = avatar, Triangles = triangles, MaterialSlots = materialSlots, SkinnedMeshes = skinnedMeshes,
+            TextureBytes = textureBytes, RealtimeLights = realtimeLights, ForcedPixelLights = forcedPixelLights,
+        });
 
         public void Note(string line)
         {
@@ -37,7 +55,10 @@ namespace ParelVR.SDK.Build.Quest
             if (lightsChanged > 0) parts.Add(lightsChanged + " light(s) and probe(s) made cheaper");
             if (componentsRemoved > 0) parts.Add(componentsRemoved + " component(s) left out");
             if (particleSystemsCapped > 0) parts.Add(particleSystemsCapped + " particle system(s) capped");
-            return parts.Count == 0 ? "Nothing needed changing." : string.Join("; ", parts) + ".";
+            if (meshesWithLods > 0) parts.Add(meshesWithLods + " model(s) given distance LODs");
+            string summary = parts.Count == 0 ? "Nothing needed changing." : string.Join("; ", parts) + ".";
+            List<string> over = BudgetFindings();
+            return over.Count == 0 ? summary : summary + " Over the headset budget: " + string.Join(" ", over);
         }
     }
 
@@ -267,6 +288,7 @@ namespace ParelVR.SDK.Build.Quest
         public static void ConvertTextures(IEnumerable<string> texturePaths, int cap, ParelQuestReport report)
         {
             report.textureCap = cap;
+            report.textureBytes = 0;
             AssetDatabase.StartAssetEditing();
             try
             {
@@ -289,12 +311,30 @@ namespace ParelVR.SDK.Build.Quest
 
                     report.texturesCompressed++;
                     if (size < before) report.texturesDownsized++;
+                    report.textureBytes += EstimateBytes(importer, size);
                 }
             }
             finally
             {
                 AssetDatabase.StopAssetEditing();
             }
+        }
+
+        /// <summary>GPU memory of the texture on the headset at <paramref name="maxSize"/> (ASTC, mips included).</summary>
+        private static long EstimateBytes(TextureImporter importer, int maxSize)
+        {
+            importer.GetSourceTextureWidthAndHeight(out int w, out int h);
+            if (w <= 0 || h <= 0) return 0;
+            int faces = 1;
+            if (importer.textureShape == TextureImporterShape.TextureCube)
+            {
+                // A 6:1 strip or a 4:3 cross of faces: count one face's size six times.
+                faces = 6;
+                int side = Math.Max(w, h) >= 5 * Math.Min(w, h) ? Math.Min(w, h) : Math.Max(w, h) / 4;
+                w = h = Math.Max(1, side);
+            }
+            float scale = Math.Min(1f, (float)maxSize / Math.Max(w, h));
+            return QuestBudgets.TextureBytes(Math.Max(1, (int)(w * scale)), Math.Max(1, (int)(h * scale)), importer.mipmapEnabled, faces);
         }
 
         /// <summary>Gives every sound an Android setting: Vorbis, compressed in memory.</summary>
@@ -352,6 +392,9 @@ namespace ParelVR.SDK.Build.Quest
         /// <summary>World scene: realtime shadows off, realtime probes baked, post-processing out, lighter terrain, capped particles.</summary>
         public static void ConvertWorldScene(Scene scene, string generatedFolder, ParelQuestReport report)
         {
+            report.avatar = false;
+            ConvertImportantLights(scene, report);
+            GenerateMeshLods(scene, report);
             foreach (GameObject root in scene.GetRootGameObjects())
             {
                 foreach (Light light in root.GetComponentsInChildren<Light>(true))
@@ -371,11 +414,100 @@ namespace ParelVR.SDK.Build.Quest
                 RemoveByTypeName(root, PostProcessingTypes, report);
                 RemoveMissingScripts(root);
             }
+            Measure(scene.GetRootGameObjects(), report);
+        }
+
+        /// <summary>
+        /// Lights set to Important are always per-pixel and ignore the headset's pixel-light limit: each one re-draws
+        /// every object it touches. The brightest realtime point or spot light keeps that; the others go back to Auto,
+        /// so the limit decides (the rest light per vertex). Directional lights are left alone.
+        /// </summary>
+        private static void ConvertImportantLights(Scene scene, ParelQuestReport report)
+        {
+            var important = new List<Light>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+                foreach (Light light in root.GetComponentsInChildren<Light>(true))
+                    if (light.renderMode == LightRenderMode.ForcePixel && light.type != LightType.Directional && light.lightmapBakeType != LightmapBakeType.Baked)
+                        important.Add(light);
+            report.forcedPixelLights = important.Count;
+            foreach (Light light in important.OrderByDescending(l => l.intensity * l.range).Skip(1))
+            {
+                light.renderMode = LightRenderMode.Auto;
+                report.lightsChanged++;
+                report.Note(light.name + ": Important light set to Auto (headset pixel-light limit)");
+            }
+        }
+
+        /// <summary>
+        /// Models in the world with more than <see cref="QuestBudgets.MeshLodMinTriangles"/> triangles get Mesh LODs
+        /// (Unity 6.2+), so far-away copies draw with fewer triangles; the near view is unchanged. Skinned models are
+        /// left alone. Runs on the conversion server's copy of the upload, like the rest of this class.
+        /// </summary>
+        private static void GenerateMeshLods(Scene scene, ParelQuestReport report)
+        {
+            PropertyInfo generate = typeof(ModelImporter).GetProperty("generateMeshLods", BindingFlags.Public | BindingFlags.Instance);
+            if (generate == null || generate.PropertyType != typeof(bool) || !generate.CanWrite) return; // Unity before 6.2
+            var models = new HashSet<string>(StringComparer.Ordinal);
+            foreach (GameObject root in scene.GetRootGameObjects())
+                foreach (MeshFilter filter in root.GetComponentsInChildren<MeshFilter>(true))
+                {
+                    Mesh mesh = filter.sharedMesh;
+                    if (mesh == null || Triangles(mesh) < QuestBudgets.MeshLodMinTriangles) continue;
+                    string path = AssetDatabase.GetAssetPath(mesh);
+                    if (!string.IsNullOrEmpty(path) && AssetImporter.GetAtPath(path) is ModelImporter) models.Add(path);
+                }
+            foreach (string path in models)
+            {
+                var importer = (ModelImporter)AssetImporter.GetAtPath(path);
+                if ((bool)generate.GetValue(importer)) continue;
+                if (AssetDatabase.LoadAllAssetsAtPath(path).OfType<GameObject>().Any(g => g.GetComponentInChildren<SkinnedMeshRenderer>(true) != null)) continue;
+                generate.SetValue(importer, true);
+                importer.SaveAndReimport();
+                report.meshesWithLods++;
+            }
+        }
+
+        private static long Triangles(Mesh mesh)
+        {
+            long n = 0;
+            for (int i = 0; i < mesh.subMeshCount; i++)
+                if (mesh.GetTopology(i) == MeshTopology.Triangles) n += mesh.GetIndexCount(i) / 3;
+            return n;
+        }
+
+        /// <summary>Counts what the converted content costs on the headset: triangles, material slots, realtime lights.</summary>
+        private static void Measure(IEnumerable<GameObject> roots, ParelQuestReport report)
+        {
+            report.triangles = 0;
+            report.materialSlots = 0;
+            report.skinnedMeshes = 0;
+            report.realtimeLights = 0;
+            foreach (GameObject root in roots)
+            {
+                foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    Mesh mesh = null;
+                    if (r is SkinnedMeshRenderer skinned)
+                    {
+                        mesh = skinned.sharedMesh;
+                        report.skinnedMeshes++;
+                    }
+                    else if (r is MeshRenderer && r.TryGetComponent(out MeshFilter filter))
+                    {
+                        mesh = filter.sharedMesh;
+                    }
+                    if (mesh != null) report.triangles += Triangles(mesh);
+                    report.materialSlots += r.sharedMaterials.Length;
+                }
+                foreach (Light light in root.GetComponentsInChildren<Light>(true))
+                    if (light.lightmapBakeType != LightmapBakeType.Baked) report.realtimeLights++;
+            }
         }
 
         /// <summary>Avatar (prefab contents): no lights, cloth, cameras or probes; capped particles; four-bone skinning.</summary>
         public static void ConvertAvatar(GameObject root, ParelQuestReport report)
         {
+            report.avatar = true;
             RemoveByTypeName(root, AvatarComponentsToRemove, report);
             CapParticles(root, AvatarParticleCap, report);
             foreach (SkinnedMeshRenderer skinned in root.GetComponentsInChildren<SkinnedMeshRenderer>(true))
@@ -384,6 +516,7 @@ namespace ParelVR.SDK.Build.Quest
                 skinned.quality = SkinQuality.Bone4;
             }
             RemoveMissingScripts(root);
+            Measure(new[] { root }, report);
         }
 
         private static void ConvertTerrain(Terrain terrain, string generatedFolder, ParelQuestReport report)

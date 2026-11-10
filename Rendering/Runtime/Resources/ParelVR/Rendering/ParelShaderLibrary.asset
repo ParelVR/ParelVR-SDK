@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a626e905702b446eb72ca49ade274288, type: 3}
+  m_Name: ParelShaderLibrary
+  m_EditorClassIdentifier: ParelVR.Rendering::ParelVR.Rendering.ParelShaderLibrary
+  entries:
+  - Role: 0
+    Pc: {fileID: 4800000, guid: b32e70fd100d4919a2d9a785811723e3, type: 3}
+    Quest: {fileID: 0}
+  - Role: 1
+    Pc: {fileID: 4800000, guid: d22d790a6cb747fe85ebc31730c3f3e7, type: 3}
+    Quest: {fileID: 0}
+  - Role: 2
+    Pc: {fileID: 4800000, guid: 60097bb76d034ec6879471f8e3ef74a7, type: 3}
+    Quest: {fileID: 0}
+  - Role: 3
+    Pc: {fileID: 4800000, guid: d5f751e23e0f4fa9992601c7bf98baf7, type: 3}
+    Quest: {fileID: 0}
+  - Role: 4
+    Pc: {fileID: 4800000, guid: 3598642254914a3f8d74561cb060e602, type: 3}
+    Quest: {fileID: 0}
+  - Role: 5
+    Pc: {fileID: 4800000, guid: cc5d1d9e79544c1993fd6ece5fd5273f, type: 3}
+    Quest: {fileID: 0}
+  - Role: 6
+    Pc: {fileID: 4800000, guid: 4f13bc36d117447e85d661b2d4c50f0d, type: 3}
+    Quest: {fileID: 0}
+  - Role: 9
+    Pc: {fileID: 4800000, guid: 44d99a485f7645af9da7cf1dc8d11a88, type: 3}
+    Quest: {fileID: 0}
+  - Role: 8
+    Pc: {fileID: 4800000, guid: 1e773e3dd3134acb8eaf080e8284b974, type: 3}
+    Quest: {fileID: 0}
+  - Role: 7
+    Pc: {fileID: 10623, guid: 0000000000000000f000000000000000, type: 0}
+    Quest: {fileID: 10505, guid: 0000000000000000f000000000000000, type: 0}
+  - Role: 11
+    Pc: {fileID: 4800000, guid: f36fd3cbe27740c69373ef20b7445cec, type: 3}
+    Quest: {fileID: 0}
+  variants: {fileID: 20000000, guid: 21d03c20f785e3d4b8788b199e2a8d4d, type: 2}

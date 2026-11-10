@@ -76,6 +76,7 @@ namespace ParelVR.SDK.Build
             finally
             {
                 ExportQuestSource = false;
+                ParelUploadRendering.FinishWorld();
                 Finished?.Invoke(built);
             }
         }
@@ -116,6 +117,8 @@ namespace ParelVR.SDK.Build
 
             string[] scenePaths = PrepareScenes != null ? PrepareScenes(worldScenes) : worldScenes;
             if (scenePaths == null || scenePaths.Length != worldScenes.Length) throw new System.Exception("The world's scenes could not be prepared for building.");
+            // URP / HDRP worlds and materials ParelVR can't draw: converted on the build's copy (nothing to do for a Built-in world).
+            scenePaths = ParelUploadRendering.PrepareWorld(scenePaths);
             string scenePath = scenePaths[0];
             ParelMipStreamingOff.TurnOffFor(scenePaths);
             if (scenePaths.Length > 1)

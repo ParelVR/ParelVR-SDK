@@ -3,7 +3,10 @@
     "rootNamespace": "ParelVR.SDK.Build",
     "references": [
         "ParelVR.SDK.Core",
-        "ParelVR.SDK.Validation"
+        "ParelVR.SDK.Validation",
+        "ParelVR.Rendering.Core",
+        "ParelVR.Rendering",
+        "ParelVR.Rendering.Editor"
     ],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],
