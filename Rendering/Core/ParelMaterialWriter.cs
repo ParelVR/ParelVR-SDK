@@ -24,6 +24,14 @@ namespace ParelVR.Rendering
                 case ShaderRole.ParticlesLit:
                     WriteLit(d, sink);
                     break;
+                case ShaderRole.Subsurface:
+                    WriteLit(d, sink);
+                    WriteSubsurface(d, sink);
+                    break;
+                case ShaderRole.LayeredLit:
+                    WriteLayers(d, sink);
+                    WriteEmission(d, sink);
+                    break;
                 case ShaderRole.SimpleLit:
                     WriteSimpleLit(d, sink);
                     break;
@@ -149,6 +157,47 @@ namespace ParelVR.Rendering
             sink.SetKeyword("_SPECULARHIGHLIGHTS_OFF", !d.SpecularHighlights);
             sink.SetKeyword("_GLOSS_FROM_ALBEDO_ALPHA", d.SpecularHighlights && d.SmoothnessFrom == SmoothnessSource.AlbedoAlpha);
             WriteEmission(d, sink);
+        }
+
+        private static void WriteSubsurface(MaterialDescription d, IMaterialPropertySink sink)
+        {
+            sink.SetColor("_SubsurfaceColor", d.SubsurfaceColor);
+            sink.SetColor("_TransmissionTint", d.TransmissionTint);
+            sink.SetFloat("_SubsurfaceMask", d.SubsurfaceMask);
+            sink.SetFloat("_ThicknessMin", d.ThicknessMin);
+            sink.SetFloat("_ThicknessMax", d.ThicknessMax);
+            sink.SetFloat("_TransmissionScale", d.Transmission ? 1f : 0f);
+            if (d.ThicknessMap != null) sink.SetTexture("_ThicknessMap", d.ThicknessMap);
+            if (d.SubsurfaceMaskMap != null) sink.SetTexture("_SubsurfaceMaskMap", d.SubsurfaceMaskMap);
+        }
+
+        private static void WriteLayers(MaterialDescription d, IMaterialPropertySink sink)
+        {
+            int count = d.Layers.Count;
+            sink.SetFloat("_LayerCount", count);
+            sink.SetFloat("_LayerVertexColorMode", d.LayerVertexColorMode);
+            if (d.LayerMask != null) sink.SetTexture("_LayerMaskMap", d.LayerMask);
+            for (int i = 0; i < count && i < 4; i++)
+            {
+                LayerDescription l = d.Layers[i];
+                string n = "_Layer" + i;
+                sink.SetColor(n + "Color", l.BaseColor);
+                sink.SetTexture(n + "Map", l.BaseMap ?? new TextureSlot());
+                if (l.NormalMap != null) sink.SetTexture(n + "NormalMap", l.NormalMap);
+                sink.SetFloat(n + "NormalScale", l.NormalScale);
+                if (l.MaskMap != null) sink.SetTexture(n + "MaskMap", l.MaskMap);
+                sink.SetFloat(n + "MetallicMin", l.MetallicMin);
+                sink.SetFloat(n + "MetallicMax", l.MetallicMax);
+                sink.SetFloat(n + "SmoothnessMin", l.SmoothnessMin);
+                sink.SetFloat(n + "SmoothnessMax", l.SmoothnessMax);
+                sink.SetFloat(n + "AOMin", l.OcclusionMin);
+                sink.SetFloat(n + "AOMax", l.OcclusionMax);
+            }
+            if (count > 0)
+            {
+                sink.SetColor("_Color", d.Layers[0].BaseColor);
+                if (d.Layers[0].BaseMap != null) sink.SetTexture("_MainTex", d.Layers[0].BaseMap);
+            }
         }
 
         private static void WriteEmission(MaterialDescription d, IMaterialPropertySink sink)

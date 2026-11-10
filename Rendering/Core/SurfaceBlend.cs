@@ -89,6 +89,11 @@ namespace ParelVR.Rendering
             // Simple Lit handles opaque, cutout, fade, additive and multiply; premultiplied glass needs Transparent.
             if (d.Shading == ShadingModel.Simple)
                 return d.Surface == SurfaceType.Transparent ? ShaderRole.Transparent : ShaderRole.SimpleLit;
+            // Layered and subsurface materials have their own shaders for opaque and cutout surfaces.
+            if (!d.IsTransparent && d.Layers.Count > 1) return ShaderRole.LayeredLit;
+            if (!d.IsTransparent && d.Subsurface) return ShaderRole.Subsurface;
+            if (d.IsTransparent && d.Subsurface) d.Unmapped("subsurface scattering on a transparent surface (shown as plain transparency)");
+            if (d.IsTransparent && d.Layers.Count > 1) d.Unmapped("layers 2+ on a transparent surface (the main layer is shown)");
             if (d.IsTransparent) return ShaderRole.Transparent;
             if (d.Surface == SurfaceType.Cutout || d.AlphaClip) return ShaderRole.Cutout;
             return ShaderRole.Lit;

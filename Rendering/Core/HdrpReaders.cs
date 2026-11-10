@@ -68,12 +68,10 @@ namespace ParelVR.Rendering
             int id = (int)Math.Round(s.FloatOr("_MaterialID", 1f));
             switch (id)
             {
-                case 0: d.Unmapped("subsurface scattering"); break;
                 case 2: d.Unmapped("anisotropic highlights"); break;
                 case 3: d.Unmapped("iridescence"); break;
-                case 5: d.Unmapped("translucency"); break;
             }
-            if (s.IsKeywordEnabled("_MATERIAL_FEATURE_TRANSMISSION") && id != 5) d.Unmapped("light transmission");
+            Subsurface(s, d, id, "");
             if (s.FloatOr("_CoatMask", 0f) > 0f || s.IsKeywordEnabled("_MATERIAL_FEATURE_CLEAR_COAT")) d.Unmapped("clear coat");
             int uv = (int)Math.Round(s.FloatOr("_UVBase", 0f));
             if (uv == 4 || uv == 5) d.Unmapped(uv == 4 ? "planar UV mapping" : "triplanar UV mapping");
@@ -82,6 +80,39 @@ namespace ParelVR.Rendering
             int displacement = (int)Math.Round(s.FloatOr("_DisplacementMode", 0f));
             if (displacement == 1 || displacement == 3 || s.IsKeywordEnabled("_VERTEX_DISPLACEMENT") || s.IsKeywordEnabled("_TESSELLATION_DISPLACEMENT"))
                 d.Unmapped(displacement == 3 ? "tessellation displacement" : "vertex displacement");
+        }
+
+        /// <summary>
+        /// Subsurface Scattering (material type 0) and Translucent (5): ParelVR/Subsurface's scattering and transmission.
+        /// The colours come from the diffusion profile, which the Editor resolves from <see cref="MaterialDescription.DiffusionProfileRef"/>;
+        /// until then they are derived from the base colour.
+        /// </summary>
+        public static void Subsurface(IMaterialPropertySource s, MaterialDescription d, int materialId, string layer)
+        {
+            bool sss = materialId == 0 || s.IsKeywordEnabled("_MATERIAL_FEATURE_SUBSURFACE_SCATTERING");
+            bool translucent = materialId == 5;
+            bool transmission = translucent || s.IsKeywordEnabled("_MATERIAL_FEATURE_TRANSMISSION") || s.FloatOr("_TransmissionEnable", 0f) > 0.5f && sss;
+            if (!sss && !translucent) return;
+            d.Subsurface = true;
+            d.Transmission = transmission;
+            d.SubsurfaceMask = translucent ? 0f : s.FloatOr("_SubsurfaceMask" + layer, 1f);
+            d.SubsurfaceMaskMap = translucent ? null : s.Tex("_SubsurfaceMaskMap" + layer);
+            float thickness = s.FloatOr("_Thickness" + layer, 1f);
+            d.ThicknessMap = s.Tex("_ThicknessMap" + layer);
+            ColorValue remap = s.ColorOr("_ThicknessRemap" + layer, new ColorValue(0f, 1f, 0f, 0f));
+            if (d.ThicknessMap != null)
+            {
+                d.ThicknessMin = remap.R;
+                d.ThicknessMax = remap.G;
+            }
+            else d.ThicknessMin = d.ThicknessMax = thickness;
+            if (!transmission) d.ThicknessMin = d.ThicknessMax = 1f; // no light through
+            d.DiffusionProfileRef = s.ColorOr("_DiffusionProfileAsset" + layer, ColorValue.Clear);
+            // Until the profile is resolved: scattering in a brighter, more saturated version of the base colour.
+            ColorValue b = d.BaseColor;
+            float max = Math.Max(1e-3f, b.MaxRgb);
+            d.SubsurfaceColor = new ColorValue(Math.Min(1f, b.R / max), Math.Min(1f, b.G / max * 0.8f), Math.Min(1f, b.B / max * 0.7f), 1f);
+            d.TransmissionTint = d.SubsurfaceColor;
         }
 
         internal static float Linear(float g) => g <= 0.04045f ? g / 12.92f : (float)Math.Pow((g + 0.055f) / 1.055f, 2.4);
@@ -167,7 +198,11 @@ namespace ParelVR.Rendering
         }
     }
 
-    /// <summary>HDRP Layered Lit: the main (first) layer is converted; the others are reported.</summary>
+    /// <summary>
+    /// HDRP Layered Lit: every layer (up to 4) with its colour, normal and mask maps, tiling and remaps, the layer mask
+    /// and the vertex-colour mode go to ParelVR/Layered Lit. The main layer's values also fill the plain fields, which
+    /// fallbacks and the Meta / Standalone VR toon conversion use.
+    /// </summary>
     public sealed class HdrpLayeredLitReader : IMaterialReader
     {
         public bool CanRead(ShaderFamily family) => family == ShaderFamily.HdrpLayeredLit;
@@ -175,10 +210,42 @@ namespace ParelVR.Rendering
         public MaterialDescription Read(IMaterialPropertySource s, ShaderFamily family)
         {
             MaterialDescription d = HdrpLitReader.ReadLit(s, "0");
-            int layers = (int)Math.Round(s.FloatOr("_LayerCount", 2f));
-            if (layers > 1) d.Unmapped("layers 2–" + layers + " of the layered material (the main layer is shown)");
-            if (s.Tex("_LayerMaskMap") != null) d.Unmapped("layer mask");
+            int count = Math.Max(1, Math.Min(4, (int)Math.Round(s.FloatOr("_LayerCount", 2f))));
+            for (int i = 0; i < count; i++) d.Layers.Add(Layer(s, i.ToString()));
+            d.LayerMask = s.Tex("_LayerMaskMap");
+            d.LayerVertexColorMode = (int)Math.Round(s.FloatOr("_VertexColorMode", 0f));
+            if (s.FloatOr("_UseHeightBasedBlend", 0f) > 0.5f) d.Unmapped("height-based layer blending (layers blend by the mask only)");
+            if (s.FloatOr("_UseMainLayerInfluence", 0f) > 0.5f) d.Unmapped("main layer influence");
+            if (count > 1) d.UnmappedFeatures.RemoveAll(f => f.StartsWith("HDRP detail map", StringComparison.Ordinal));
             return d;
+        }
+
+        private static LayerDescription Layer(IMaterialPropertySource s, string n)
+        {
+            var l = new LayerDescription
+            {
+                BaseColor = s.ColorOr("_BaseColor" + n, ColorValue.White),
+                BaseMap = s.Tex("_BaseColorMap" + n) ?? s.GetTexture("_BaseColorMap" + n),
+                NormalMap = s.Tex("_NormalMap" + n),
+                NormalScale = s.FloatOr("_NormalScale" + n, 1f),
+                MaskMap = s.Tex("_MaskMap" + n),
+            };
+            float metallic = s.FloatOr("_Metallic" + n, 0f), smoothness = s.FloatOr("_Smoothness" + n, 0.5f);
+            if (l.MaskMap != null)
+            {
+                l.MetallicMin = s.FloatOr("_MetallicRemapMin" + n, 0f);
+                l.MetallicMax = s.FloatOr("_MetallicRemapMax" + n, 1f);
+                l.SmoothnessMin = s.FloatOr("_SmoothnessRemapMin" + n, 0f);
+                l.SmoothnessMax = s.FloatOr("_SmoothnessRemapMax" + n, 1f);
+                l.OcclusionMin = s.FloatOr("_AORemapMin" + n, 0f);
+                l.OcclusionMax = s.FloatOr("_AORemapMax" + n, 1f);
+            }
+            else
+            {
+                l.MetallicMin = l.MetallicMax = metallic;
+                l.SmoothnessMin = l.SmoothnessMax = smoothness;
+            }
+            return l;
         }
     }
 

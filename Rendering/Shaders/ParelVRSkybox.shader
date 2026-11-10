@@ -26,6 +26,7 @@ Shader "ParelVR/Skybox"
             #pragma vertex vert
             #pragma fragment frag
             #include "UnityCG.cginc"
+            #include "ParelVRFog.cginc"
 
             samplerCUBE _Tex;
             half4 _Tex_HDR;
@@ -45,6 +46,7 @@ Shader "ParelVR/Skybox"
             {
                 float4 vertex : SV_POSITION;
                 float3 dir : TEXCOORD0;
+                float3 worldDir : TEXCOORD1;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -63,6 +65,7 @@ Shader "ParelVR/Skybox"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.vertex = UnityObjectToClipPos(float4(RotateAroundY(v.vertex.xyz, _Rotation), v.vertex.w));
                 o.dir = v.vertex.xyz;
+                o.worldDir = RotateAroundY(v.vertex.xyz, _Rotation);
                 return o;
             }
 
@@ -77,7 +80,7 @@ Shader "ParelVR/Skybox"
                 half3 c = DecodeHDR(texCUBE(_Tex, dir), _Tex_HDR);
             #endif
                 c = c * _Tint.rgb * unity_ColorSpaceDouble.rgb * _Exposure;
-                return half4(c, 1);
+                return half4(ParelApplyFogSky(c, i.worldDir), 1);
             }
             ENDCG
         }

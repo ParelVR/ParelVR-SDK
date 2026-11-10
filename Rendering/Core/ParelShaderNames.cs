@@ -18,6 +18,8 @@ namespace ParelVR.Rendering
         public const string Emissive = "ParelVR/Emissive";
         public const string Water = "ParelVR/Water";
         public const string Toon = "ParelVR/Toon";
+        public const string Subsurface = "ParelVR/Subsurface";
+        public const string LayeredLit = "ParelVR/Layered Lit";
 
         public static string For(ShaderRole role)
         {
@@ -35,6 +37,8 @@ namespace ParelVR.Rendering
                 case ShaderRole.Emissive: return Emissive;
                 case ShaderRole.Water: return Water;
                 case ShaderRole.Toon: return Toon;
+                case ShaderRole.Subsurface: return Subsurface;
+                case ShaderRole.LayeredLit: return LayeredLit;
                 default: return Lit;
             }
         }
@@ -49,6 +53,8 @@ namespace ParelVR.Rendering
                 case ShaderRole.Terrain:
                 case ShaderRole.Emissive:
                 case ShaderRole.Toon:
+                case ShaderRole.Subsurface:
+                case ShaderRole.LayeredLit:
                     return ShaderRole.Lit;
                 case ShaderRole.ParticlesLit:
                     return ShaderRole.ParticlesUnlit;

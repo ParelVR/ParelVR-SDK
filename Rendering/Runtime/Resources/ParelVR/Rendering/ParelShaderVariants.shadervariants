@@ -795,3 +795,457 @@ ShaderVariantCollection:
         passType: 8
       - keywords: _SPECULAR_SETUP
         passType: 8
+  - first: {fileID: 4800000, guid: 9de3a01d53cd27b4082750a7b200ca6b, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 4
+      - keywords: _ALPHATEST_ON
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _NORMALMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+          _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _NORMALMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _NORMALMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _ALPHATEST_ON _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _NORMALMAP
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _NORMALMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _EMISSION _SPECULAR_SETUP
+        passType: 4
+      - keywords: _METALLICGLOSSMAP
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _NORMALMAP
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _NORMALMAP
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _NORMALMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 4
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 4
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 4
+      - keywords: _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 4
+      - keywords: _SPECULAR_SETUP
+        passType: 4
+      - keywords: 
+        passType: 5
+      - keywords: _ALPHATEST_ON
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _NORMALMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _ALPHATEST_ON _SPECULAR_SETUP
+        passType: 5
+      - keywords: _METALLICGLOSSMAP
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _NORMALMAP
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _METALLICGLOSSMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _NORMALMAP
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _NORMALMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP
+          _SPECULAR_SETUP
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _PARELVR_SSS_MAPS _SPECULAR_SETUP
+        passType: 5
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+        passType: 5
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A _SPECULAR_SETUP
+        passType: 5
+      - keywords: _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 5
+      - keywords: _SPECULAR_SETUP
+        passType: 5
+      - keywords: 
+        passType: 8
+      - keywords: _ALPHATEST_ON
+        passType: 8
+      - keywords: _ALPHATEST_ON _METALLICGLOSSMAP
+        passType: 8
+      - keywords: _ALPHATEST_ON _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 8
+      - keywords: _ALPHATEST_ON _SPECULAR_SETUP
+        passType: 8
+      - keywords: _METALLICGLOSSMAP
+        passType: 8
+      - keywords: _SPECGLOSSMAP _SPECULAR_SETUP
+        passType: 8
+      - keywords: _SPECULAR_SETUP
+        passType: 8
+  - first: {fileID: 4800000, guid: 4a281acfb8414d74aa306903df91b901, type: 3}
+    second:
+      variants:
+      - keywords: 
+        passType: 4
+      - keywords: _ALPHATEST_ON
+        passType: 4
+      - keywords: _ALPHATEST_ON _EMISSION
+        passType: 4
+      - keywords: _EMISSION
+        passType: 4
+      - keywords: 
+        passType: 5
+      - keywords: _ALPHATEST_ON
+        passType: 5
+      - keywords: 
+        passType: 8
+      - keywords: _ALPHATEST_ON
+        passType: 8

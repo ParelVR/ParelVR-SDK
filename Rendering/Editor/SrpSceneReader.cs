@@ -29,6 +29,16 @@ namespace ParelVR.Rendering.Editor
         public Color FogColor = new Color(0.5f, 0.5f, 0.5f);
         public bool FogColorFromSky = true;
         public bool VolumetricFog;
+        public float FogBaseHeight;
+        public float FogMaximumHeight = 50f;
+        public float FogMaxDistance = 5000f;
+        public Color FogAlbedo = Color.white;
+        public Color FogTint = Color.white;
+        public float FogAnisotropy;
+        public float FogLightDimmer = 1f;
+
+        /// <summary>Post-processing overrides ParelVR can show (through the game's post-processing).</summary>
+        public readonly ParelPostSettings Post = new ParelPostSettings();
 
         /// <summary>Active volume effects ParelVR's Built-in renderer doesn't have, with their values, for the report.</summary>
         public readonly List<string> NotCarried = new List<string>();
@@ -61,7 +71,34 @@ namespace ParelVR.Rendering.Editor
                     ReadComponent(component, settings);
                 }
             }
+            settings.Post.Enabled = settings.Post.Bloom || settings.Post.Tonemapping != ParelPostSettings.ToneMapper.None || settings.Post.ColorAdjustments ||
+                                    settings.Post.WhiteBalance || settings.Post.LiftGammaGain || settings.Post.Vignette || settings.Post.ChromaticAberration ||
+                                    settings.Post.FilmGrain || settings.Post.AmbientOcclusion || settings.Post.DepthOfField || settings.Post.MotionBlur || settings.Post.LensDistortion;
             return settings;
+        }
+
+        /// <summary>HDRP Local Volumetric Fog (and the older Density Volume) boxes in the scene.</summary>
+        public static List<LocalFogVolume> LocalFog(Scene scene)
+        {
+            var list = new List<LocalFogVolume>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+                foreach (Component c in root.GetComponentsInChildren<Component>(true))
+                {
+                    if (c == null) continue;
+                    string type = c.GetType().Name;
+                    if (type != "LocalVolumetricFog" && type != "DensityVolume") continue;
+                    object p = Get(c, "parameters");
+                    if (p == null) continue;
+                    float mfp = Float(Get(p, "meanFreePath"));
+                    list.Add(new LocalFogVolume
+                    {
+                        Volume = c.transform,
+                        Size = Get(p, "size") is Vector3 size ? size : Vector3.one,
+                        Albedo = Get(p, "albedo") is Color a ? a : Color.white,
+                        Extinction = mfp > 0f ? 1f / mfp : 0.05f,
+                    });
+                }
+            return list;
         }
 
         private static void ReadComponent(object c, SrpVolumeSettings s)
@@ -111,7 +148,83 @@ namespace ParelVR.Rendering.Editor
                     if (Param(c, "meanFreePath", out object mfp)) s.FogMeanFreePath = Float(mfp);
                     if (Param(c, "colorMode", out object cm)) s.FogColorFromSky = (cm?.ToString() ?? "SkyColor") != "ConstantColor";
                     if (Param(c, "color", out object fc)) s.FogColor = (Color)fc;
+                    if (Param(c, "tint", out object ft)) s.FogTint = (Color)ft;
                     if (Param(c, "enableVolumetricFog", out object vol)) s.VolumetricFog = Bool(vol, false);
+                    if (Param(c, "baseHeight", out object bh)) s.FogBaseHeight = Float(bh);
+                    if (Param(c, "maximumHeight", out object mh)) s.FogMaximumHeight = Float(mh);
+                    if (Param(c, "maxFogDistance", out object md)) s.FogMaxDistance = Float(md);
+                    if (Param(c, "albedo", out object fa)) s.FogAlbedo = (Color)fa;
+                    if (Param(c, "anisotropy", out object an)) s.FogAnisotropy = Float(an);
+                    if (Param(c, "globalLightProbeDimmer", out object dim)) s.FogLightDimmer = Float(dim);
+                    break;
+                case "Bloom":
+                    s.Post.Bloom = true;
+                    if (Param(c, "intensity", out object bi)) s.Post.BloomIntensity = Float(bi);
+                    if (Param(c, "threshold", out object bt)) s.Post.BloomThreshold = Float(bt);
+                    if (Param(c, "scatter", out object bs)) s.Post.BloomScatter = Float(bs);
+                    if (Param(c, "tint", out object btn)) s.Post.BloomTint = (Color)btn;
+                    break;
+                case "Tonemapping":
+                    string tm = Param(c, "mode", out object tmo) ? tmo?.ToString() ?? "" : "";
+                    s.Post.Tonemapping = tm == "ACES" ? ParelPostSettings.ToneMapper.Aces
+                        : tm == "Neutral" ? ParelPostSettings.ToneMapper.Neutral
+                        : tm == "None" || tm == "" ? ParelPostSettings.ToneMapper.None
+                        : ParelPostSettings.ToneMapper.Aces; // Custom / External / AgX: closest built-in curve
+                    if (tm != "" && tm != "None" && tm != "ACES" && tm != "Neutral") s.NotCarried.Add("tonemapping mode " + tm + " (shown with ACES)");
+                    break;
+                case "ColorAdjustments":
+                    s.Post.ColorAdjustments = true;
+                    if (Param(c, "postExposure", out object pe)) s.Post.PostExposure = Float(pe);
+                    if (Param(c, "contrast", out object ct)) s.Post.Contrast = Float(ct);
+                    if (Param(c, "hueShift", out object hs)) s.Post.HueShift = Float(hs);
+                    if (Param(c, "saturation", out object sat)) s.Post.Saturation = Float(sat);
+                    if (Param(c, "colorFilter", out object cf)) s.Post.ColorFilter = (Color)cf;
+                    break;
+                case "WhiteBalance":
+                    s.Post.WhiteBalance = true;
+                    if (Param(c, "temperature", out object temp)) s.Post.Temperature = Float(temp);
+                    if (Param(c, "tint", out object wt)) s.Post.Tint = Float(wt);
+                    break;
+                case "LiftGammaGain":
+                    s.Post.LiftGammaGain = true;
+                    if (Param(c, "lift", out object lift)) s.Post.Lift = (Vector4)lift;
+                    if (Param(c, "gamma", out object gam)) s.Post.Gamma = (Vector4)gam;
+                    if (Param(c, "gain", out object gain)) s.Post.Gain = (Vector4)gain;
+                    break;
+                case "Vignette":
+                    s.Post.Vignette = true;
+                    if (Param(c, "color", out object vc)) s.Post.VignetteColor = (Color)vc;
+                    if (Param(c, "center", out object vce)) s.Post.VignetteCenter = (Vector2)vce;
+                    if (Param(c, "intensity", out object vi)) s.Post.VignetteIntensity = Float(vi);
+                    if (Param(c, "smoothness", out object vs)) s.Post.VignetteSmoothness = Float(vs);
+                    if (Param(c, "rounded", out object vr)) s.Post.VignetteRounded = Bool(vr, false);
+                    break;
+                case "ChromaticAberration":
+                    s.Post.ChromaticAberration = true;
+                    if (Param(c, "intensity", out object ca)) s.Post.ChromaticAberrationIntensity = Float(ca);
+                    break;
+                case "FilmGrain":
+                    s.Post.FilmGrain = true;
+                    if (Param(c, "intensity", out object gi)) s.Post.GrainIntensity = Float(gi);
+                    if (Param(c, "response", out object gr)) s.Post.GrainResponse = Float(gr);
+                    break;
+                case "ScreenSpaceAmbientOcclusion":
+                case "AmbientOcclusion":
+                    s.Post.AmbientOcclusion = true;
+                    if (Param(c, "intensity", out object ao)) s.Post.AmbientOcclusionIntensity = Float(ao);
+                    break;
+                case "DepthOfField":
+                    string dm = Param(c, "focusMode", out object dmo) ? dmo?.ToString() ?? "" : "";
+                    s.Post.DepthOfField = dm != "Off" && dm != "None";
+                    if (Param(c, "focusDistance", out object fd)) s.Post.FocusDistance = Float(fd);
+                    break;
+                case "MotionBlur":
+                    s.Post.MotionBlur = true;
+                    if (Param(c, "intensity", out object mb)) s.Post.MotionBlurIntensity = Float(mb);
+                    break;
+                case "LensDistortion":
+                    s.Post.LensDistortion = true;
+                    if (Param(c, "intensity", out object ld)) s.Post.LensDistortionIntensity = Float(ld);
                     break;
                 case "VisualEnvironment":
                 case "HDShadowSettings":
@@ -149,16 +262,6 @@ namespace ParelVR.Rendering.Editor
                 case "MicroShadowing": return "micro shadows";
                 case "ScreenSpaceRefraction": return "screen-space refraction";
                 case "GlobalIllumination": return "screen-space global illumination (baked lighting is used)";
-                case "Tonemapping": return "tonemapping";
-                case "Bloom": return "bloom";
-                case "ColorAdjustments": return "colour adjustments";
-                case "Vignette": return "vignette";
-                case "DepthOfField": return "depth of field";
-                case "MotionBlur": return "motion blur";
-                case "ChromaticAberration": return "chromatic aberration";
-                case "FilmGrain": return "film grain";
-                case "WhiteBalance": return "white balance";
-                case "LensDistortion": return "lens distortion";
                 case "PanniniProjection": return "Pannini projection";
                 default: return type;
             }

@@ -130,6 +130,26 @@ namespace ParelVR.Rendering
         public TextureSlot HeightMap;
         public float HeightScale = 0.02f;
 
+        // Subsurface scattering and transmission (HDRP Subsurface Scattering / Translucent → ParelVR/Subsurface)
+        public bool Subsurface;
+        public bool Transmission;
+        public float SubsurfaceMask = 1f;
+        public TextureSlot SubsurfaceMaskMap;
+        public TextureSlot ThicknessMap;
+        public float ThicknessMin;
+        public float ThicknessMax = 1f;
+        /// <summary>Colour of the light that scatters under the surface (HDRP: the diffusion profile's scattering distance).</summary>
+        public ColorValue SubsurfaceColor = new ColorValue(1f, 0.4f, 0.25f, 1f);
+        public ColorValue TransmissionTint = new ColorValue(1f, 0.5f, 0.35f, 1f);
+        /// <summary>HDRP's packed reference to the material's diffusion profile asset; the Editor resolves it into the colours above.</summary>
+        public ColorValue DiffusionProfileRef;
+
+        // Layers (HDRP Layered Lit → ParelVR/Layered Lit). Empty for single-layer materials.
+        public readonly List<LayerDescription> Layers = new List<LayerDescription>();
+        public TextureSlot LayerMask;
+        /// <summary>0 off, 1 the vertex colour multiplies the layer mask, 2 it is added to it.</summary>
+        public int LayerVertexColorMode;
+
         // Skybox (ParelVR/Skybox): BaseMap holds the sky texture, BaseColor the tint.
         /// <summary>True when the sky texture is a cubemap; false for a 2D panorama.</summary>
         public bool SkyCubemap = true;
@@ -160,6 +180,30 @@ namespace ParelVR.Rendering
             if (DetailAlbedoMap != null) yield return new KeyValuePair<string, TextureSlot>("Detail albedo", DetailAlbedoMap);
             if (DetailNormalMap != null) yield return new KeyValuePair<string, TextureSlot>("Detail normal", DetailNormalMap);
             if (HeightMap != null) yield return new KeyValuePair<string, TextureSlot>("Height", HeightMap);
+            if (ThicknessMap != null) yield return new KeyValuePair<string, TextureSlot>("Thickness", ThicknessMap);
+            if (SubsurfaceMaskMap != null) yield return new KeyValuePair<string, TextureSlot>("Subsurface mask", SubsurfaceMaskMap);
+            if (LayerMask != null) yield return new KeyValuePair<string, TextureSlot>("Layer mask", LayerMask);
+            for (int i = 0; i < Layers.Count; i++)
+            {
+                LayerDescription l = Layers[i];
+                if (l.BaseMap != null) yield return new KeyValuePair<string, TextureSlot>("Layer " + i + " base", l.BaseMap);
+                if (l.NormalMap != null) yield return new KeyValuePair<string, TextureSlot>("Layer " + i + " normal", l.NormalMap);
+                if (l.MaskMap != null) yield return new KeyValuePair<string, TextureSlot>("Layer " + i + " mask", l.MaskMap);
+            }
         }
+    }
+
+    /// <summary>One layer of a layered material. Values are what the layer shows where its mask map is white.</summary>
+    public sealed class LayerDescription
+    {
+        public ColorValue BaseColor = ColorValue.White;
+        public TextureSlot BaseMap;
+        public TextureSlot NormalMap;
+        public float NormalScale = 1f;
+        /// <summary>R metallic, G occlusion, A smoothness (HDRP layout).</summary>
+        public TextureSlot MaskMap;
+        public float MetallicMin, MetallicMax;
+        public float SmoothnessMin = 0.5f, SmoothnessMax = 0.5f;
+        public float OcclusionMin = 1f, OcclusionMax = 1f;
     }
 }

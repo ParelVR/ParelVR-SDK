@@ -6,6 +6,7 @@
 #include "UnityCG.cginc"
 #include "Lighting.cginc"
 #include "AutoLight.cginc"
+#include "ParelVRFog.cginc"
 
 sampler2D _MainTex;
 float4 _MainTex_ST;
@@ -149,6 +150,13 @@ fixed4 fragSimple(v2f i) : SV_Target
 
     c.a = tex.a;
     UNITY_APPLY_FOG(i.fogCoord, c);
+#if defined(PARELVR_PASS_ADD)
+    c.rgb = ParelApplyFogAdditive(c.rgb, i.worldPos);
+#elif defined(_ALPHAPREMULTIPLY_ON)
+    c.rgb = ParelApplyFog(c.rgb, i.worldPos, c.a);
+#else
+    c.rgb = ParelApplyFog(c.rgb, i.worldPos, 1.0h);
+#endif
 #if !defined(_ALPHABLEND_ON) && !defined(_ALPHAPREMULTIPLY_ON)
     UNITY_OPAQUE_ALPHA(c.a);
 #endif

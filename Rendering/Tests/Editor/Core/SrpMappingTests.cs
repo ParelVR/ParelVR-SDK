@@ -231,13 +231,13 @@ namespace ParelVR.Rendering.Tests
         [Test]
         public void Hdrp_alpha_clip_double_sided_and_features_are_reported()
         {
-            ConversionPlan plan = Plan(HdrpLit().F("_AlphaCutoffEnable", 1f).F("_AlphaCutoff", 0.4f).F("_DoubleSidedEnable", 1f).F("_MaterialID", 0f).T("_DetailMap", "d").F("_UVBase", 5f), "HDRenderPipeline");
+            ConversionPlan plan = Plan(HdrpLit().F("_AlphaCutoffEnable", 1f).F("_AlphaCutoff", 0.4f).F("_DoubleSidedEnable", 1f).F("_MaterialID", 2f).T("_DetailMap", "d").F("_UVBase", 5f), "HDRenderPipeline");
             Assert.AreEqual(ShaderRole.Cutout, plan.Role);
             Assert.AreEqual(FaceCull.Off, plan.Description.Cull);
             Assert.AreEqual(0.4f, plan.Description.AlphaCutoff, 1e-5f);
             Assert.AreEqual(DiagnosticSeverity.Notice, plan.Entry.Severity, "converted, with differences to look at");
             string all = string.Join("|", plan.Description.UnmappedFeatures);
-            StringAssert.Contains("subsurface scattering", all);
+            StringAssert.Contains("anisotropic", all);
             StringAssert.Contains("detail map", all);
             StringAssert.Contains("triplanar", all);
             StringAssert.Contains("double-sided", all);
@@ -254,17 +254,65 @@ namespace ParelVR.Rendering.Tests
         }
 
         [Test]
-        public void Hdrp_layered_lit_shows_the_main_layer()
+        public void Hdrp_layered_lit_keeps_every_layer()
         {
             var m = new FakeMaterial("HDRP/LayeredLit").F("_LayerCount", 3f).C("_BaseColor0", 0.2f, 0.4f, 0.6f).T("_BaseColorMap0", "layer0")
-                .T("_BaseColorMap1", "layer1").T("_NormalMap0", "n0").F("_Smoothness0", 0.7f);
+                .T("_BaseColorMap1", "layer1").T("_NormalMap0", "n0").F("_Smoothness0", 0.7f).F("_Metallic1", 0.9f)
+                .T("_MaskMap2", "mask2").F("_SmoothnessRemapMin2", 0.2f).F("_SmoothnessRemapMax2", 0.8f)
+                .T("_LayerMaskMap", "lm").F("_VertexColorMode", 1f);
             ConversionPlan plan = Plan(m, "HDRenderPipeline");
             Assert.AreEqual(ConversionAction.Converted, plan.Action);
+            Assert.AreEqual(ShaderRole.LayeredLit, plan.Role);
+            Assert.AreEqual(3, plan.Description.Layers.Count);
             FakeMaterial lit = Write(plan);
-            Assert.AreEqual("layer0", lit.Tex("_MainTex"));
-            Assert.AreEqual("n0", lit.Tex("_BumpMap"));
-            Assert.AreEqual(0.4f, lit.Colors["_Color"].G, 1e-5f);
-            StringAssert.Contains("layers 2–3", string.Join("|", plan.Description.UnmappedFeatures));
+            Assert.AreEqual(3f, lit.Floats["_LayerCount"]);
+            Assert.AreEqual(1f, lit.Floats["_LayerVertexColorMode"]);
+            Assert.AreEqual("lm", lit.Tex("_LayerMaskMap"));
+            Assert.AreEqual("layer0", lit.Tex("_Layer0Map"));
+            Assert.AreEqual("layer1", lit.Tex("_Layer1Map"));
+            Assert.AreEqual("n0", lit.Tex("_Layer0NormalMap"));
+            Assert.AreEqual("layer0", lit.Tex("_MainTex"), "layer 0 also fills the fallback slots");
+            Assert.AreEqual(0.4f, lit.Colors["_Layer0Color"].G, 1e-5f);
+            Assert.AreEqual(0.7f, lit.Floats["_Layer0SmoothnessMax"], 1e-5f, "no mask map: min = max = the value");
+            Assert.AreEqual(0.9f, lit.Floats["_Layer1MetallicMin"], 1e-5f);
+            Assert.AreEqual("mask2", lit.Tex("_Layer2MaskMap"));
+            Assert.AreEqual(0.2f, lit.Floats["_Layer2SmoothnessMin"], 1e-5f);
+            Assert.AreEqual(0.8f, lit.Floats["_Layer2SmoothnessMax"], 1e-5f);
+            StringAssert.DoesNotContain("layers 2", string.Join("|", plan.Description.UnmappedFeatures));
+        }
+
+        [Test]
+        public void Hdrp_subsurface_scattering_uses_the_subsurface_shader()
+        {
+            ConversionPlan plan = Plan(HdrpLit().F("_MaterialID", 0f).F("_SubsurfaceMask", 0.8f).T("_ThicknessMap", "thick")
+                .C("_ThicknessRemap", 0.1f, 0.9f, 0f, 0f).F("_TransmissionEnable", 1f).F("_AlphaCutoffEnable", 1f), "HDRenderPipeline");
+            Assert.AreEqual(ShaderRole.Subsurface, plan.Role, "cutout subsurface stays subsurface (the shader has alpha test)");
+            Assert.IsTrue(plan.Description.Subsurface);
+            Assert.IsTrue(plan.Description.Transmission);
+            FakeMaterial m = Write(plan);
+            Assert.AreEqual(0.8f, m.Floats["_SubsurfaceMask"], 1e-5f);
+            Assert.AreEqual(0.1f, m.Floats["_ThicknessMin"], 1e-5f);
+            Assert.AreEqual(0.9f, m.Floats["_ThicknessMax"], 1e-5f);
+            Assert.AreEqual(1f, m.Floats["_TransmissionScale"]);
+            Assert.AreEqual("thick", m.Tex("_ThicknessMap"));
+            Assert.IsTrue(m.Keywords.Contains("_ALPHATEST_ON"));
+            StringAssert.DoesNotContain("subsurface", string.Join("|", plan.Description.UnmappedFeatures));
+        }
+
+        [Test]
+        public void Hdrp_translucent_transmits_without_scattering_and_transparent_subsurface_is_reported()
+        {
+            ConversionPlan leaf = Plan(HdrpLit().F("_MaterialID", 5f).F("_Thickness", 0.2f), "HDRenderPipeline");
+            Assert.AreEqual(ShaderRole.Subsurface, leaf.Role);
+            FakeMaterial m = Write(leaf);
+            Assert.AreEqual(0f, m.Floats["_SubsurfaceMask"]);
+            Assert.AreEqual(1f, m.Floats["_TransmissionScale"]);
+            Assert.AreEqual(0.2f, m.Floats["_ThicknessMax"], 1e-5f);
+            Assert.IsFalse(m.Textures.ContainsKey("_ThicknessMap"), "no thickness map: the value is used");
+
+            ConversionPlan glass = Plan(HdrpLit().F("_MaterialID", 0f).F("_SurfaceType", 1f), "HDRenderPipeline");
+            Assert.AreEqual(ShaderRole.Transparent, glass.Role);
+            StringAssert.Contains("transparent surface", string.Join("|", glass.Description.UnmappedFeatures));
         }
 
         [Test]

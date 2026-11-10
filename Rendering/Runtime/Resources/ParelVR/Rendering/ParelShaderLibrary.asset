@@ -46,4 +46,10 @@ MonoBehaviour:
   - Role: 11
     Pc: {fileID: 4800000, guid: f36fd3cbe27740c69373ef20b7445cec, type: 3}
     Quest: {fileID: 0}
+  - Role: 12
+    Pc: {fileID: 4800000, guid: 9de3a01d53cd27b4082750a7b200ca6b, type: 3}
+    Quest: {fileID: 0}
+  - Role: 13
+    Pc: {fileID: 4800000, guid: 4a281acfb8414d74aa306903df91b901, type: 3}
+    Quest: {fileID: 0}
   variants: {fileID: 20000000, guid: 21d03c20f785e3d4b8788b199e2a8d4d, type: 2}

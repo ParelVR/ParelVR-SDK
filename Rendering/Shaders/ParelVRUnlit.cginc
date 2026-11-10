@@ -5,6 +5,7 @@
 #define PARELVR_UNLIT_INCLUDED
 
 #include "UnityCG.cginc"
+#include "ParelVRFog.cginc"
 #if defined(PARELVR_PARTICLES_LIT)
     #include "UnityLightingCommon.cginc"
 #endif
@@ -15,6 +16,7 @@ fixed4 _Color;
 half _Cutoff;
 sampler2D _EmissionMap;
 half4 _EmissionColor;
+half _DstBlend;
 
 struct appdataUnlit
 {
@@ -40,6 +42,7 @@ struct v2fUnlit
 #if defined(PARELVR_PARTICLES_LIT)
     half3 lighting : TEXCOORD2;
 #endif
+    float3 worldPos : TEXCOORD3;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -52,6 +55,7 @@ v2fUnlit vertUnlit(appdataUnlit v)
     UNITY_TRANSFER_INSTANCE_ID(v, o);
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
     o.pos = UnityObjectToClipPos(v.vertex);
+    o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
     o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 #if defined(PARELVR_VERTEX_COLOR)
     o.color = v.color;
@@ -90,6 +94,13 @@ fixed4 fragUnlit(v2fUnlit i) : SV_Target
 #endif
 
     UNITY_APPLY_FOG(i.fogCoord, c);
+    // ParelVR volumetric fog: additive blending only dims, premultiplied adds its share of the fog light.
+    if (_DstBlend == 1.0h) c.rgb = ParelApplyFogAdditive(c.rgb, i.worldPos);
+#if defined(_ALPHAPREMULTIPLY_ON)
+    else c.rgb = ParelApplyFog(c.rgb, i.worldPos, c.a);
+#else
+    else c.rgb = ParelApplyFog(c.rgb, i.worldPos, 1.0h);
+#endif
     return c;
 }
 

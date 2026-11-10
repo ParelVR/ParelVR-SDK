@@ -68,6 +68,10 @@ namespace ParelVR.Rendering.Editor
 
                 bool skyChanged = false;
                 if (hdrp) skyChanged = AdaptHdrpLighting(scene, volumes, ev, job, report);
+                ParelFogSettings fog = hdrp ? FogFrom(scene, volumes, report) : null;
+                int decals = pipeline != RenderPipelineKind.BuiltIn ? ParelDecalBaker.BakeAll(scene, options.GeneratedFolder + "/Decals", report) : 0;
+                if (volumes.Post.Enabled)
+                    report.Note(DiagnosticSeverity.Info, "Post-processing", "Converted for the game's post-processing: " + PostSummary(volumes.Post) + ".");
                 else if (RenderSettings.skybox != null)
                 {
                     Material sky = job.Convert(RenderSettings.skybox, ShaderRole.Skybox, "Lighting settings (skybox)");
@@ -79,7 +83,7 @@ namespace ParelVR.Rendering.Editor
                     foreach (string effect in volumes.NotCarried)
                         report.Note(DiagnosticSeverity.Notice, "Volume effect", effect + " isn't available in ParelVR and is not shown.");
 
-                if (pipeline != RenderPipelineKind.BuiltIn || job.Converted > 0)
+                if (pipeline != RenderPipelineKind.BuiltIn || job.Converted > 0 || decals > 0)
                 {
                     var holder = new GameObject("[ParelVR Rendering]");
                     SceneManager.MoveGameObjectToScene(holder, scene);
@@ -90,6 +94,8 @@ namespace ParelVR.Rendering.Editor
                     info.AmbientFromSky = skyChanged;
                     info.MaterialsConverted = job.Converted;
                     info.MaterialsKept = job.Kept;
+                    if (fog != null) info.Fog = fog;
+                    info.Post = volumes.Post;
                     // A creator's own settings component (device overrides) is kept: copy them over and drop the duplicate.
                     foreach (GameObject root in scene.GetRootGameObjects())
                         foreach (ParelWorldRenderingInfo own in root.GetComponentsInChildren<ParelWorldRenderingInfo>(true))
@@ -188,6 +194,8 @@ namespace ParelVR.Rendering.Editor
 
                 if (action == RepairAction.Convert && plan.NeedsNewMaterial)
                 {
+                    if (plan.Description != null && plan.Description.Subsurface && ParelDiffusionProfiles.Resolve(source, plan.Description))
+                        entry.Message = (entry.Message + " Scattering colours from its diffusion profile.").Trim();
                     ShaderRole role = plan.Role.Value;
                     Shader shader = ShaderFor(ref role);
                     IMaterialWriter writer = shader != null ? ParelRenderManager.Mappers.WriterFor(role) : null;
@@ -370,16 +378,65 @@ namespace ParelVR.Rendering.Editor
             }
             else report.Note(DiagnosticSeverity.Notice, "Sky", "No HDRP sky was found to convert; the scene's skybox setting is used.");
 
-            if (v.Fog)
-            {
-                RenderSettings.fog = true;
-                RenderSettings.fogMode = FogMode.Exponential;
-                RenderSettings.fogDensity = LightingConversion.FogDensity(v.FogMeanFreePath);
-                RenderSettings.fogColor = v.FogColorFromSky ? (v.GradientSky ? v.GradientMiddle : new Color(0.55f, 0.6f, 0.65f)) : v.FogColor;
-                report.Note(DiagnosticSeverity.Notice, "Fog", "HDRP fog shown as exponential fog (density " + RenderSettings.fogDensity.ToString("0.####") + ")"
-                    + (v.FogColorFromSky ? ", coloured from the sky approximately" : "") + (v.VolumetricFog ? "; volumetric lighting in the fog isn't available" : "") + ".");
-            }
             return skyChanged;
+        }
+
+        /// <summary>
+        /// HDRP Fog (and Local Volumetric Fog) → ParelVR volumetric fog: the same thickness (1 / mean free path), base and
+        /// maximum height (density falls to 1/1000 at the maximum height, as in HDRP), max distance, albedo, anisotropy and
+        /// light dimmer; up to 4 local fog boxes. Unity's own fog is switched off so the two don't add up.
+        /// </summary>
+        private static ParelFogSettings FogFrom(Scene scene, SrpVolumeSettings v, CompatibilityReport report)
+        {
+            if (!v.Fog) return null;
+            RenderSettings.fog = false;
+            var f = new ParelFogSettings
+            {
+                Enabled = true,
+                Extinction = 1f / Mathf.Max(v.FogMeanFreePath, 0.01f),
+                BaseHeight = v.FogBaseHeight,
+                HeightFalloff = 6.9078f / Mathf.Max(0.01f, v.FogMaximumHeight - v.FogBaseHeight),
+                MaxDistance = v.FogMaxDistance,
+                Albedo = v.VolumetricFog ? v.FogAlbedo : v.FogColorFromSky ? v.FogTint : Color.white,
+                AmbientFromSky = v.FogColorFromSky || v.VolumetricFog,
+                Ambient = v.FogColor,
+                Anisotropy = v.VolumetricFog ? v.FogAnisotropy : 0f,
+                // Non-volumetric HDRP fog doesn't scatter the sun; volumetric fog does, scaled by its light dimmer.
+                SunScattering = v.VolumetricFog ? v.FogLightDimmer : 0f,
+            };
+            if (v.VolumetricFog)
+            {
+                var local = SrpSceneReader.LocalFog(scene);
+                // The biggest boxes first: the shader takes 4.
+                local.Sort((a, b) => Vol(b).CompareTo(Vol(a)));
+                if (local.Count > ParelFogSettings.MaxVolumes)
+                    report.Note(DiagnosticSeverity.Warning, "Local fog", local.Count + " Local Volumetric Fog boxes; ParelVR shows the " + ParelFogSettings.MaxVolumes + " biggest.");
+                f.Volumes = local.GetRange(0, Mathf.Min(local.Count, ParelFogSettings.MaxVolumes)).ToArray();
+            }
+            report.Note(DiagnosticSeverity.Info, "Fog", "HDRP fog converted to ParelVR volumetric fog (mean free path " + v.FogMeanFreePath.ToString("0.#") + " m, height "
+                + v.FogBaseHeight.ToString("0.#") + "–" + v.FogMaximumHeight.ToString("0.#") + " m" + (v.VolumetricFog ? ", sun scattering" : "")
+                + (f.Volumes.Length > 0 ? ", " + f.Volumes.Length + " local fog box(es)" : "") + "). It is drawn by the ParelVR shaders: no extra pass, the same in VR.");
+            return f;
+        }
+
+        private static float Vol(LocalFogVolume v) => v.Volume == null ? 0f : Mathf.Abs(Vector3.Scale(v.Size, v.Volume.lossyScale).x * Vector3.Scale(v.Size, v.Volume.lossyScale).y * Vector3.Scale(v.Size, v.Volume.lossyScale).z);
+
+        private static string PostSummary(ParelPostSettings p)
+        {
+            var parts = new List<string>();
+            if (p.Bloom) parts.Add("bloom");
+            if (p.Tonemapping != ParelPostSettings.ToneMapper.None) parts.Add(p.Tonemapping + " tonemapping");
+            if (p.ColorAdjustments) parts.Add("colour adjustments");
+            if (p.WhiteBalance) parts.Add("white balance");
+            if (p.LiftGammaGain) parts.Add("lift / gamma / gain");
+            if (p.Vignette) parts.Add("vignette");
+            if (p.ChromaticAberration) parts.Add("chromatic aberration");
+            if (p.FilmGrain) parts.Add("film grain");
+            if (p.AmbientOcclusion) parts.Add("ambient occlusion");
+            if (p.DepthOfField) parts.Add("depth of field");
+            if (p.MotionBlur) parts.Add("motion blur");
+            if (p.LensDistortion) parts.Add("lens distortion");
+            return string.Join(", ", parts);
         }
 
         /// <summary>The light's intensity in candela, from whatever unit it is set in (Unity 6 keeps HDRP units on the Light).</summary>
@@ -429,9 +486,9 @@ namespace ParelVR.Rendering.Editor
 
         private static readonly Dictionary<string, string> PipelineOnly = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            { "DecalProjector", "HDRP/URP decal projector: decals aren't available in ParelVR; bake the decal into the surface texture or use a transparent quad." },
-            { "LocalVolumetricFog", "local volumetric fog isn't available in ParelVR." },
-            { "DensityVolume", "local volumetric fog isn't available in ParelVR." },
+            { "DecalProjector", null },
+            { "LocalVolumetricFog", null },
+            { "DensityVolume", null },
             { "PlanarReflectionProbe", "planar reflection probe: use a ParelVR mirror or a reflection probe instead." },
             { "VisualEffect", "Visual Effect Graph effects need compute shaders and an SRP; use a Particle System instead." },
             { "WaterSurface", "HDRP water: not available in ParelVR." },

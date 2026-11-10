@@ -101,6 +101,10 @@ namespace ParelVR.Rendering
         Water,
         /// <summary>Cel-shaded avatar look (Poiyomi, lilToon, MToon) on targets that can't run those shaders.</summary>
         Toon,
+        /// <summary>Lit plus subsurface scattering and transmission (HDRP Subsurface Scattering / Translucent).</summary>
+        Subsurface,
+        /// <summary>Up to 4 blended PBR layers (HDRP Layered Lit).</summary>
+        LayeredLit,
     }
 
     /// <summary>How a surface is blended. Values follow the Built-in Standard shader's modes where they overlap.</summary>

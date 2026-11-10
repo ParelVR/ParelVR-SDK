@@ -11,6 +11,10 @@
 #undef UNITY_SPECCUBE_BLENDING
 #undef UNITY_SPECCUBE_BOX_PROJECTION
 #undef UNITY_ENABLE_REFLECTION_BUFFERS
-#define UNITY_BRDF_PBS BRDF2_Unity_PBS
+// Shaders with their own BRDF (ParelVR/Subsurface) wrap this one instead of replacing it.
+#define PARELVR_BASE_BRDF BRDF2_Unity_PBS
+#ifndef PARELVR_CUSTOM_BRDF
+    #define UNITY_BRDF_PBS BRDF2_Unity_PBS
+#endif
 
 #endif

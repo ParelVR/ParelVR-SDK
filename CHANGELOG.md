@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.14.0 (2026-11-10)
+
+### HDRP worlds come to ParelVR with everything that makes them look incredible
+
+ParelVR Rendering just levelled up. The HDRP features that used to stay behind now come with your world, rebuilt
+for ParelVR so they stay fast on PC, in VR and on Meta / Standalone VR:
+
+- **Subsurface scattering.** Skin, wax, marble, leaves: HDRP Subsurface Scattering and Translucent materials now
+  use the new **ParelVR Subsurface** shader. Light softens and glows under the surface in your Diffusion Profile's
+  colour, and shines through thin parts from behind (thickness map, transmission tint).
+- **Every Layered Lit layer.** All 4 layers of HDRP Layered Lit, each with its own colour, normal and mask maps,
+  tiling and remaps, blended by your layer mask and vertex colours, on the new **ParelVR Layered Lit** shader.
+- **Decals.** HDRP and URP Decal Projectors are baked straight into the surfaces under them when you upload: same
+  place, same UVs, same look, and they cost nothing to project while people play (Meta / Standalone VR too).
+- **Volumetric fog.** HDRP fog comes over as real ParelVR volumetric fog: thick at the bottom and thinning with
+  height, the sun glowing through it, and your **Local Volumetric Fog** boxes (up to 4), in their colours. It's drawn
+  right inside the ParelVR shaders: no extra pass, the same in a headset.
+- **Post-processing.** Bloom, tonemapping (ACES / Neutral), colour adjustments, white balance, lift / gamma / gain,
+  vignette, film grain, ambient occlusion and more are carried over (URP volumes too) and shown by ParelVR's
+  post-processing. In a headset, depth of field, motion blur, lens distortion and chromatic aberration are left out
+  so nobody gets sick.
+
+Built to stay fast: on a GTX 1060 at 1080p in a heavy test scene, volumetric fog with four fog boxes costs about
+3 %. What still has no ParelVR equivalent (screen-space reflections, contact shadows, screen-space GI, refraction) is
+listed in the upload report, so you always know.
+
 ## 1.13.0 (2026-11-10)
 
 ### ParelVR now has its own rendering technology

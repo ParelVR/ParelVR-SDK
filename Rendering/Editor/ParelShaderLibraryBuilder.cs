@@ -60,6 +60,8 @@ namespace ParelVR.Rendering.Editor
                 // Terrain keeps Unity's own terrain shaders: they are what TerrainData's splat setup is built for.
                 Row(ShaderRole.Terrain, Shader.Find("Nature/Terrain/Standard"), Shader.Find("Nature/Terrain/Diffuse")),
                 Row(ShaderRole.Toon, Load(Mobile + "ParelMobileToonLit.shader"), null),
+                Row(ShaderRole.Subsurface, Load(Shaders + "ParelVRSubsurface.shader"), null),
+                Row(ShaderRole.LayeredLit, Load(Shaders + "ParelVRLayeredLit.shader"), null),
             };
 
             ShaderVariantCollection variants = BuildVariants(rows.SelectMany(r => new[] { r.Pc, r.Quest }));

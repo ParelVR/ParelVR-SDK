@@ -78,8 +78,8 @@ Shader "ParelVR/Transparent"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma vertex vertBase
-            #pragma fragment fragBase
-            #include "UnityStandardCoreForward.cginc"
+            #pragma fragment parelFragBase
+            #include "ParelVRStandardForward.cginc"
             ENDCG
         }
 
@@ -108,8 +108,8 @@ Shader "ParelVR/Transparent"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma vertex vertAdd
-            #pragma fragment fragAdd
-            #include "UnityStandardCoreForward.cginc"
+            #pragma fragment parelFragAdd
+            #include "ParelVRStandardForward.cginc"
             ENDCG
         }
 
@@ -171,8 +171,8 @@ Shader "ParelVR/Transparent"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma vertex vertBase
-            #pragma fragment fragBase
-            #include "UnityStandardCoreForward.cginc"
+            #pragma fragment parelFragBase
+            #include "ParelVRStandardForward.cginc"
             ENDCG
         }
 
@@ -201,8 +201,8 @@ Shader "ParelVR/Transparent"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma vertex vertAdd
-            #pragma fragment fragAdd
-            #include "UnityStandardCoreForward.cginc"
+            #pragma fragment parelFragAdd
+            #include "ParelVRStandardForward.cginc"
             ENDCG
         }
 

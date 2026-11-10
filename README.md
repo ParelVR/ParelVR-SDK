@@ -30,7 +30,7 @@ Assets > Import Package > Custom Package.
 |---|---|
 | `Runtime/` | Components you put on avatars and worlds |
 | `Editor/` | The ParelVR control panel: sign in, build, upload |
-| `Rendering/` | ParelVR Rendering (PVRP): the ParelVR shader library, URP / HDRP conversion, no-pink fallbacks, compatibility reports |
+| `Rendering/` | ParelVR Rendering (PVRP): the ParelVR shader library (incl. Subsurface and Layered Lit), URP / HDRP conversion with volumetric fog, baked decals and post-processing, no-pink fallbacks, compatibility reports |
 | `Volt/` | VoltCS tooling and the in-editor simulator |
 | `Assemblies/` | The Volt runtime and the ParelVR scripting API |
 | `API/` | The API registry this SDK was built with |

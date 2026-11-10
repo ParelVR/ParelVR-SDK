@@ -39,12 +39,21 @@ namespace ParelVR.Rendering
         public bool AmbientFromSky;
         public int MaterialsConverted;
         public int MaterialsKept;
+        [Tooltip("Volumetric fog (from HDRP's Fog and Local Volumetric Fog), drawn by the ParelVR shaders.")]
+        public ParelFogSettings Fog = new ParelFogSettings();
+        [Tooltip("Post-processing (from HDRP's volume overrides), drawn by the game's post-processing.")]
+        public ParelPostSettings Post = new ParelPostSettings();
 
         [Header("Creator settings")]
         [Tooltip("Optional objects to switch per device when automatic optimisation isn't enough.")]
         public DeviceOverride[] DeviceOverrides = Array.Empty<DeviceOverride>();
 
         private bool _applied;
+        /// <summary>The world whose fog is showing (one at a time: the last one applied).</summary>
+        private static ParelWorldRenderingInfo _fogOwner;
+
+        /// <summary>Raised after a world's info was applied. The game builds the post-processing from <see cref="Post"/> here.</summary>
+        public static event Action<ParelWorldRenderingInfo> Applied;
 
         /// <summary>Applies every ParelWorldRenderingInfo in the scene once. Returns how many were applied.</summary>
         public static int ApplyAll(Scene scene, TargetPlatform target)
@@ -82,9 +91,55 @@ namespace ParelVR.Rendering
             }
             if (sceneIsActive && AmbientFromSky && RenderSettings.ambientMode == AmbientMode.Skybox) DynamicGI.UpdateEnvironment();
 
+            if (Fog != null && Fog.Enabled)
+            {
+                _fogOwner = this;
+                ParelFogGlobals.Apply(Fog, FindSun());
+            }
+
             RenderingLog.Notice("World made with the " + CompatibilityReport.PipelineLabel(SourcePipeline) + ": " + MaterialsConverted + " material(s) converted at upload"
-                                + (Mathf.Abs(LightProbeScale - 1f) > 1e-4f ? ", light probes scaled ×" + LightProbeScale.ToString("0.#####") : "") + ".");
+                                + (Mathf.Abs(LightProbeScale - 1f) > 1e-4f ? ", light probes scaled ×" + LightProbeScale.ToString("0.#####") : "")
+                                + (Fog != null && Fog.Enabled ? ", volumetric fog on" + (Fog.Volumes != null && Fog.Volumes.Length > 0 ? " with " + Fog.Volumes.Length + " local fog volume(s)" : "") : "")
+                                + (Post != null && Post.Any ? ", post-processing from the world" : "") + ".");
+            try { Applied?.Invoke(this); }
+            catch (Exception e) { Debug.LogException(e); }
             return true;
+        }
+
+        private Light _sun;
+        private float _nextSunSearch;
+
+        private Light FindSun()
+        {
+            if (_sun != null && _sun.isActiveAndEnabled) return _sun;
+            if (Time.unscaledTime < _nextSunSearch) return _sun;
+            _nextSunSearch = Time.unscaledTime + 2f;
+            _sun = RenderSettings.sun != null && RenderSettings.sun.type == LightType.Directional ? RenderSettings.sun : null;
+            if (_sun == null)
+                foreach (GameObject root in gameObject.scene.GetRootGameObjects())
+                    foreach (Light l in root.GetComponentsInChildren<Light>(false))
+                        if (l.type == LightType.Directional && (_sun == null || l.intensity > _sun.intensity)) _sun = l;
+            return _sun;
+        }
+
+        // The sun and local fog boxes can move: the fog follows them every frame (a few shader globals).
+        private void LateUpdate()
+        {
+            if (_fogOwner == this && Fog != null && Fog.Enabled) ParelFogGlobals.Apply(Fog, FindSun());
+        }
+
+        private void OnEnable()
+        {
+            if (!_applied || Fog == null || !Fog.Enabled) return;
+            _fogOwner = this;
+            ParelFogGlobals.Apply(Fog, FindSun());
+        }
+
+        private void OnDisable()
+        {
+            if (_fogOwner != this) return;
+            _fogOwner = null;
+            ParelFogGlobals.Clear();
         }
     }
 }
