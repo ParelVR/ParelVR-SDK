@@ -811,6 +811,7 @@ namespace ParelVR.SDK.Worlds.UI
 
             _uploadCts = new CancellationTokenSource();
             var publishTimer = System.Diagnostics.Stopwatch.StartNew();
+            string thumbnailNote = null;
             Scene publishScene = SceneManager.GetActiveScene();
             Debug.Log($"[PublishDiag] start scene='{publishScene.path}' name='{publishScene.name}' " +
                       $"playing={Application.isPlaying} loadedScenes={SceneManager.sceneCount}");
@@ -842,7 +843,19 @@ namespace ParelVR.SDK.Worlds.UI
                     contentWarnings = GetSelectedWarnings()
                 };
 
-                var worldRecord = await WorldApiClient.CreateWorldAsync(request, _uploadCts.Token);
+                WorldRecord worldRecord;
+                try
+                {
+                    worldRecord = await WorldApiClient.CreateWorldAsync(request, _uploadCts.Token);
+                }
+                catch (ParelApiException deleted) when (deleted.StatusCode == 410 && !string.IsNullOrEmpty(blueprintId))
+                {
+                    // The Blueprint ID points at a world that was deleted: publish this scene as a new world instead.
+                    Debug.LogWarning($"[WorldsTab] {deleted.Message} Publishing as a new world.");
+                    blueprintId = string.Empty;
+                    request.blueprintId = string.Empty;
+                    worldRecord = await WorldApiClient.CreateWorldAsync(request, _uploadCts.Token);
+                }
                 if (worldRecord == null)
                     throw new Exception("Failed to create/update world profile.");
 
@@ -902,9 +915,19 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _progressStatus.text = "Uploading thumbnail...";
                     _progressBar.value = 50;
-                    await WorldApiClient.UploadImageAsync(
-                        blueprintId, _pendingThumbnailBytes, _uploadCts.Token);
-                    _pendingThumbnailBytes = null;
+                    try
+                    {
+                        await WorldApiClient.UploadImageAsync(
+                            blueprintId, _pendingThumbnailBytes, _uploadCts.Token);
+                        _pendingThumbnailBytes = null;
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception thumbError)
+                    {
+                        // The build is done: a picture that didn't go up shouldn't throw it away. It's kept for the next publish or Save Details.
+                        thumbnailNote = "The thumbnail wasn't uploaded (" + thumbError.Message + "). Use Save Details to send it again.";
+                        Debug.LogWarning("[WorldsTab] " + thumbnailNote);
+                    }
                 }
 
                 // ── 6. Upload the PC bundle ──
@@ -994,6 +1017,7 @@ namespace ParelVR.SDK.Worlds.UI
                 if (forStandalone && questNote == null)
                     message += "\n\nParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes; the Builder and the Content Manager show when it's ready.";
                 if (questNote != null) message += "\n\n" + questNote;
+                if (thumbnailNote != null) message += "\n\n" + thumbnailNote;
                 EditorUtility.DisplayDialog("Success", message, "OK");
             }
             catch (OperationCanceledException)
@@ -1134,7 +1158,9 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     _progressStatus.text = "Uploading thumbnail...";
                     _progressBar.value = 66;
-                    await WorldApiClient.UploadImageAsync(worldId, _pendingThumbnailBytes, ct);
+                    try { await WorldApiClient.UploadImageAsync(worldId, _pendingThumbnailBytes, ct); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception thumbError) { Debug.LogWarning($"[WorldsTab] The thumbnail wasn't uploaded: {thumbError.Message}"); }
                 }
 
                 // 4. The PC build: the copy ParelVR holds goes live (sent again only if it's gone), then the scripts.

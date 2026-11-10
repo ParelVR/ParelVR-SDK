@@ -205,12 +205,48 @@ namespace ParelVR.SDK.Core.Http
             return await PostJsonAsync<T>($"{root}/complete?uploadId={uploadId}&total={chunks}&sha256={sha}{extra}", null, ct);
         }
 
+        /// <summary>Waits before each retry of an upload that failed on the way (about 2 minutes in all).</summary>
+        private static readonly int[] UploadRetryDelaysMs = { 3000, 10000, 30000, 60000 };
+
+        /// <summary>
+        /// Failures that say nothing about the request itself: no connection, a timeout, or the proxy / tunnel in
+        /// front of the API not reaching it (Cloudflare 520-530). The same PUT is safe to send again.
+        /// </summary>
+        private static bool IsTransient(ParelApiException ex) =>
+            ex.StatusCode == 0 || ex.StatusCode == 408 || ex.StatusCode == 429
+            || ex.StatusCode == 502 || ex.StatusCode == 503 || ex.StatusCode == 504
+            || (ex.StatusCode >= 520 && ex.StatusCode <= 530);
+
         public static async Task<string> PutBytesRawAsync(
             string path,
             byte[] data,
             string contentType,
             IProgress<float> progress = null,
             CancellationToken ct = default)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    return await PutBytesOnceAsync(path, data, contentType, progress, ct);
+                }
+                catch (ParelApiException ex) when (IsTransient(ex) && attempt < UploadRetryDelaysMs.Length)
+                {
+                    int delay = UploadRetryDelaysMs[attempt];
+                    string where = path.Split('?')[0];
+                    Debug.LogWarning($"[ParelApiClient] Upload to {where} failed ({ex.Message}). Trying again in {delay / 1000} s " +
+                                     $"({attempt + 1}/{UploadRetryDelaysMs.Length}).");
+                    await Task.Delay(delay, ct);
+                }
+            }
+        }
+
+        private static async Task<string> PutBytesOnceAsync(
+            string path,
+            byte[] data,
+            string contentType,
+            IProgress<float> progress,
+            CancellationToken ct)
         {
             using var request = new UnityWebRequest(BaseUrl + path, "PUT");
             request.uploadHandler = new UploadHandlerRaw(data);

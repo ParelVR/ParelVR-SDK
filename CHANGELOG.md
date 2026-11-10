@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.12.1 (2026-11-10)
+
+- **Publishing survives short connection drops.** Uploads (thumbnail, bundle parts, project) try again for about two
+  minutes when the connection or ParelVR's proxy drops (errors like 502, 503 or 530), instead of failing the publish
+  after a long build. If only the thumbnail can't be sent, the world still publishes and the Builder says to use
+  Save Details to send the picture again.
+- **A scene linked to a deleted world publishes as a new world.** Before, the Builder seemed to update the deleted
+  world and then failed with "Only the owner can do that". It now makes a new world and saves its Blueprint ID in the
+  scene. A world that was transferred to another player says so, instead of a plain "Only the world owner" error.
+- **Import World works for transferred worlds and big projects.** ParelVR now keeps the project saved on every publish, so a world's
+  owner (including a new owner after a transfer from the website) can bring it into Unity with Import World on any computer.
+  Projects over 48 MB upload in parts, so the 100 MB proxy limit no longer stops them.
+
 ## 1.12.0 (2026-10-31)
 
 - **Upload for someone else.** In the avatar and world Builders, above the upload button, turn on **Upload for someone

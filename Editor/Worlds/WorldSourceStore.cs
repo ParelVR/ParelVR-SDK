@@ -118,9 +118,13 @@ namespace ParelVR.SDK.Worlds
             if (info == null || info.size > UploadLimitBytes) return false;
             if (await ServerInfoAsync(info.worldId, ct) == null) return false;
             byte[] bytes = File.ReadAllBytes(PackagePath(info.worldId));
-            string url = "/api/parelvr/worlds/" + info.worldId + "/source?scene=" + Uri.EscapeDataString(info.scenePath ?? string.Empty) +
-                         "&savedAt=" + Uri.EscapeDataString(info.savedAt) + "&unity=" + Uri.EscapeDataString(info.unityVersion ?? string.Empty);
-            Info answer = await ParelApiClient.PutBytesAsync<Info>(url, bytes, "application/octet-stream", null, ct);
+            string root = "/api/parelvr/worlds/" + info.worldId + "/source";
+            string query = "scene=" + Uri.EscapeDataString(info.scenePath ?? string.Empty) +
+                           "&savedAt=" + Uri.EscapeDataString(info.savedAt) + "&unity=" + Uri.EscapeDataString(info.unityVersion ?? string.Empty);
+            // The proxy in front of the API refuses large bodies, so a big project goes up in parts.
+            Info answer = bytes.Length > ParelApiClient.ChunkThresholdBytes
+                ? await ParelApiClient.PutChunkedAsync<Info>(root, query, bytes, null, ct)
+                : await ParelApiClient.PutBytesAsync<Info>(root + "?" + query, bytes, "application/octet-stream", null, ct);
             return answer != null && answer.success;
         }
 
