@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.17.0 (not released yet: ships together with the game update that runs URP and HDRP)
+## 1.17.0 (2026-11-11)
 
 ### Your URP and HDRP worlds, exactly as you made them
 
