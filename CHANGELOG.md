@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.15.0 (2026-11-10)
+
+### Volumetric fog that finally looks like your HDRP world
+
+HDRP fog got a big upgrade. Worlds now show the soft, glowing haze you built in HDRP instead of dark smoke:
+
+- **Fog lit by your sky.** HDRP lights its fog with the sky, and that light didn't make it across, so fog only
+  caught the sun and turned grey and murky. ParelVR now lights your world and its fog from your sky when it
+  loads, so haze is bright and coloured the way you set it.
+- **The sky fades into the fog.** Before, the ground disappeared into the fog while the sky stayed perfectly clear,
+  leaving a hard line along the horizon. The sky now fades into the fog too, just like in HDRP.
+- **Your fog colour, at the right brightness.** HDRP keeps the fog colour in real-world light units. It's now
+  converted with your scene's exposure, so it matches what you saw in the editor.
+
+Worlds you already uploaded get the first two fixes as soon as players update ParelVR, no re-upload needed.
+Re-upload with 1.15.0 to get the corrected fog colour too.
+
 ## 1.14.0 (2026-11-10)
 
 ### HDRP worlds come to ParelVR with everything that makes them look incredible

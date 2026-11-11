@@ -68,7 +68,7 @@ namespace ParelVR.Rendering.Editor
 
                 bool skyChanged = false;
                 if (hdrp) skyChanged = AdaptHdrpLighting(scene, volumes, ev, job, report);
-                ParelFogSettings fog = hdrp ? FogFrom(scene, volumes, report) : null;
+                ParelFogSettings fog = hdrp ? FogFrom(scene, volumes, ev, report) : null;
                 int decals = pipeline != RenderPipelineKind.BuiltIn ? ParelDecalBaker.BakeAll(scene, options.GeneratedFolder + "/Decals", report) : 0;
                 if (volumes.Post.Enabled)
                     report.Note(DiagnosticSeverity.Info, "Post-processing", "Converted for the game's post-processing: " + PostSummary(volumes.Post) + ".");
@@ -386,7 +386,7 @@ namespace ParelVR.Rendering.Editor
         /// maximum height (density falls to 1/1000 at the maximum height, as in HDRP), max distance, albedo, anisotropy and
         /// light dimmer; up to 4 local fog boxes. Unity's own fog is switched off so the two don't add up.
         /// </summary>
-        private static ParelFogSettings FogFrom(Scene scene, SrpVolumeSettings v, CompatibilityReport report)
+        private static ParelFogSettings FogFrom(Scene scene, SrpVolumeSettings v, float ev, CompatibilityReport report)
         {
             if (!v.Fog) return null;
             RenderSettings.fog = false;
@@ -399,7 +399,9 @@ namespace ParelVR.Rendering.Editor
                 MaxDistance = v.FogMaxDistance,
                 Albedo = v.VolumetricFog ? v.FogAlbedo : v.FogColorFromSky ? v.FogTint : Color.white,
                 AmbientFromSky = v.FogColorFromSky || v.VolumetricFog,
-                Ambient = v.FogColor,
+                // HDRP keeps the fog colour in physical units: scale it like every other light value. Stored as a
+                // gamma colour so ParelFogGlobals reads the same linear value back.
+                Ambient = (new Color(v.FogColor.r, v.FogColor.g, v.FogColor.b) * LightingConversion.ExposureScale(ev)).gamma,
                 Anisotropy = v.VolumetricFog ? v.FogAnisotropy : 0f,
                 // Non-volumetric HDRP fog doesn't scatter the sun; volumetric fog does, scaled by its light dimmer.
                 SunScattering = v.VolumetricFog ? v.FogLightDimmer : 0f,

@@ -89,12 +89,14 @@ namespace ParelVR.Rendering
                 for (int i = 0; i < sh.Length; i++) sh[i] *= LightProbeScale;
                 probes.bakedProbes = sh;
             }
-            if (sceneIsActive && AmbientFromSky && RenderSettings.ambientMode == AmbientMode.Skybox) DynamicGI.UpdateEnvironment();
+            if (sceneIsActive && SourcePipeline == RenderPipelineKind.HighDefinition) RepairAmbient();
+            else if (sceneIsActive && AmbientFromSky && RenderSettings.ambientMode == AmbientMode.Skybox) DynamicGI.UpdateEnvironment();
 
             if (Fog != null && Fog.Enabled)
             {
+                if (sceneIsActive) PutSkyInFog(target);
                 _fogOwner = this;
-                ParelFogGlobals.Apply(Fog, FindSun());
+                ParelFogGlobals.Apply(Fog, FindSun(), ExposureScale);
             }
 
             RenderingLog.Notice("World made with the " + CompatibilityReport.PipelineLabel(SourcePipeline) + ": " + MaterialsConverted + " material(s) converted at upload"
@@ -104,6 +106,81 @@ namespace ParelVR.Rendering
             try { Applied?.Invoke(this); }
             catch (Exception e) { Debug.LogException(e); }
             return true;
+        }
+
+        /// <summary>The factor HDRP physical light values were multiplied by at upload (1 for other pipelines).</summary>
+        public float ExposureScale => SourcePipeline != RenderPipelineKind.HighDefinition ? 1f
+            : Mathf.Abs(LightProbeScale - 1f) > 1e-4f ? LightProbeScale : LightingConversion.ExposureScale(SceneEv100);
+
+        // HDRP lights its scene from the sky and never writes Built-in's ambient values, so a converted world can carry
+        // an ambient of almost nothing: black shadows and fog with no light in it. Light it from its sky instead.
+        private static void RepairAmbient()
+        {
+            bool black;
+            switch (RenderSettings.ambientMode)
+            {
+                case AmbientMode.Trilight:
+                    black = Mathf.Max(RenderSettings.ambientSkyColor.maxColorComponent, RenderSettings.ambientEquatorColor.maxColorComponent,
+                                      RenderSettings.ambientGroundColor.maxColorComponent) * RenderSettings.ambientIntensity < 2e-3f;
+                    break;
+                case AmbientMode.Flat:
+                    black = RenderSettings.ambientLight.maxColorComponent * RenderSettings.ambientIntensity < 2e-3f;
+                    break;
+                default:
+                    black = Mathf.Abs(RenderSettings.ambientProbe[0, 0]) + Mathf.Abs(RenderSettings.ambientProbe[1, 0]) + Mathf.Abs(RenderSettings.ambientProbe[2, 0]) < 2e-3f;
+                    break;
+            }
+            if (RenderSettings.ambientMode == AmbientMode.Skybox || (black && RenderSettings.skybox != null))
+            {
+                RenderSettings.ambientMode = AmbientMode.Skybox;
+                RenderSettings.ambientIntensity = 1f;
+                DynamicGI.UpdateEnvironment();
+            }
+        }
+
+        private Cubemap _skyCube;
+        private Material _skyMaterial;
+
+        // Only the ParelVR sky shader draws the fog over the sky. Any other sky (HDRP's physically based and gradient
+        // skies arrive as Skybox/Procedural) left the ground fogged and the sky clear, a hard line along the horizon.
+        // Capture that sky into a small cubemap once and draw it with ParelVR/Skybox, which the fog covers.
+        private void PutSkyInFog(TargetPlatform target)
+        {
+            Material sky = RenderSettings.skybox;
+            if (sky == null || sky.shader == null || sky.shader.name == ParelShaderNames.Skybox) return;
+            Shader parelSky = ParelShaderLibrary.Resolve(ShaderRole.Skybox, target, out ShaderRole resolved);
+            if (parelSky == null || resolved != ShaderRole.Skybox) return;
+
+            var go = new GameObject("[ParelVR Sky Capture]") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                Camera cam = go.AddComponent<Camera>();
+                cam.enabled = false;
+                cam.cullingMask = 0;
+                cam.clearFlags = CameraClearFlags.Skybox;
+                cam.allowHDR = true;
+                _skyCube = new Cubemap(target == TargetPlatform.Quest ? 128 : 256, TextureFormat.RGBAHalf, true) { name = "ParelVR Fog Sky" };
+                if (!cam.RenderToCubemap(_skyCube))
+                {
+                    Destroy(_skyCube);
+                    _skyCube = null;
+                    return;
+                }
+            }
+            finally { Destroy(go); }
+
+            _skyMaterial = new Material(parelSky) { name = sky.name + " (in fog)" };
+            _skyMaterial.SetTexture("_Tex", _skyCube);
+            _skyMaterial.SetColor("_Tint", new Color(0.5f, 0.5f, 0.5f, 0.5f));
+            _skyMaterial.SetFloat("_Exposure", 1f);
+            RenderSettings.skybox = _skyMaterial;
+        }
+
+        private void OnDestroy()
+        {
+            if (_skyMaterial != null && RenderSettings.skybox == _skyMaterial) RenderSettings.skybox = null;
+            if (_skyMaterial != null) Destroy(_skyMaterial);
+            if (_skyCube != null) Destroy(_skyCube);
         }
 
         private Light _sun;
@@ -125,14 +202,14 @@ namespace ParelVR.Rendering
         // The sun and local fog boxes can move: the fog follows them every frame (a few shader globals).
         private void LateUpdate()
         {
-            if (_fogOwner == this && Fog != null && Fog.Enabled) ParelFogGlobals.Apply(Fog, FindSun());
+            if (_fogOwner == this && Fog != null && Fog.Enabled) ParelFogGlobals.Apply(Fog, FindSun(), ExposureScale);
         }
 
         private void OnEnable()
         {
             if (!_applied || Fog == null || !Fog.Enabled) return;
             _fogOwner = this;
-            ParelFogGlobals.Apply(Fog, FindSun());
+            ParelFogGlobals.Apply(Fog, FindSun(), ExposureScale);
         }
 
         private void OnDisable()

@@ -137,8 +137,11 @@ namespace ParelVR.Rendering
             Shader.SetGlobalVector(CountId, Vector4.zero);
         }
 
-        /// <summary>Sets every fog global. <paramref name="sun"/> may be null (no sun scattering).</summary>
-        public static void Apply(ParelFogSettings f, Light sun)
+        /// <summary>
+        /// Sets every fog global. <paramref name="sun"/> may be null (no sun scattering). <paramref name="exposureScale"/>:
+        /// the world's HDRP exposure factor, used when <see cref="ParelFogSettings.Ambient"/> holds HDRP physical values.
+        /// </summary>
+        public static void Apply(ParelFogSettings f, Light sun, float exposureScale = 1f)
         {
             if (f == null || !f.Enabled)
             {
@@ -148,7 +151,7 @@ namespace ParelVR.Rendering
             Shader.SetGlobalVector(ParamsId, new Vector4(1f, Mathf.Max(0f, f.Extinction), f.BaseHeight, Mathf.Max(1e-5f, f.HeightFalloff)));
             Color albedo = f.Albedo.linear;
             Shader.SetGlobalVector(ColorId, new Vector4(albedo.r, albedo.g, albedo.b, Mathf.Max(1f, f.MaxDistance)));
-            Shader.SetGlobalVector(AmbientId, Ambient(f));
+            Shader.SetGlobalVector(AmbientId, Ambient(f, exposureScale));
 
             if (sun != null && sun.isActiveAndEnabled && f.SunScattering > 0f)
             {
@@ -181,15 +184,29 @@ namespace ParelVR.Rendering
             Shader.SetGlobalVector(CountId, new Vector4(n, 0f, 0f, 0f));
         }
 
-        private static Vector4 Ambient(ParelFogSettings f)
+        // Below this the ambient light is treated as missing (HDRP never writes Built-in's ambient probe, so a converted
+        // world can arrive with a black one): fog lit only by the sun reads as dark smoke instead of haze.
+        private const float MissingAmbient = 2e-3f;
+
+        private static Vector4 Ambient(ParelFogSettings f, float exposureScale)
         {
-            if (!f.AmbientFromSky) return f.Ambient.linear;
+            Color fixedAmbient = FixedAmbient(f.Ambient, exposureScale);
+            if (!f.AmbientFromSky) return fixedAmbient;
             // The average of the ambient light from six directions: what fog all around receives.
             RenderSettings.ambientProbe.Evaluate(AmbientDirections, AmbientResults);
             Color sum = Color.black;
             foreach (Color c in AmbientResults) sum += c;
             sum /= AmbientResults.Length;
+            if (sum.maxColorComponent < MissingAmbient && fixedAmbient.maxColorComponent > sum.maxColorComponent) sum = fixedAmbient;
             return new Vector4(sum.r, sum.g, sum.b, 0f);
+        }
+
+        // The fog's own ambient colour in linear values. Worlds uploaded before SDK 1.15 stored HDRP's physical fog colour
+        // as is (hundreds): scale it with the world's exposure like every other HDRP light value.
+        private static Color FixedAmbient(Color a, float exposureScale)
+        {
+            if (a.maxColorComponent > 4f) return new Color(a.r, a.g, a.b) * Mathf.Max(exposureScale, 0f);
+            return a.linear;
         }
     }
 }
