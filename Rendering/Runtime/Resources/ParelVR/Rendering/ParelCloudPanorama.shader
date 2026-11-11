@@ -18,6 +18,10 @@ Shader "Hidden/ParelVR/CloudPanorama"
     float4 _ParelCloudWind;        // xy offset (km) moved by the wind, z detail scale, w frame
     float4 _ParelCloudTint;        // rgb scattering tint
     float4 _ParelCloudShadow;      // x shadow opacity
+    float4 _ParelCloudStrip;       // x first column (0..1), y width (0..1) of the panorama strip drawn now
+    float4 _ParelCloudLightPos;    // xyz the sun light's position (km), w cookie size (km)
+    float4 _ParelCloudLightRight;  // xyz the light's right axis (cookie u)
+    float4 _ParelCloudLightUp;     // xyz the light's up axis (cookie v)
 
     float Remap(float v, float a, float b, float c, float d) { return c + (v - a) / max(b - a, 1e-4) * (d - c); }
 
@@ -25,7 +29,9 @@ Shader "Hidden/ParelVR/CloudPanorama"
     {
         float tile = _ParelCloudLayer.w;
         float3 q = float3(pKm.x + _ParelCloudWind.x, pKm.y, pKm.z + _ParelCloudWind.y) / tile;
-        float shape = tex3Dlod(_ParelCloudShape, float4(q, 0)).r;
+        // Two octaves of the shape noise: one alone shows its texel grid as blocky cloud edges up close.
+        float shape = tex3Dlod(_ParelCloudShape, float4(q, 0)).r * 0.72
+                    + tex3Dlod(_ParelCloudShape, float4(q * 2.63 + float3(0.37, 0.11, 0.73), 0)).r * 0.28;
         // Height profile: cumulus rounded at the bottom, thinning at the top; the shape factor flattens it.
         float bottom = saturate(Remap(heightFrac, 0.0, 0.08, 0.0, 1.0));
         float topEnd = lerp(1.0, 0.45, _ParelCloudShapeParams.z);
@@ -69,7 +75,8 @@ Shader "Hidden/ParelVR/CloudPanorama"
     half4 FragPanorama(v2f i) : SV_Target
     {
         // Rows run from the horizon (v 0) to the zenith (v 1), squared so the horizon gets more of them.
-        float lon = (i.uv.x - 0.5) * 2.0 * 3.14159265;
+        float u = _ParelCloudStrip.y > 0.0 ? _ParelCloudStrip.x + i.uv.x * _ParelCloudStrip.y : i.uv.x;
+        float lon = (u - 0.5) * 2.0 * 3.14159265;
         float y = i.uv.y * i.uv.y;
         float s = sqrt(max(1.0 - y * y, 0.0));
         float3 dir = float3(sin(lon) * s, max(y, 0.004), cos(lon) * s);
@@ -124,19 +131,28 @@ Shader "Hidden/ParelVR/CloudPanorama"
         return half4(light * (1.0 - haze), lerp(trans, 1.0, haze));
     }
 
-    // Cloud shadows: how much sun gets through the cloud layer straight above each point of one tile.
+    // Cloud shadows: how much sun gets through the cloud layer along each line of sun light. A cookie texel is one
+    // line (the light's own x, y): march it from where it enters the bottom of the layer to where it leaves the top.
+    // A high sun crosses the layer in a couple of kilometres (patchy shadows); a low one in tens of kilometres and
+    // through many clouds, so it is shadowed nearly everywhere, as in HDRP. A sun under the horizon is left to the air.
     half4 FragShadow(v2f i) : SV_Target
     {
-        float tile = _ParelCloudLayer.w;
-        float3 sun = _ParelCloudSun.xyz;
+        float3 toSun = _ParelCloudSun.xyz;
+        if (toSun.y <= 0.0) return 1.0;
+        float size = _ParelCloudLightPos.w;
+        float3 origin = _ParelCloudLightPos.xyz + _ParelCloudLightRight.xyz * ((i.uv.x - 0.5) * size) + _ParelCloudLightUp.xyz * ((i.uv.y - 0.5) * size);
+        float sy = max(toSun.y, 0.004);
+        float tb = (_ParelCloudLayer.x - origin.y) / sy;
+        float len = min(_ParelCloudLayer.y / sy, 400.0);
+        const int STEPS = 24;
+        float ds = len / STEPS;
         float od = 0;
-        float ls = _ParelCloudLayer.y / 6.0;
-        [unroll] for (int j = 0; j < 6; j++)
+        [unroll] for (int j = 0; j < STEPS; j++)
         {
-            float h = _ParelCloudLayer.x + ls * (j + 0.5);
-            float3 p = float3(i.uv.x * tile, 0, i.uv.y * tile) + sun / max(sun.y, 0.1) * h;
-            p.y = _ParelCloudLayer.z + h;
-            od += DensityAt(p, (j + 0.5) / 6.0) * ls;
+            float3 p = origin + toSun * (tb + ds * (j + 0.5));
+            float hf = saturate((p.y - _ParelCloudLayer.x) / _ParelCloudLayer.y);
+            p.y = _ParelCloudLayer.z + p.y;
+            od += DensityAt(p, hf) * ds;
         }
         half lightThrough = exp(-od * 30.0);
         return lerp(1.0, lightThrough, _ParelCloudShadow.x).xxxx;

@@ -210,6 +210,7 @@ namespace ParelVR.Rendering
                 Clear();
                 return;
             }
+            if (sun != null && !sun.isActiveAndEnabled) sun = null;
             // x and the mode say every surface fogs itself; ParelVolumetricFog switches cameras it draws for to mode 2.
             Shader.SetGlobalVector(ParamsId, new Vector4(1f, Mathf.Max(0f, f.Extinction), f.BaseHeight, Mathf.Max(1e-5f, f.HeightFalloff)));
             Shader.SetGlobalVector(ModeId, new Vector4(1f, 0f, 0f, 0f));
@@ -221,7 +222,8 @@ namespace ParelVR.Rendering
             {
                 Vector3 toSun = -sun.transform.forward;
                 // HDRP divides the phase function by 4π and Built-in light values already carry 1/π: a quarter.
-                Color c = sun.color.linear * sun.intensity * f.SunScattering * 0.25f;
+                // The fog is lit by the light that got through the clouds (sun.color already carries the air: ParelSkySun).
+                Color c = sun.color.linear * sun.intensity * f.SunScattering * 0.25f * ParelSkyClouds.SunVisibility(toSun);
                 Shader.SetGlobalVector(SunDirId, new Vector4(toSun.x, toSun.y, toSun.z, Mathf.Clamp(f.Anisotropy, -0.99f, 0.99f)));
                 Shader.SetGlobalVector(SunColorId, new Vector4(c.r, c.g, c.b, 0f));
             }
@@ -261,7 +263,8 @@ namespace ParelVR.Rendering
             Color sum = Color.black;
             foreach (Color c in AmbientResults) sum += c;
             sum /= AmbientResults.Length;
-            if (sum.maxColorComponent < MissingAmbient && fixedAmbient.maxColorComponent > sum.maxColorComponent) sum = fixedAmbient;
+            // A physically based sky's ambient is real even when it is dark (dusk, night): only a missing one is replaced.
+            if (!ParelSkySun.Active && sum.maxColorComponent < MissingAmbient && fixedAmbient.maxColorComponent > sum.maxColorComponent) sum = fixedAmbient;
             return new Vector4(sum.r, sum.g, sum.b, 0f);
         }
 

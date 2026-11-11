@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.16.1 (2026-11-10)
+
+### HDRP worlds look like they did in HDRP
+
+- **The right sky.** HDRP volume profiles often hold several skies, but only the one your Visual Environment picks
+  is drawn. ParelVR now converts exactly that one, so a leftover Gradient Sky no longer replaces your real sky.
+- **Sunsets work.** A low sun now turns orange and dims through the atmosphere just like in HDRP's Physically
+  Based Sky, and a sun below the horizon stops lighting the world.
+- **No more flickering light.** Clouds now hide a low sun completely instead of sweeping bright and dark stripes
+  across the ground.
+- **Sharper clouds** in the sky on PC, with no blocky edges.
+- **Real ocean waves.** Your HDRP ocean's wind now builds proper choppy waves instead of a long, flat swell.
+- **Subsurface materials** (skin, wax, leaves) no longer show pink.
+
+Re-upload your world with 1.16.1 to get the right sky. Worlds you already uploaded get the new waves, the
+cloud fix and working reflections as soon as players update ParelVR.
+
 ## 1.16.0 (2026-11-10)
 
 ### Your HDRP world, all of it

@@ -5,8 +5,8 @@ namespace ParelVR.Rendering
     /// <summary>
     /// A world's volumetric clouds (HDRP Volumetric Clouds): marched into a panorama of the upper sky that ParelVR/Sky
     /// shows (one texture read per sky pixel, so it costs the same in a headset), moved by the wind, and casting soft
-    /// cloud shadows through the sun (a tiling light cookie). PC redraws the panorama every frame, standalone headsets
-    /// a smaller one every few frames.
+    /// cloud shadows through the sun (a tiling light cookie). PC redraws a quarter of a sharper panorama every frame,
+    /// standalone headsets a smaller one every few frames.
     /// </summary>
     public static class ParelSkyClouds
     {
@@ -26,6 +26,8 @@ namespace ParelVR.Rendering
 
         private static readonly int PanoramaId = Shader.PropertyToID("_ParelCloudPanorama");
         private static readonly int OnId = Shader.PropertyToID("_ParelCloudsOn");
+        private static readonly int StripId = Shader.PropertyToID("_ParelCloudStrip");
+        private const int PcStrips = 4;
 
         public static bool Active => _settings != null;
 
@@ -49,7 +51,7 @@ namespace ParelVR.Rendering
             bool mobile = Application.isMobilePlatform;
             if (_panorama == null)
             {
-                _panorama = new RenderTexture(mobile ? 512 : 1024, mobile ? 128 : 256, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
+                _panorama = new RenderTexture(mobile ? 512 : 2048, mobile ? 128 : 512, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear)
                     { name = "ParelVR cloud panorama", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
                 _panorama.wrapModeU = TextureWrapMode.Repeat;
                 _panorama.Create();
@@ -63,7 +65,7 @@ namespace ParelVR.Rendering
             Shader.SetGlobalTexture(PanoramaId, _panorama);
             Shader.SetGlobalVector(OnId, new Vector4(1f, 0f, 0f, 0f));
             _frame = 0;
-            UpdateNow(0f);
+            UpdateNow(0f, true);
         }
 
         public static void Disable()
@@ -84,7 +86,24 @@ namespace ParelVR.Rendering
         }
 
         /// <summary>Moves the clouds by <paramref name="deltaTime"/> seconds of wind and redraws them (checks call it directly).</summary>
-        public static void UpdateNow(float deltaTime)
+        public static void UpdateNow(float deltaTime) => UpdateNow(deltaTime, true);
+
+        /// <summary>
+        /// How much of the sun gets through the cloud layer on average towards <paramref name="toSun"/> (1 without
+        /// clouds or cloud shadows). A low sun crosses kilometres of cloud on its way in, so it is all but hidden.
+        /// </summary>
+        public static float SunVisibility(Vector3 toSun)
+        {
+            if (_settings == null || !_settings.Shadows || toSun.y <= 0f) return 1f;
+            float thick = Mathf.Max(0.1f, _settings.ThicknessKm);
+            // The slanted path crosses about this many independent cloud cells; each lets the sun through with the
+            // gaps' share of the sky.
+            float cells = thick / Mathf.Max(toSun.y, 1e-3f) / Mathf.Max(0.5f, thick);
+            float clear = Mathf.Pow(Mathf.Clamp01(1f - _settings.Coverage * Mathf.Clamp01(_settings.Density * 2.5f)), Mathf.Max(1f, cells));
+            return Mathf.Lerp(1f, clear, Mathf.Clamp01(_settings.ShadowOpacity));
+        }
+
+        private static void UpdateNow(float deltaTime, bool wholePanorama)
         {
             if (_settings == null || _material == null) return;
             ParelCloudSettings c = _settings;
@@ -112,15 +131,29 @@ namespace ParelVR.Rendering
             _material.SetVector("_ParelCloudTint", new Vector4(tint.r, tint.g, tint.b, 1f));
             _material.SetVector("_ParelCloudShadow", new Vector4(Mathf.Clamp01(c.ShadowOpacity), 0f, 0f, 0f));
 
-            Draw(_panorama, 0);
-            UpdateShadows(sun, tile);
+            if (wholePanorama || Application.isMobilePlatform)
+            {
+                _material.SetVector(StripId, new Vector4(0f, 1f, 0f, 0f));
+                Draw(_panorama, 0, new Rect(0, 0, _panorama.width, _panorama.height));
+            }
+            else
+            {
+                // A quarter of the columns per frame: the clouds move a few metres between redraws.
+                int strip = _frame % PcStrips;
+                int w = _panorama.width / PcStrips;
+                _material.SetVector(StripId, new Vector4(strip / (float)PcStrips, 1f / PcStrips, 0f, 0f));
+                Draw(_panorama, 0, new Rect(strip * w, 0, w, _panorama.height));
+            }
+            // The shadows every other frame (each texel marches the whole slanted path through the layer).
+            if (wholePanorama || (_frame & 1) == 0 || _shadow == null) UpdateShadows(sun, tile);
             _frame++;
         }
 
-        private static void Draw(RenderTexture target, int pass)
+        private static void Draw(RenderTexture target, int pass, Rect? viewport = null)
         {
             RenderTexture previous = RenderTexture.active;
             Graphics.SetRenderTarget(target);
+            if (viewport.HasValue) GL.Viewport(viewport.Value);
             _material.SetPass(pass);
             Graphics.DrawProceduralNow(MeshTopology.Triangles, 3, 1);
             RenderTexture.active = previous;
@@ -137,10 +170,18 @@ namespace ParelVR.Rendering
             if (sun.cookie != null && sun.cookie != _shadow) return;
             if (_shadow == null)
             {
-                _shadow = new RenderTexture(512, 512, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear)
+                // Cloud shadows are soft: 256 texels over a tile of kilometres is plenty.
+                _shadow = new RenderTexture(256, 256, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear)
                     { name = "ParelVR cloud shadows", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
                 _shadow.Create();
             }
+            // Built-in maps a directional cookie in the light's own space (x, y across the beam, repeating every
+            // cookieSize): each cookie texel is one line of light, so the shadow pass needs that frame.
+            Transform lt = sun.transform;
+            Vector3 p = lt.position / 1000f;
+            _material.SetVector("_ParelCloudLightPos", new Vector4(p.x, p.y, p.z, tileKm));
+            _material.SetVector("_ParelCloudLightRight", lt.right);
+            _material.SetVector("_ParelCloudLightUp", lt.up);
             Draw(_shadow, 1);
             if (_cookieLight != sun)
             {
@@ -170,7 +211,7 @@ namespace ParelVR.Rendering
                 if (_settings == null) return;
                 // Standalone headsets redraw every 4th frame (clouds move slowly), PC every frame.
                 if (Application.isMobilePlatform && (Time.frameCount & 3) != 0) return;
-                UpdateNow(Application.isMobilePlatform ? Time.deltaTime * 4f : Time.deltaTime);
+                UpdateNow(Application.isMobilePlatform ? Time.deltaTime * 4f : Time.deltaTime, false);
             }
 
             private void OnDestroy()

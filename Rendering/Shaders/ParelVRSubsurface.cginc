@@ -60,10 +60,10 @@ void ParelSubsurfaceSetup(float2 uv)
     g_parelThickness = lerp(_ThicknessMin, _ThicknessMax, tex2D(_ThicknessMap, uv).r);
 }
 
-half4 parelFragSubsurfaceBase(VertexOutputForwardBase i) : SV_Target
+half4 parelFragSubsurfaceBase(VertexOutputForwardBase i, half facing : VFACE) : SV_Target
 {
     ParelSubsurfaceSetup(i.tex.xy);
-    return parelFragBase(i);
+    return parelFragBase(i, facing);
 }
 
 half4 parelFragSubsurfaceAdd(VertexOutputForwardAdd i) : SV_Target

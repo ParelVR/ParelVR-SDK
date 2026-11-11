@@ -15,7 +15,8 @@ namespace ParelVR.Rendering
     [DisallowMultipleComponent]
     public sealed class ParelWorldRenderingInfo : MonoBehaviour
     {
-        public const int CurrentVersion = 1;
+        /// <summary>2: SDK 1.16 (HDRP Visual Environment sky, wind-sea waves). Version 1 worlds get the repairs in <see cref="RepairVersion1"/>.</summary>
+        public const int CurrentVersion = 2;
 
         [Serializable]
         public sealed class DeviceOverride
@@ -93,6 +94,10 @@ namespace ParelVR.Rendering
                 for (int i = 0; i < sh.Length; i++) sh[i] *= LightProbeScale;
                 probes.bakedProbes = sh;
             }
+            if (SourcePipeline == RenderPipelineKind.HighDefinition && Version < 2) RepairVersion1();
+            // HDRP's physically based sky dims and reddens its sun by the air (a low sun, a sunset): before the ambient
+            // light is worked out from the sky, which needs the sun handed to it.
+            if (sceneIsActive && SourcePipeline == RenderPipelineKind.HighDefinition && ParelSkySun.Enable(RenderSettings.skybox, FindSun)) _skySunOwner = this;
             if (sceneIsActive && SourcePipeline == RenderPipelineKind.HighDefinition) RepairAmbient();
             else if (sceneIsActive && AmbientFromSky && RenderSettings.ambientMode == AmbientMode.Skybox) DynamicGI.UpdateEnvironment();
 
@@ -146,6 +151,58 @@ namespace ParelVR.Rendering
             }
         }
 
+        private static ParelWorldRenderingInfo _skySunOwner;
+
+        // Worlds uploaded before SDK 1.16. Their converted data can't be redone, but two mistakes can be undone here:
+        // - reflection probes that HDRP rendered itself arrive as Custom probes with no cubemap (black reflections):
+        //   switched off, so the sky's reflection shows.
+        // - ocean waves: the height went almost all into one long swell, a flat sea; spread again over the wind sea.
+        // (Their sky can't be: the converter took the first sky override in the profile, not the one HDRP's Visual
+        // Environment drew, and the shown sky's values were not stored. A re-upload with SDK 1.16 carries it.)
+        private void RepairVersion1()
+        {
+            var fixes = new List<string>();
+            int probes = 0;
+            foreach (GameObject root in gameObject.scene.GetRootGameObjects())
+                foreach (ReflectionProbe p in root.GetComponentsInChildren<ReflectionProbe>(true))
+                    if (p.enabled && p.mode == ReflectionProbeMode.Custom && p.customBakedTexture == null)
+                    {
+                        p.enabled = false;
+                        probes++;
+                    }
+            if (probes > 0) fixes.Add(probes + " empty reflection probe(s) off");
+            int seas = 0;
+            foreach (GameObject root in gameObject.scene.GetRootGameObjects())
+                foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+                    foreach (Material m in r.sharedMaterials)
+                        if (m != null && m.shader != null && m.shader.name == "ParelVR/Water" && RespreadWaves(m)) seas++;
+            if (seas > 0) fixes.Add("waves of " + seas + " water surface(s) spread over the wind sea");
+            if (fixes.Count > 0) RenderingLog.Notice("World uploaded with an older SDK, repaired at load: " + string.Join(", ", fixes) + ".");
+        }
+
+        private static readonly HashSet<Material> Respread = new HashSet<Material>();
+
+        private static bool RespreadWaves(Material m)
+        {
+            if (!m.HasProperty("_Wave0") || !Respread.Add(m)) return false;
+            var waves = new Vector4[WaterSpectrum.Count];
+            double sum = 0;
+            for (int i = 0; i < WaterSpectrum.Count; i++)
+            {
+                waves[i] = m.GetVector("_Wave" + i);
+                sum += Mathf.Abs(waves[i].z);
+            }
+            // Pools (short waves only) were made differently and are left alone.
+            if (sum <= 1e-4 || waves[0].w <= 3.5f) return false;
+            double height = sum * 2.0;                       // the old converter: Σ amplitudes = Hs / 2
+            var lengths = new double[WaterSpectrum.Count];
+            var amps = new double[WaterSpectrum.Count];
+            WaterSpectrum.WindSea(WaterSpectrum.WindForHeight(height), height, waves[0].w, 1.0, 1.0, lengths, amps);
+            for (int i = 0; i < WaterSpectrum.Count; i++)
+                m.SetVector("_Wave" + i, new Vector4(waves[i].x, waves[i].y, (float)amps[i], Mathf.Max(0.05f, (float)lengths[i])));
+            return true;
+        }
+
         private Cubemap _skyCube;
         private Material _skyMaterial;
 
@@ -186,6 +243,7 @@ namespace ParelVR.Rendering
 
         private void OnDestroy()
         {
+            if (_skySunOwner == this) { ParelSkySun.Disable(); _skySunOwner = null; }
             if (_skyMaterial != null && RenderSettings.skybox == _skyMaterial) RenderSettings.skybox = null;
             if (_skyMaterial != null) Destroy(_skyMaterial);
             if (_skyCube != null) Destroy(_skyCube);

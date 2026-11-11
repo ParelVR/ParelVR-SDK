@@ -129,26 +129,30 @@ namespace ParelVR.Rendering.Editor
             float band0 = pool ? 1f : Num(w, "largeBand0Multiplier", 1f);
             float band1 = pool ? 1f : Num(w, "largeBand1Multiplier", 1f);
 
-            float height = pool ? 0.02f * u : 0.0214f * u * u;               // significant wave height (m)
+            float height = pool ? 0.02f * u : (float)WaterSpectrum.SignificantHeight(u);   // significant wave height (m)
             height = Mathf.Min(height, repetition / 14f);
-            float longest = pool ? Mathf.Min(repetition * 0.3f, 3f) : river ? repetition * 0.25f : repetition * 0.45f;
-            var amps = new float[8];
-            var lengths = new float[8];
-            float sum = 0f;
-            for (int i = 0; i < 8; i++)
+            var amps = new double[WaterSpectrum.Count];
+            var lengths = new double[WaterSpectrum.Count];
+            if (pool)
             {
-                lengths[i] = longest * Mathf.Pow(0.62f, i);
-                amps[i] = Mathf.Pow(lengths[i], 0.9f) * (i < 4 ? band0 : band1);
-                sum += amps[i];
+                float longest = Mathf.Min(repetition * 0.3f, 3f);
+                double sum = 0;
+                for (int i = 0; i < WaterSpectrum.Count; i++)
+                {
+                    lengths[i] = longest * Mathf.Pow(0.62f, i);
+                    amps[i] = Math.Pow(lengths[i], 0.9);
+                    sum += amps[i];
+                }
+                for (int i = 0; i < WaterSpectrum.Count; i++) amps[i] = sum > 0 ? amps[i] / sum * height * 0.5 : 0;
             }
+            else WaterSpectrum.WindSea(u, height, river ? repetition * 0.25f : repetition * 0.45f, band0, band1, lengths, amps);
             var rng = new System.Random(w.GetInstanceID() & 0x7fffffff);
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < WaterSpectrum.Count; i++)
             {
                 float spread = chaos * (river ? 25f : 75f);
                 float deg = orientation + (float)(rng.NextDouble() * 2.0 - 1.0) * spread;
                 float rad = deg * Mathf.Deg2Rad;
-                float a = sum > 0f ? amps[i] / sum * height * 0.5f : 0f;
-                m.SetVector("_Wave" + i, new Vector4(Mathf.Cos(rad), Mathf.Sin(rad), a, Mathf.Max(0.05f, lengths[i])));
+                m.SetVector("_Wave" + i, new Vector4(Mathf.Cos(rad), Mathf.Sin(rad), (float)amps[i], Mathf.Max(0.05f, (float)lengths[i])));
             }
             m.SetFloat("_WaveSteepness", pool ? 0.3f : Mathf.Lerp(0.4f, 0.8f, chaos));
             m.SetFloat("_WaveFadeDistance", pool ? 60f : 400f);

@@ -20,6 +20,12 @@ namespace ParelVR.Rendering.Editor
         public bool PhysicallyBasedSky;
         /// <summary>The HDRP volume components themselves, for the sky converter to read every parameter.</summary>
         public object PhysicallyBasedSkyComponent, GradientSkyComponent, CloudLayerComponent, VolumetricCloudsComponent;
+        /// <summary>HDRP Visual Environment: which sky is drawn (HDRP SkyType: 0 none, 1 HDRI, 2 procedural, 3 gradient, 4 physically based), when overridden.</summary>
+        public int? SkyType;
+        /// <summary>HDRP Visual Environment: which cloud type is drawn (0 none, 1 cloud layer), when overridden.</summary>
+        public int? CloudType;
+        /// <summary>Each sky override's own exposure (x, EV) and multiplier (y), by HDRP SkyType.</summary>
+        public readonly Dictionary<int, Vector2> SkyIntensity = new Dictionary<int, Vector2>();
 
         /// <summary>The fixed exposure, when the scene's exposure is fixed.</summary>
         public float? FixedEv100;
@@ -79,7 +85,34 @@ namespace ParelVR.Rendering.Editor
             }
             settings.Post.Enabled = true;
             settings.Post.Enabled = settings.Post.Any;
+            PickShownSky(settings);
             return settings;
+        }
+
+        // A profile can hold several sky overrides (HDRP's templates carry HDRI, gradient and physically based skies);
+        // only the one the Visual Environment names is drawn. Without a Visual Environment override HDRP's default
+        // profile draws the physically based sky.
+        private const int SkyNone = 0, SkyHdri = 1, SkyGradient = 3, SkyPhysical = 4;
+
+        private static void PickShownSky(SrpVolumeSettings s)
+        {
+            int shown;
+            if (s.SkyType.HasValue) shown = s.SkyType.Value;
+            else if (s.PhysicallyBasedSky) shown = SkyPhysical;
+            else if (s.HdriSky) shown = SkyHdri;
+            else if (s.GradientSky) shown = SkyGradient;
+            else return;
+            s.HdriSky &= shown == SkyHdri;
+            s.GradientSky &= shown == SkyGradient;
+            s.PhysicallyBasedSky &= shown == SkyPhysical;
+            if (!s.HdriSky) s.SkyTexture = null;
+            if (s.SkyIntensity.TryGetValue(shown, out Vector2 intensity))
+            {
+                s.SkyExposureEv = intensity.x;
+                s.SkyMultiplier = intensity.y;
+            }
+            if (shown == SkyNone) s.NotCarried.Add("Visual Environment (no sky)");
+            if (s.CloudType.HasValue && s.CloudType.Value != 1) s.CloudLayerComponent = null;
         }
 
         /// <summary>HDRP Local Volumetric Fog (and the older Density Volume) boxes in the scene.</summary>
@@ -113,6 +146,8 @@ namespace ParelVR.Rendering.Editor
             {
                 case "HDRISky":
                     s.HdriSky = true;
+                    s.SkyExposureEv = 0f;
+                    s.SkyMultiplier = 1f;
                     if (Param(c, "hdriSky", out object tex)) s.SkyTexture = tex as Texture;
                     if (Param(c, "exposure", out object ev)) s.SkyExposureEv = Float(ev);
                     if (Param(c, "multiplier", out object mul)) s.SkyMultiplier = Float(mul);
@@ -128,6 +163,7 @@ namespace ParelVR.Rendering.Editor
                             s.SkyExposureEv = 0f;
                         }
                     }
+                    s.SkyIntensity[SkyHdri] = new Vector2(s.SkyExposureEv, s.SkyMultiplier);
                     break;
                 case "GradientSky":
                     s.GradientSky = true;
@@ -135,14 +171,16 @@ namespace ParelVR.Rendering.Editor
                     if (Param(c, "top", out object top)) s.GradientTop = (Color)top;
                     if (Param(c, "middle", out object mid)) s.GradientMiddle = (Color)mid;
                     if (Param(c, "bottom", out object bot)) s.GradientBottom = (Color)bot;
-                    if (Param(c, "exposure", out object gev)) s.SkyExposureEv = Float(gev);
-                    if (Param(c, "multiplier", out object gmul)) s.SkyMultiplier = Float(gmul);
+                    s.SkyExposureEv = Param(c, "exposure", out object gev) ? Float(gev) : 0f;
+                    s.SkyMultiplier = Param(c, "multiplier", out object gmul) ? Float(gmul) : 1f;
+                    s.SkyIntensity[SkyGradient] = new Vector2(s.SkyExposureEv, s.SkyMultiplier);
                     break;
                 case "PhysicallyBasedSky":
                     s.PhysicallyBasedSky = true;
                     s.PhysicallyBasedSkyComponent = c;
-                    if (Param(c, "exposure", out object pev)) s.SkyExposureEv = Float(pev);
-                    if (Param(c, "multiplier", out object pmul)) s.SkyMultiplier = Float(pmul);
+                    s.SkyExposureEv = Param(c, "exposure", out object pev) ? Float(pev) : 0f;
+                    s.SkyMultiplier = Param(c, "multiplier", out object pmul) ? Float(pmul) : 1f;
+                    s.SkyIntensity[SkyPhysical] = new Vector2(s.SkyExposureEv, s.SkyMultiplier);
                     break;
                 case "Exposure":
                     string modeName = Param(c, "mode", out object em) ? em?.ToString() ?? "" : "";
@@ -315,6 +353,9 @@ namespace ParelVR.Rendering.Editor
                     // Refraction is drawn per material (ParelVR lit shaders); nothing to carry from the volume.
                     break;
                 case "VisualEnvironment":
+                    if (Param(c, "skyType", out object skyType)) s.SkyType = (int)Float(skyType);
+                    if (Param(c, "cloudType", out object cloudType)) s.CloudType = (int)Float(cloudType);
+                    break;
                 case "HDShadowSettings":
                 case "IndirectLightingController":
                     break;

@@ -87,6 +87,8 @@ Shader "ParelVR/Sky"
 
             sampler2D _ParelCloudPanorama;   // rgb light from the volumetric clouds, a transmittance (upper hemisphere)
             float4 _ParelCloudsOn;           // x on
+            float4 _ParelSkySunDir;          // xyz towards the sun, w 1 when set (ParelSkySun)
+            float4 _ParelSkySunColor;        // rgb the sun's light before the air
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 dir : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
@@ -293,6 +295,13 @@ Shader "ParelVR/Sky"
                 float3 dir = normalize(i.dir);
                 float3 sunDir = _WorldSpaceLightPos0.w < 0.5 && dot(_WorldSpaceLightPos0.xyz, _WorldSpaceLightPos0.xyz) > 0.0 ? normalize(_WorldSpaceLightPos0.xyz) : float3(0, 1, 0);
                 half3 sunColor = _LightColor0.rgb;
+                // ParelSkySun: the sun before the air (the light itself is dimmed by it), also set when Unity draws the
+                // sky for the ambient light and reflections, where _LightColor0 is not.
+                if (_ParelSkySunDir.w > 0.5)
+                {
+                    sunDir = normalize(_ParelSkySunDir.xyz);
+                    sunColor = _ParelSkySunColor.rgb;
+                }
 
                 half3 sky;
                 if (_SkyMode < 0.5) sky = PhysicalSky(dir, sunDir, sunColor);
