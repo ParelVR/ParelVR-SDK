@@ -69,6 +69,12 @@ namespace ParelVR.Rendering.Editor
                 bool skyChanged = false;
                 if (hdrp) skyChanged = AdaptHdrpLighting(scene, volumes, ev, job, report);
                 ParelFogSettings fog = hdrp ? FogFrom(scene, volumes, ev, report) : null;
+                // URP / Built-in worlds that draw their fog with a fog script of their own (the game doesn't have it).
+                if (fog == null)
+                {
+                    fog = ParelComponentFog.Find(scene, report);
+                    if (fog != null) RenderSettings.fog = false;
+                }
                 int decals = pipeline != RenderPipelineKind.BuiltIn ? ParelDecalBaker.BakeAll(scene, options.GeneratedFolder + "/Decals", report) : 0;
                 int waters = pipeline != RenderPipelineKind.BuiltIn ? ParelWaterConverter.ConvertAll(scene, options.GeneratedFolder + "/Water", report) : 0;
                 if (volumes.Post.Enabled)

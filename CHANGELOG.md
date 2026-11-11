@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.16.2 (2026-11-11)
+
+### URP fog comes with your world
+
+- **Your fog shows up in ParelVR.** URP worlds that draw their haze with a fog script (terrain ground fog,
+  volumetric fog assets) used to arrive with no fog at all, so far-away trees stayed sharp. ParelVR now reads that
+  fog when you upload and turns it into ParelVR volumetric fog: the same colour, thickness and reach, lit by the
+  fog's own light, fading over the horizon just like in your editor.
+
+Re-upload your world with 1.16.2 to bring its fog along.
+
 ## 1.16.1 (2026-11-10)
 
 ### HDRP worlds look like they did in HDRP
