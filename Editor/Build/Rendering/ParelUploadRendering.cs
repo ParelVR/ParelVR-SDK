@@ -7,6 +7,7 @@ using ParelVR.Rendering.Editor;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 namespace ParelVR.SDK.Build
@@ -132,9 +133,70 @@ namespace ParelVR.SDK.Build
                 if (!AssetDatabase.CopyAsset(scenePaths[i], copy)) throw new Exception("Could not copy " + Path.GetFileNameWithoutExtension(scenePaths[i]) + " for building.");
                 result[i] = copy;
             }
+            if (result.Length > 0) EmbedPipeline(result[0], pipeline);
             Debug.Log("[ParelVR SDK] Rendering: this world runs on " + CompatibilityReport.PipelineLabel(pipeline) +
-                      " in ParelVR. Its materials, shaders, lights and volumes are uploaded as they are (nothing converted).");
+                      " in ParelVR. Its materials, shaders, lights, volumes and your project's pipeline settings are uploaded as they are (nothing converted).");
             return result;
+        }
+
+        /// <summary>
+        /// Puts the project's pipeline into the world's build copy (<see cref="ParelWorldPipeline"/>): the pipeline asset
+        /// (URP: with its renderer and renderer features, e.g. volumetric light / god rays, SSAO, decals) and the project's
+        /// default volume profile(s) as the lowest-priority global volumes (HDRP keeps fog, volumetrics, exposure and sky
+        /// there). Scene references make Unity build all of them into the world's bundle.
+        /// </summary>
+        private static void EmbedPipeline(string scenePath, RenderPipelineKind pipeline)
+        {
+            Scene scene = SceneManager.GetSceneByPath(scenePath);
+            bool opened = !scene.IsValid() || !scene.isLoaded;
+            if (opened) scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+            try
+            {
+                foreach (GameObject root in scene.GetRootGameObjects())
+                    if (root.name == ParelWorldPipeline.ObjectName) UnityEngine.Object.DestroyImmediate(root);
+
+                var go = new GameObject(ParelWorldPipeline.ObjectName);
+                SceneManager.MoveGameObjectToScene(go, scene);
+                ParelWorldPipeline info = go.AddComponent<ParelWorldPipeline>();
+                info.Pipeline = pipeline;
+                info.Asset = GraphicsSettings.currentRenderPipeline;
+                string id = pipeline == RenderPipelineKind.HighDefinition ? "com.unity.render-pipelines.high-definition" : "com.unity.render-pipelines.universal";
+                var pkg = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/" + id + "/package.json");
+                info.PipelineVersion = CompatibilityReport.PipelineLabel(pipeline) + " " + (pkg != null ? pkg.version : "unknown");
+
+                // The project's default volume profiles (global default, and URP's per-quality default) sit under every
+                // volume in the creator's editor; in the game they become global volumes below every other volume.
+                int added = 0;
+                Type volumeType = Type.GetType("UnityEngine.Rendering.Volume, Unity.RenderPipelines.Core.Runtime");
+                Type managerType = Type.GetType("UnityEngine.Rendering.VolumeManager, Unity.RenderPipelines.Core.Runtime");
+                object manager = managerType?.GetProperty("instance", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)?.GetValue(null);
+                if (volumeType != null && manager != null)
+                {
+                    var seen = new HashSet<UnityEngine.Object>();
+                    string[] props = { "globalDefaultProfile", "qualityDefaultProfile" };
+                    for (int i = 0; i < props.Length; i++)
+                    {
+                        var profile = managerType.GetProperty(props[i])?.GetValue(manager) as ScriptableObject;
+                        if (profile == null || !seen.Add(profile) || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(profile))) continue;
+                        var v = new GameObject("Project Default Volume (" + profile.name + ")");
+                        v.transform.SetParent(go.transform, false);
+                        Component volume = v.AddComponent(volumeType);
+                        var so = new SerializedObject(volume);
+                        so.FindProperty("m_IsGlobal").boolValue = true;
+                        so.FindProperty("priority").floatValue = -10000f + i;
+                        so.FindProperty("sharedProfile").objectReferenceValue = profile;
+                        so.ApplyModifiedPropertiesWithoutUndo();
+                        added++;
+                    }
+                }
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log("[ParelVR SDK] Rendering: uploading your pipeline asset '" + (info.Asset ? info.Asset.name : "none") + "' (" + info.PipelineVersion + ")" +
+                          (added > 0 ? " and " + added + " default volume profile(s)" : "") + " with the world, so it renders with your settings and renderer features.");
+            }
+            finally
+            {
+                if (opened) EditorSceneManager.CloseScene(scene, true);
+            }
         }
 
         private static void CheckPipelineVersion(RenderPipelineKind pipeline)

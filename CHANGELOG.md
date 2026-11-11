@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.18.0 (2026-11-11)
+
+### Your project's pipeline settings come with your world
+
+- **God rays, volumetrics and renderer features show up in ParelVR.** A URP or HDRP world now uploads with your
+  project's own pipeline asset (for URP with its renderer and renderer features: SSAO, decals, screen-space shadows,
+  full-screen passes, volumetric light) and your project's default volume profile (where HDRP keeps fog, volumetric
+  lighting, exposure and sky). ParelVR runs your world on them, so it looks the way it does in your editor.
+- Renderer features from your own scripts or a store asset need their code in ParelVR; Unity's own features work.
+- Re-upload a URP / HDRP world to get this. Worlds uploaded before still load on ParelVR's own URP / HDRP settings.
+
 ## 1.17.0 (2026-11-11)
 
 ### Your URP and HDRP worlds, exactly as you made them

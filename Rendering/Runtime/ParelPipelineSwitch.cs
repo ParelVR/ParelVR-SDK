@@ -26,6 +26,7 @@ namespace ParelVR.Rendering
         private static RenderPipelineAsset _urp, _hdrp;
         private static RenderPipelineKind _wanted = RenderPipelineKind.BuiltIn;
         private static bool _hooked;
+        private static int _assetChanges;
 
         /// <summary>The pipeline running now.</summary>
         public static RenderPipelineKind Current
@@ -63,6 +64,33 @@ namespace ParelVR.Rendering
             }
         }
 
+        /// <summary>
+        /// Call once the world scene has loaded. A world uploaded with SDK 1.18+ carries the creator's own pipeline asset
+        /// (<see cref="ParelWorldPipeline"/>); the world then runs on it (their renderer features, volumetrics, quality
+        /// settings) instead of the game's generic one. Older worlds keep the game's asset.
+        /// </summary>
+        public static RenderPipelineKind AdoptWorld(UnityEngine.SceneManagement.Scene scene)
+        {
+            ParelWorldPipeline info = ParelWorldPipeline.Find(scene);
+            if (info == null || info.Asset == null || _wanted == RenderPipelineKind.BuiltIn) return Current;
+            RenderPipelineKind kind = KindOf(info.Asset);
+            if (kind != _wanted)
+            {
+                Debug.LogWarning("[ParelVR Pipeline] The world's own pipeline asset is " + kind + " but it runs on " + _wanted + "; keeping the game's asset.");
+                return Current;
+            }
+            _worldAsset = info.Asset;
+            Debug.Log("[ParelVR Pipeline] Running the world on its own " + kind + " asset '" + info.Asset.name + "'" +
+                      (string.IsNullOrEmpty(info.PipelineVersion) ? "" : " (made with " + info.PipelineVersion + ")") + ".");
+            return Use(_wanted);
+        }
+
+        private static RenderPipelineAsset _worldAsset;
+
+        private static RenderPipelineKind KindOf(RenderPipelineAsset a) =>
+            a == null ? RenderPipelineKind.BuiltIn :
+            a.GetType().Name.IndexOf("HDRenderPipeline", StringComparison.Ordinal) >= 0 ? RenderPipelineKind.HighDefinition : RenderPipelineKind.Universal;
+
         /// <summary>Switches the running pipeline. Returns the pipeline in use afterwards.</summary>
         public static RenderPipelineKind Use(RenderPipelineKind made)
         {
@@ -72,7 +100,9 @@ namespace ParelVR.Rendering
                 Debug.LogWarning("[ParelVR Pipeline] This device can't run HDRP; the world stays on Built-in.");
                 p = RenderPipelineKind.BuiltIn;
             }
-            RenderPipelineAsset asset = AssetFor(p);
+            // The world's own asset while it is loaded (AdoptWorld); a new pipeline choice drops it.
+            if (p != _wanted || (_worldAsset != null && KindOf(_worldAsset) != p)) _worldAsset = null;
+            RenderPipelineAsset asset = _worldAsset != null ? _worldAsset : AssetFor(p);
             if (p != RenderPipelineKind.BuiltIn && asset == null)
             {
                 Debug.LogError("[ParelVR Pipeline] The game has no " + p + " pipeline asset (Resources/" + (p == RenderPipelineKind.Universal ? UrpResource : HdrpResource) + "); the world stays on Built-in.");
@@ -82,8 +112,23 @@ namespace ParelVR.Rendering
             if (!_hooked)
             {
                 _hooked = true;
+                // Diagnostics: every time Unity actually tears down / rebuilds the running pipeline, with who caused it.
+                // A rebuild in the editor also rebuilds every VFX graph and unloads unused assets; it should happen
+                // once per world switch, never per frame.
+                RenderPipelineManager.activeRenderPipelineAssetChanged += (a, b) =>
+                {
+                    _assetChanges++;
+                    if (_assetChanges <= 12 || _assetChanges % 50 == 0)
+                        Debug.LogWarning("[ParelVR Pipeline] Pipeline asset changed #" + _assetChanges + ": " + (a ? a.name : "Built-in") + " -> " + (b ? b.name : "Built-in") +
+                                         " (frame " + Time.frameCount + ", default " + (GraphicsSettings.defaultRenderPipeline ? GraphicsSettings.defaultRenderPipeline.name : "none") +
+                                         ", quality " + (QualitySettings.renderPipeline ? QualitySettings.renderPipeline.name : "none") + " lvl " + QualitySettings.GetQualityLevel() + ")\n" + Environment.StackTrace);
+                };
                 // Each quality level has its own pipeline setting: a graphics-settings change mustn't drop the world's pipeline.
-                QualitySettings.activeQualityLevelChanged += (from, to) => { if (Current != _wanted) Use(_wanted); };
+                QualitySettings.activeQualityLevelChanged += (from, to) =>
+                {
+                    RenderPipelineAsset want = _worldAsset != null ? _worldAsset : AssetFor(_wanted);
+                    if (GraphicsSettings.currentRenderPipeline != want) Use(_wanted);
+                };
             }
             RenderPipelineKind before = Current;
             // HDRP's sky system writes its own temporary material over the active scene's skybox (and forces its ambient
