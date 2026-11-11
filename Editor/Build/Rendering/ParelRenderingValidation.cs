@@ -18,10 +18,14 @@ namespace ParelVR.SDK.Build
     {
         private const int MaxIssues = 25;
 
-        public static void AddPipelineIssues(ValidationReport report)
+        public static void AddPipelineIssues(ValidationReport report, bool world = false)
         {
             RenderPipelineKind pipeline = ParelSceneConverter.ProjectPipeline();
-            if (pipeline == RenderPipelineKind.Universal || pipeline == RenderPipelineKind.HighDefinition)
+            if (world && ParelUploadRendering.RunsNatively(pipeline))
+                report.AddInfo($"This world runs on the {CompatibilityReport.PipelineLabel(pipeline)} in ParelVR: its materials, shaders, lights and " +
+                               $"volumes are uploaded as they are. Use {CompatibilityReport.PipelineLabel(pipeline)} {ParelUploadRendering.GamePipelineVersion} " +
+                               $"and Unity {ParelUploadRendering.GameUnityVersion} so its shaders match the game.");
+            else if (pipeline == RenderPipelineKind.Universal || pipeline == RenderPipelineKind.HighDefinition)
                 report.AddInfo($"This project uses the {CompatibilityReport.PipelineLabel(pipeline)}. ParelVR renders with Unity's Built-in pipeline, so your " +
                                "materials (and, for HDRP, lights, sky and fog) are converted when you upload. Your project's files are not changed.");
         }
@@ -93,7 +97,7 @@ namespace ParelVR.SDK.Build
         public Task<ValidationReport> ValidateAsync()
         {
             var report = new ValidationReport();
-            ParelRenderingValidation.AddPipelineIssues(report);
+            ParelRenderingValidation.AddPipelineIssues(report, world: true);
             var roots = new List<GameObject>();
             var materials = new List<Material>();
             for (int i = 0; i < SceneManager.sceneCount; i++)
@@ -107,7 +111,9 @@ namespace ParelVR.SDK.Build
                 }
             }
             if (RenderSettings.skybox != null) materials.Add(RenderSettings.skybox);
-            ParelRenderingValidation.AddMaterialIssues(report, materials, "World materials");
+            // A URP / HDRP world runs on its own pipeline: its materials aren't converted, so there is nothing to list.
+            if (!ParelUploadRendering.RunsNatively(ParelSceneConverter.ProjectPipeline()))
+                ParelRenderingValidation.AddMaterialIssues(report, materials, "World materials");
             ParelRenderingValidation.AddQuestBudgetIssues(report, roots, false);
             return Task.FromResult(report);
         }

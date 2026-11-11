@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.17.0 (not released yet: ships together with the game update that runs URP and HDRP)
+
+### Your URP and HDRP worlds, exactly as you made them
+
+- **Nothing is converted any more.** A URP world, or an HDRP world built for PC, is uploaded as it is: ParelVR now
+  switches to its own URP or HDRP for your world, so your materials, Shader Graphs, lights, volumes, sky, fog and
+  post-processing look the same in the game as in your editor.
+- Use **URP / HDRP 17.4.0** on **Unity 6000.4** so your shaders match the game's. The Builder warns you if your
+  versions differ.
+- HDRP worlds built for Meta / Standalone VR are still converted, since headsets can't run HDRP. Built-in worlds are
+  unchanged.
+
 ## 1.16.2 (2026-11-11)
 
 ### URP fog comes with your world

@@ -36,6 +36,11 @@ namespace ParelVR.SDK.Build
         {
             get
             {
+                if (Reports.Count == 0)
+                {
+                    RenderPipelineKind p = ParelSceneConverter.ProjectPipeline();
+                    if (RunsNatively(p)) return "Rendering: runs on " + CompatibilityReport.PipelineLabel(p) + " in ParelVR, uploaded as it is (nothing converted).";
+                }
                 int converted = Reports.Sum(r => r.Count(ConversionAction.Converted) + r.Count(ConversionAction.Fallback));
                 int hidden = Reports.Sum(r => r.Count(ConversionAction.Unsupported));
                 if (converted == 0 && hidden == 0) return null;
@@ -56,6 +61,7 @@ namespace ParelVR.SDK.Build
         {
             Reports.Clear();
             RenderPipelineKind pipeline = ParelSceneConverter.ProjectPipeline();
+            if (RunsNatively(pipeline)) return PrepareNativeWorld(scenePaths, pipeline);
             var result = (string[])scenePaths.Clone();
             for (int i = 0; i < scenePaths.Length; i++)
             {
@@ -91,6 +97,57 @@ namespace ParelVR.SDK.Build
         public static void FinishWorld()
         {
             if (AssetDatabase.IsValidFolder(WorldFolder)) AssetDatabase.DeleteAsset(WorldFolder);
+            if (AssetDatabase.IsValidFolder(ParelPipelineSwitch.UrpFolder)) AssetDatabase.DeleteAsset(ParelPipelineSwitch.UrpFolder);
+            if (AssetDatabase.IsValidFolder(ParelPipelineSwitch.HdrpFolder)) AssetDatabase.DeleteAsset(ParelPipelineSwitch.HdrpFolder);
+        }
+
+        // ---- true URP / HDRP ----------------------------------------------------------------------------------------
+
+        /// <summary>The URP / HDRP version the game runs. A world made with another version may not draw right.</summary>
+        public const string GamePipelineVersion = "17.4.0";
+        public const string GameUnityVersion = "6000.4";
+
+        /// <summary>
+        /// URP worlds, and HDRP worlds for PC, run in the game on their own pipeline: nothing is converted. HDRP can't
+        /// run on standalone headsets, so an HDRP world built for Android is still converted for Built-in.
+        /// </summary>
+        public static bool RunsNatively(RenderPipelineKind pipeline) =>
+            pipeline == RenderPipelineKind.Universal ||
+            (pipeline == RenderPipelineKind.HighDefinition && EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android);
+
+        /// <summary>
+        /// Builds the world as it is, on its own pipeline. The scenes are copied into the pipeline's upload folder,
+        /// which is how the game knows the pipeline before loading them.
+        /// </summary>
+        private static string[] PrepareNativeWorld(string[] scenePaths, RenderPipelineKind pipeline)
+        {
+            string folder = pipeline == RenderPipelineKind.HighDefinition ? ParelPipelineSwitch.HdrpFolder : ParelPipelineSwitch.UrpFolder;
+            CheckPipelineVersion(pipeline);
+            if (AssetDatabase.IsValidFolder(folder)) AssetDatabase.DeleteAsset(folder);
+            AssetDatabase.CreateFolder("Assets", Path.GetFileName(folder));
+            var result = new string[scenePaths.Length];
+            for (int i = 0; i < scenePaths.Length; i++)
+            {
+                string copy = folder + "/" + Path.GetFileName(scenePaths[i]);
+                if (!AssetDatabase.CopyAsset(scenePaths[i], copy)) throw new Exception("Could not copy " + Path.GetFileNameWithoutExtension(scenePaths[i]) + " for building.");
+                result[i] = copy;
+            }
+            Debug.Log("[ParelVR SDK] Rendering: this world runs on " + CompatibilityReport.PipelineLabel(pipeline) +
+                      " in ParelVR. Its materials, shaders, lights and volumes are uploaded as they are (nothing converted).");
+            return result;
+        }
+
+        private static void CheckPipelineVersion(RenderPipelineKind pipeline)
+        {
+            string id = pipeline == RenderPipelineKind.HighDefinition ? "com.unity.render-pipelines.high-definition" : "com.unity.render-pipelines.universal";
+            var info = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/" + id + "/package.json");
+            string version = info != null ? info.version : "unknown";
+            if (version != GamePipelineVersion)
+                Debug.LogWarning("[ParelVR SDK] Rendering: your project has " + CompatibilityReport.PipelineLabel(pipeline) + " " + version + ", ParelVR runs " +
+                                 GamePipelineVersion + ". Shaders made with another version may not draw right in the game; install " + GamePipelineVersion + " in the Package Manager.");
+            if (!Application.unityVersion.StartsWith(GameUnityVersion, StringComparison.Ordinal))
+                Debug.LogWarning("[ParelVR SDK] Rendering: your project uses Unity " + Application.unityVersion + ", ParelVR runs Unity " + GameUnityVersion +
+                                 ". A " + CompatibilityReport.PipelineLabel(pipeline) + " world should be made with the same Unity version.");
         }
 
         private static string CopyScene(string path)
