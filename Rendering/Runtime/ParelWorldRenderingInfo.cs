@@ -41,6 +41,10 @@ namespace ParelVR.Rendering
         public int MaterialsKept;
         [Tooltip("Volumetric fog (from HDRP's Fog and Local Volumetric Fog), drawn by the ParelVR shaders.")]
         public ParelFogSettings Fog = new ParelFogSettings();
+        [Tooltip("Volumetric clouds (from HDRP's Volumetric Clouds), drawn into the ParelVR sky, with cloud shadows.")]
+        public ParelCloudSettings Clouds = new ParelCloudSettings();
+        [Tooltip("Screen-space reflections, GI, contact and micro shadows (from HDRP's volume overrides), drawn by the ParelVR lit shaders.")]
+        public ParelScreenEffectsSettings ScreenEffects = new ParelScreenEffectsSettings();
         [Tooltip("Post-processing (from HDRP's volume overrides), drawn by the game's post-processing.")]
         public ParelPostSettings Post = new ParelPostSettings();
 
@@ -97,7 +101,11 @@ namespace ParelVR.Rendering
                 if (sceneIsActive) PutSkyInFog(target);
                 _fogOwner = this;
                 ParelFogGlobals.Apply(Fog, FindSun(), ExposureScale);
+                ParelVolumetricFog.Enable(Fog, FindSun);
             }
+
+            if (Clouds != null && Clouds.Enabled) ParelSkyClouds.Enable(Clouds, FindSun);
+            if (ScreenEffects != null && ScreenEffects.Any) ParelScreenEffects.Apply(ScreenEffects);
 
             RenderingLog.Notice("World made with the " + CompatibilityReport.PipelineLabel(SourcePipeline) + ": " + MaterialsConverted + " material(s) converted at upload"
                                 + (Mathf.Abs(LightProbeScale - 1f) > 1e-4f ? ", light probes scaled ×" + LightProbeScale.ToString("0.#####") : "")
@@ -147,7 +155,7 @@ namespace ParelVR.Rendering
         private void PutSkyInFog(TargetPlatform target)
         {
             Material sky = RenderSettings.skybox;
-            if (sky == null || sky.shader == null || sky.shader.name == ParelShaderNames.Skybox) return;
+            if (sky == null || sky.shader == null || sky.shader.name == ParelShaderNames.Skybox || sky.shader.name == ParelShaderNames.Sky) return;
             Shader parelSky = ParelShaderLibrary.Resolve(ShaderRole.Skybox, target, out ShaderRole resolved);
             if (parelSky == null || resolved != ShaderRole.Skybox) return;
 
@@ -210,13 +218,17 @@ namespace ParelVR.Rendering
             if (!_applied || Fog == null || !Fog.Enabled) return;
             _fogOwner = this;
             ParelFogGlobals.Apply(Fog, FindSun(), ExposureScale);
+            ParelVolumetricFog.Enable(Fog, FindSun);
         }
 
         private void OnDisable()
         {
+            if (Clouds != null && Clouds.Enabled && _applied) ParelSkyClouds.Disable();
+            if (ScreenEffects != null && ScreenEffects.Any && _applied) ParelScreenEffects.Clear();
             if (_fogOwner != this) return;
             _fogOwner = null;
             ParelFogGlobals.Clear();
+            ParelVolumetricFog.Disable();
         }
     }
 }

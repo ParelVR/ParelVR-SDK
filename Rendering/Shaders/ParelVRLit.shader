@@ -5,6 +5,22 @@ Shader "ParelVR/Lit"
 {
     Properties
     {
+        [Header(HDRP features)]
+        _ParelCoatMask ("Clear Coat", Range(0, 1)) = 0
+        _ParelCoatSmoothness ("Clear Coat Smoothness", Range(0, 1)) = 0.95
+        [NoScaleOffset] _ParelCoatMap ("Clear Coat Mask Map (R)", 2D) = "white" {}
+        _ParelIridescence ("Iridescence", Range(0, 1)) = 0
+        _ParelIridescenceThickness ("Iridescence Thickness", Range(0, 1)) = 0.5
+        _ParelAnisotropy ("Anisotropy", Range(-1, 1)) = 0
+        _ParelSpecularAA ("Specular AA (on, variance, threshold)", Vector) = (0, 0.1, 0.2, 0)
+        [Enum(None,0,Flip,1,Mirror,2)] _ParelDoubleSidedNormals ("Double-Sided Normals", Float) = 0
+        [Enum(None,0,Box,1,Sphere,2,Thin,3)] _ParelRefraction ("Refraction", Float) = 0
+        _ParelIor ("Index of Refraction", Range(1, 2.5)) = 1.5
+        _ParelTransmittanceColor ("Transmittance Colour", Color) = (1, 1, 1, 1)
+        _ParelAbsorptionDistance ("Absorption Distance (m)", Float) = 1
+        _ParelRefractionThickness ("Refraction Thickness (m)", Float) = 0.1
+        [Toggle] _ParelNoFog ("Not Fogged", Float) = 0
+
         _Color ("Color", Color) = (1,1,1,1)
         _MainTex ("Albedo", 2D) = "white" {}
         _Cutoff ("Alpha Cutoff", Range(0.0, 1.0)) = 0.5

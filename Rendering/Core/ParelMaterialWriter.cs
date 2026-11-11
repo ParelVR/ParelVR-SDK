@@ -21,6 +21,9 @@ namespace ParelVR.Rendering
                 case ShaderRole.Lit:
                 case ShaderRole.Cutout:
                 case ShaderRole.Transparent:
+                    WriteLit(d, sink);
+                    WriteHdrpFeatures(d, sink);
+                    break;
                 case ShaderRole.ParticlesLit:
                     WriteLit(d, sink);
                     break;
@@ -38,10 +41,48 @@ namespace ParelVR.Rendering
                 case ShaderRole.Toon:
                 case ShaderRole.Emissive:
                 case ShaderRole.Unlit:
-                case ShaderRole.Water:
                     WriteEmission(d, sink);
                     break;
+                case ShaderRole.Water:
+                    WriteWater(d, sink);
+                    break;
             }
+        }
+
+        /// <summary>HDRP material features the ParelVR lit shaders draw (clear coat, iridescence, anisotropy, refraction...).</summary>
+        public static void WriteHdrpFeatures(MaterialDescription d, IMaterialPropertySink sink)
+        {
+            sink.SetFloat("_ParelCoatMask", d.CoatMask);
+            if (d.CoatMaskMap != null && d.CoatMaskMap.Texture != null) sink.SetTexture("_ParelCoatMap", d.CoatMaskMap);
+            sink.SetFloat("_ParelIridescence", d.Iridescence);
+            sink.SetFloat("_ParelIridescenceThickness", d.IridescenceThickness);
+            sink.SetFloat("_ParelAnisotropy", d.Anisotropy);
+            sink.SetColor("_ParelSpecularAA", new ColorValue(d.SpecularAA ? 1f : 0f, d.SpecularAAVariance, d.SpecularAAThreshold, 0f));
+            sink.SetFloat("_ParelDoubleSidedNormals", d.DoubleSidedNormalMode);
+            sink.SetFloat("_ParelRefraction", d.RefractionModel);
+            sink.SetFloat("_ParelIor", d.Ior);
+            sink.SetColor("_ParelTransmittanceColor", d.TransmittanceColor);
+            sink.SetFloat("_ParelAbsorptionDistance", d.AbsorptionDistance);
+            sink.SetFloat("_ParelRefractionThickness", d.RefractionThickness);
+            sink.SetFloat("_ParelNoFog", d.NoFog ? 1f : 0f);
+        }
+
+        // A creator's own water shader (not HDRP's Water Surface): its colour becomes the water's colour, its normal map
+        // the ripples, with gentle pool-sized waves.
+        private static void WriteWater(MaterialDescription d, IMaterialPropertySink sink)
+        {
+            ColorValue c = d.BaseColor;
+            sink.SetColor("_RefractionColor", new ColorValue(c.R, c.G, c.B, 1f));
+            sink.SetColor("_ScatteringColor", new ColorValue(c.R * 0.35f, c.G * 0.35f, c.B * 0.35f, 1f));
+            if (d.NormalMap != null && d.NormalMap.Texture != null) sink.SetTexture("_RippleNormal", d.NormalMap);
+            float[] lengths = { 4f, 2.6f, 1.7f, 1.1f, 0.7f, 0.45f, 0.3f, 0.2f };
+            float[] angles = { 0f, 35f, -40f, 70f, -15f, 110f, 20f, -80f };
+            for (int i = 0; i < 8; i++)
+            {
+                float a = angles[i] * (float)System.Math.PI / 180f;
+                sink.SetColor("_Wave" + i, new ColorValue((float)System.Math.Cos(a), (float)System.Math.Sin(a), lengths[i] * 0.006f, lengths[i]));
+            }
+            sink.SetFloat("_WaveSteepness", 0.3f);
         }
 
         private static void WriteSurface(MaterialDescription d, IMaterialPropertySink sink)

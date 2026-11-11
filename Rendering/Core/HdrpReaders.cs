@@ -19,9 +19,19 @@ namespace ParelVR.Rendering
                         d.Surface = s.FloatOr("_EnableBlendModePreserveSpecularLighting", 1f) > 0.5f && d.Shading != ShadingModel.Unlit ? SurfaceType.Transparent : SurfaceType.Fade;
                         break;
                 }
-                if (s.FloatOr("_RefractionModel", 0f) > 0.5f || s.IsKeywordEnabled("_REFRACTION_PLANE") || s.IsKeywordEnabled("_REFRACTION_SPHERE") || s.IsKeywordEnabled("_REFRACTION_THIN"))
-                    d.Unmapped("refraction (shown as plain transparency)");
-                if (s.FloatOr("_EnableFogOnTransparent", 1f) < 0.5f) d.Unmapped("fog switched off on this transparent surface");
+                int refraction = (int)Math.Round(s.FloatOr("_RefractionModel", 0f));
+                if (refraction == 0 && s.IsKeywordEnabled("_REFRACTION_PLANE")) refraction = 1;
+                if (refraction == 0 && s.IsKeywordEnabled("_REFRACTION_SPHERE")) refraction = 2;
+                if (refraction == 0 && s.IsKeywordEnabled("_REFRACTION_THIN")) refraction = 3;
+                if (refraction > 0)
+                {
+                    d.RefractionModel = Math.Min(refraction, 3);
+                    d.Ior = s.FloatOr("_Ior", 1.5f);
+                    d.TransmittanceColor = s.ColorOr("_TransmittanceColor", ColorValue.White);
+                    d.AbsorptionDistance = s.FloatOr("_ATDistance", 1f);
+                    d.RefractionThickness = s.FloatOr("_Thickness", 0.1f);
+                }
+                if (s.FloatOr("_EnableFogOnTransparent", 1f) < 0.5f) d.NoFog = true;
             }
             if (s.FloatOr("_AlphaCutoffEnable", 0f) > 0.5f || s.IsKeywordEnabled("_ALPHATEST_ON"))
             {
@@ -31,7 +41,12 @@ namespace ParelVR.Rendering
             }
             bool doubleSided = s.FloatOr("_DoubleSidedEnable", 0f) > 0.5f || s.IsKeywordEnabled("_DOUBLESIDED_ON");
             d.Cull = doubleSided ? FaceCull.Off : FaceCull.Back;
-            if (doubleSided && d.Shading != ShadingModel.Unlit) d.Unmapped("double-sided normal flipping (back faces are lit like front faces)");
+            if (doubleSided && d.Shading != ShadingModel.Unlit)
+            {
+                // HDRP: 0 flip, 1 mirror, 2 none.
+                int mode = (int)Math.Round(s.FloatOr("_DoubleSidedNormalMode", 1f));
+                d.DoubleSidedNormalMode = mode == 0 ? 1 : mode == 1 ? 2 : 0;
+            }
             d.RenderQueue = s.RenderQueue;
         }
 
@@ -68,11 +83,18 @@ namespace ParelVR.Rendering
             int id = (int)Math.Round(s.FloatOr("_MaterialID", 1f));
             switch (id)
             {
-                case 2: d.Unmapped("anisotropic highlights"); break;
-                case 3: d.Unmapped("iridescence"); break;
+                case 2: d.Anisotropy = s.FloatOr("_Anisotropy", 0f); break;
+                case 3:
+                    d.Iridescence = s.FloatOr("_IridescenceMask", 1f);
+                    d.IridescenceThickness = s.FloatOr("_IridescenceThickness", 0.5f);
+                    break;
             }
             Subsurface(s, d, id, "");
-            if (s.FloatOr("_CoatMask", 0f) > 0f || s.IsKeywordEnabled("_MATERIAL_FEATURE_CLEAR_COAT")) d.Unmapped("clear coat");
+            if (s.FloatOr("_CoatMask", 0f) > 0f || s.IsKeywordEnabled("_MATERIAL_FEATURE_CLEAR_COAT"))
+            {
+                d.CoatMask = s.FloatOr("_CoatMask", 1f);
+                d.CoatMaskMap = s.Tex("_CoatMaskMap");
+            }
             int uv = (int)Math.Round(s.FloatOr("_UVBase", 0f));
             if (uv == 4 || uv == 5) d.Unmapped(uv == 4 ? "planar UV mapping" : "triplanar UV mapping");
             else if (uv > 0) d.Unmapped("textures on UV set " + uv + " (the first UV set is used)");
@@ -193,7 +215,12 @@ namespace ParelVR.Rendering
 
             HdrpSurface.Emission(s, d, "_EmissiveColorMap");
             HdrpSurface.Features(s, d);
-            if (s.FloatOr("_EnableGeometricSpecularAA", 0f) > 0.5f) d.Unmapped("geometric specular anti-aliasing");
+            if (s.FloatOr("_EnableGeometricSpecularAA", 0f) > 0.5f)
+            {
+                d.SpecularAA = true;
+                d.SpecularAAVariance = s.FloatOr("_SpecularAAScreenSpaceVariance", 0.1f);
+                d.SpecularAAThreshold = s.FloatOr("_SpecularAAThreshold", 0.2f);
+            }
             return d;
         }
     }

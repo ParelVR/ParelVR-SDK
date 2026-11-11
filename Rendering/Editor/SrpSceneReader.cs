@@ -18,6 +18,8 @@ namespace ParelVR.Rendering.Editor
         public bool GradientSky;
         public Color GradientTop = Color.white, GradientMiddle = Color.gray, GradientBottom = Color.black;
         public bool PhysicallyBasedSky;
+        /// <summary>The HDRP volume components themselves, for the sky converter to read every parameter.</summary>
+        public object PhysicallyBasedSkyComponent, GradientSkyComponent, CloudLayerComponent, VolumetricCloudsComponent;
 
         /// <summary>The fixed exposure, when the scene's exposure is fixed.</summary>
         public float? FixedEv100;
@@ -36,6 +38,10 @@ namespace ParelVR.Rendering.Editor
         public Color FogTint = Color.white;
         public float FogAnisotropy;
         public float FogLightDimmer = 1f;
+        public float FogVolumetricDistance = 64f;
+
+        /// <summary>Screen-space lighting (reflections, GI, contact / micro shadows) drawn by the ParelVR lit shaders.</summary>
+        public readonly ParelScreenEffectsSettings Screen = new ParelScreenEffectsSettings();
 
         /// <summary>Post-processing overrides ParelVR can show (through the game's post-processing).</summary>
         public readonly ParelPostSettings Post = new ParelPostSettings();
@@ -71,9 +77,8 @@ namespace ParelVR.Rendering.Editor
                     ReadComponent(component, settings);
                 }
             }
-            settings.Post.Enabled = settings.Post.Bloom || settings.Post.Tonemapping != ParelPostSettings.ToneMapper.None || settings.Post.ColorAdjustments ||
-                                    settings.Post.WhiteBalance || settings.Post.LiftGammaGain || settings.Post.Vignette || settings.Post.ChromaticAberration ||
-                                    settings.Post.FilmGrain || settings.Post.AmbientOcclusion || settings.Post.DepthOfField || settings.Post.MotionBlur || settings.Post.LensDistortion;
+            settings.Post.Enabled = true;
+            settings.Post.Enabled = settings.Post.Any;
             return settings;
         }
 
@@ -126,6 +131,7 @@ namespace ParelVR.Rendering.Editor
                     break;
                 case "GradientSky":
                     s.GradientSky = true;
+                    s.GradientSkyComponent = c;
                     if (Param(c, "top", out object top)) s.GradientTop = (Color)top;
                     if (Param(c, "middle", out object mid)) s.GradientMiddle = (Color)mid;
                     if (Param(c, "bottom", out object bot)) s.GradientBottom = (Color)bot;
@@ -134,6 +140,7 @@ namespace ParelVR.Rendering.Editor
                     break;
                 case "PhysicallyBasedSky":
                     s.PhysicallyBasedSky = true;
+                    s.PhysicallyBasedSkyComponent = c;
                     if (Param(c, "exposure", out object pev)) s.SkyExposureEv = Float(pev);
                     if (Param(c, "multiplier", out object pmul)) s.SkyMultiplier = Float(pmul);
                     break;
@@ -156,6 +163,7 @@ namespace ParelVR.Rendering.Editor
                     if (Param(c, "albedo", out object fa)) s.FogAlbedo = (Color)fa;
                     if (Param(c, "anisotropy", out object an)) s.FogAnisotropy = Float(an);
                     if (Param(c, "globalLightProbeDimmer", out object dim)) s.FogLightDimmer = Float(dim);
+                    if (Param(c, "depthExtent", out object de)) s.FogVolumetricDistance = Float(de);
                     break;
                 case "Bloom":
                     s.Post.Bloom = true;
@@ -168,9 +176,52 @@ namespace ParelVR.Rendering.Editor
                     string tm = Param(c, "mode", out object tmo) ? tmo?.ToString() ?? "" : "";
                     s.Post.Tonemapping = tm == "ACES" ? ParelPostSettings.ToneMapper.Aces
                         : tm == "Neutral" ? ParelPostSettings.ToneMapper.Neutral
+                        : tm == "Custom" ? ParelPostSettings.ToneMapper.Custom
+                        : tm == "External" ? ParelPostSettings.ToneMapper.External
                         : tm == "None" || tm == "" ? ParelPostSettings.ToneMapper.None
-                        : ParelPostSettings.ToneMapper.Aces; // Custom / External / AgX: closest built-in curve
-                    if (tm != "" && tm != "None" && tm != "ACES" && tm != "Neutral") s.NotCarried.Add("tonemapping mode " + tm + " (shown with ACES)");
+                        : ParelPostSettings.ToneMapper.Aces; // AgX: the closest filmic curve
+                    s.Post.ToeStrength = Float(Value(c, "toeStrength"));
+                    s.Post.ToeLength = Float(Value(c, "toeLength"));
+                    s.Post.ShoulderStrength = Float(Value(c, "shoulderStrength"));
+                    s.Post.ShoulderLength = Float(Value(c, "shoulderLength"));
+                    s.Post.ShoulderAngle = Float(Value(c, "shoulderAngle"));
+                    s.Post.TonemapGamma = Value(c, "gamma") is float g ? g : 1f;
+                    s.Post.ExternalLut = Value(c, "lutTexture") as Texture;
+                    if (s.Post.Tonemapping == ParelPostSettings.ToneMapper.External && s.Post.ExternalLut == null) s.Post.Tonemapping = ParelPostSettings.ToneMapper.Aces;
+                    break;
+                case "ChannelMixer":
+                    s.Post.ChannelMixer = true;
+                    s.Post.MixerRed = new Vector3(Float(Value(c, "redOutRedIn")), Float(Value(c, "redOutGreenIn")), Float(Value(c, "redOutBlueIn")));
+                    s.Post.MixerGreen = new Vector3(Float(Value(c, "greenOutRedIn")), Float(Value(c, "greenOutGreenIn")), Float(Value(c, "greenOutBlueIn")));
+                    s.Post.MixerBlue = new Vector3(Float(Value(c, "blueOutRedIn")), Float(Value(c, "blueOutGreenIn")), Float(Value(c, "blueOutBlueIn")));
+                    break;
+                case "ColorCurves":
+                    s.Post.Curves = true;
+                    s.Post.MasterCurve = Curve(Value(c, "master"));
+                    s.Post.RedCurve = Curve(Value(c, "red"));
+                    s.Post.GreenCurve = Curve(Value(c, "green"));
+                    s.Post.BlueCurve = Curve(Value(c, "blue"));
+                    s.Post.HueVsHue = Curve(Value(c, "hueVsHue"));
+                    s.Post.HueVsSat = Curve(Value(c, "hueVsSat"));
+                    s.Post.SatVsSat = Curve(Value(c, "satVsSat"));
+                    s.Post.LumVsSat = Curve(Value(c, "lumVsSat"));
+                    break;
+                case "SplitToning":
+                    s.Post.SplitToning = true;
+                    if (Value(c, "shadows") is Color sh) s.Post.SplitShadows = sh;
+                    if (Value(c, "highlights") is Color hi) s.Post.SplitHighlights = hi;
+                    s.Post.SplitBalance = Float(Value(c, "balance"));
+                    break;
+                case "ShadowsMidtonesHighlights":
+                    s.Post.ShadowsMidtonesHighlights = true;
+                    if (Value(c, "shadows") is Vector4 sv) s.Post.Shadows = sv;
+                    if (Value(c, "midtones") is Vector4 mv) s.Post.Midtones = mv;
+                    if (Value(c, "highlights") is Vector4 hv) s.Post.Highlights = hv;
+                    break;
+                case "PaniniProjection":
+                    s.Post.Pannini = true;
+                    s.Post.PanniniDistance = Float(Value(c, "distance"));
+                    s.Post.PanniniCropToFit = Value(c, "cropToFit") is float cf2 ? cf2 : 1f;
                     break;
                 case "ColorAdjustments":
                     s.Post.ColorAdjustments = true;
@@ -225,6 +276,43 @@ namespace ParelVR.Rendering.Editor
                 case "LensDistortion":
                     s.Post.LensDistortion = true;
                     if (Param(c, "intensity", out object ld)) s.Post.LensDistortionIntensity = Float(ld);
+                    break;
+                case "CloudLayer":
+                    s.CloudLayerComponent = c;
+                    break;
+                case "VolumetricClouds":
+                    if (Param(c, "enable", out object vcOn) && Bool(vcOn, false)) s.VolumetricCloudsComponent = c;
+                    break;
+                case "ScreenSpaceReflection":
+                    if (!Param(c, "enabled", out object ssrOn) || Bool(ssrOn, true))
+                    {
+                        s.Screen.Reflections = true;
+                        if (Param(c, "minSmoothness", out object ms)) s.Screen.ReflectionMinSmoothness = Float(ms);
+                        if (Param(c, "smoothnessFadeStart", out object fs)) s.Screen.ReflectionFadeStart = Float(fs);
+                    }
+                    break;
+                case "GlobalIllumination":
+                    if (Param(c, "enable", out object giOn) && Bool(giOn, false))
+                    {
+                        s.Screen.GlobalIllumination = true;
+                        if (Param(c, "maxRaySteps", out object steps)) s.Screen.GlobalIlluminationRayLength = Mathf.Clamp(Float(steps) / 16f, 0.5f, 6f);
+                    }
+                    break;
+                case "ContactShadows":
+                    if (Param(c, "enable", out object csOn) && Bool(csOn, false))
+                    {
+                        s.Screen.ContactShadows = true;
+                        if (Param(c, "length", out object len)) s.Screen.ContactShadowLength = Float(len);
+                        if (Param(c, "opacity", out object op)) s.Screen.ContactShadowOpacity = Float(op);
+                        if (Param(c, "maxDistance", out object md2)) s.Screen.ContactShadowMaxDistance = Float(md2);
+                    }
+                    break;
+                case "MicroShadowing":
+                    if (Param(c, "enable", out object msOn) && Bool(msOn, false))
+                        s.Screen.MicroShadowOpacity = Param(c, "opacity", out object mo) ? Float(mo) : 1f;
+                    break;
+                case "ScreenSpaceRefraction":
+                    // Refraction is drawn per material (ParelVR lit shaders); nothing to carry from the volume.
                     break;
                 case "VisualEnvironment":
                 case "HDShadowSettings":
@@ -291,6 +379,26 @@ namespace ParelVR.Rendering.Editor
             }
             return null;
         }
+
+        /// <summary>An HDRP TextureCurve sampled into an AnimationCurve (32 points); null when it is a straight default.</summary>
+        internal static AnimationCurve Curve(object textureCurve)
+        {
+            if (textureCurve == null) return null;
+            MethodInfo eval = textureCurve.GetType().GetMethod("Evaluate", new[] { typeof(float) });
+            if (eval == null) return null;
+            var keys = new Keyframe[32];
+            for (int i = 0; i < 32; i++)
+            {
+                float t = i / 31f;
+                keys[i] = new Keyframe(t, (float)eval.Invoke(textureCurve, new object[] { t }));
+            }
+            var curve = new AnimationCurve(keys);
+            for (int i = 0; i < keys.Length; i++) curve.SmoothTangents(i, 0f);
+            return curve;
+        }
+
+        /// <summary>A volume parameter's value whether or not its override is on (its default when off).</summary>
+        internal static object Value(object component, string field) => Get(Get(component, field), "value");
 
         internal static float Float(object v) => v is float f ? f : v is int i ? i : v is double d ? (float)d : 0f;
         internal static bool Bool(object v, bool fallback) => v is bool b ? b : fallback;

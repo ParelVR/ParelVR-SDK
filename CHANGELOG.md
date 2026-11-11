@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.16.0 (2026-11-10)
+
+### Your HDRP world, all of it
+
+- **Real volumetric fog**: light shafts through the sun's shadows, lamps glowing in the fog, avatars fogged too.
+- **Physically Based Sky** with ozone, sunsets and the sun disk; **Gradient** and **HDRI** skies with the **Cloud Layer**.
+- **Volumetric clouds** that drift with the wind and cast shadows on the ground.
+- **HDRP Water**: oceans to the horizon, rivers and pools with waves, ripples, reflections, refraction, foam,
+  caustics, an underwater view, deformers and excluders.
+- **Screen-space reflections, screen-space GI, contact shadows, micro shadows** and **real-time area lights**.
+- **Refraction, clear coat, iridescence, anisotropy**, double-sided normals and specular anti-aliasing on materials.
+- **Custom / External tonemapping, channel mixer, colour curves, split toning, shadows-midtones-highlights, Pannini.**
+
+Re-upload your world with 1.16.0 to get all of it.
+
 ## 1.15.0 (2026-11-10)
 
 ### Volumetric fog that finally looks like your HDRP world

@@ -1,13 +1,15 @@
 #ifndef PARELVR_FOG_INCLUDED
 #define PARELVR_FOG_INCLUDED
 
-// ParelVR volumetric fog: HDRP-style height fog (exponential falloff above a base height), light from the sun scattered
-// in the fog (Henyey-Greenstein phase), and up to 4 local fog boxes (HDRP Local Volumetric Fog). Everything is worked
-// out analytically along the view ray inside the shader that draws the surface: no extra pass, no depth texture, the
-// same cost in VR as on a monitor. A world without it pays one uniform branch. The values are set as globals by
-// ParelWorldRenderingInfo when a world converted from HDRP loads.
+// ParelVR volumetric fog, in-shader part: HDRP-style height fog (exponential falloff above a base height), light from
+// the sun scattered in the fog (Henyey-Greenstein phase), and up to 4 local fog boxes (HDRP Local Volumetric Fog),
+// worked out analytically along the view ray. On PC the opaque world (avatars too) is fogged afterwards by the
+// screen-space volumetric pass (light shafts through the sun's shadows, lamps glowing in the fog: ParelVolumetricFog),
+// so opaque surfaces skip it here and only transparent ones, drawn after that pass, fog themselves. The values are set
+// as globals by ParelWorldRenderingInfo when a world converted from HDRP loads.
 
-float4 _ParelFogParams;      // x on (0/1), y extinction at the base height (1/m), z base height (m), w height falloff (1/m)
+float4 _ParelFogParams;      // x on for shaders built before SDK 1.16 (0/1), y extinction at the base height (1/m), z base height (m), w height falloff (1/m)
+float4 _ParelFogMode;        // x 0 off, 1 every surface fogs itself, 2 the screen-space pass fogs opaque surfaces (only transparent ones fog here)
 float4 _ParelFogColor;       // rgb fog albedo, a max distance (m)
 float4 _ParelFogAmbient;     // rgb ambient light reaching the fog
 float4 _ParelFogSunDir;      // xyz direction towards the sun, w anisotropy (-1..1)
@@ -56,12 +58,22 @@ void ParelFogVolumes(float3 cam, float3 p, inout float depth, inout half3 albedo
     }
 }
 
+#if defined(_ALPHABLEND_ON) || defined(_ALPHAPREMULTIPLY_ON) || defined(PARELVR_TRANSPARENT)
+    #define PARELVR_FOG_TRANSPARENT_SURFACE 1
+#else
+    #define PARELVR_FOG_TRANSPARENT_SURFACE 0
+#endif
+
+// True when this surface has to fog itself (a transparent one, or no screen-space pass this frame).
+bool ParelFogHere(bool transparent)
+{
+    return _ParelFogMode.x > 0.5 && (transparent || _ParelFogMode.x < 1.5);
+}
+
 // Fogs a lit (or unlit) surface colour seen at posWorld. premultipliedAlpha: the alpha the colour was premultiplied
 // with (1 for opaque and straight alpha), so a premultiplied surface only adds its share of the fog light.
-half3 ParelApplyFog(half3 color, float3 posWorld, half premultipliedAlpha)
+half3 ParelApplyFogAt(half3 color, float3 posWorld, half premultipliedAlpha)
 {
-    UNITY_BRANCH
-    if (_ParelFogParams.x <= 0.0) return color;
     float3 cam = _WorldSpaceCameraPos;
     float3 ray = posWorld - cam;
     float len = length(ray);
@@ -83,13 +95,16 @@ half3 ParelApplyFog(half3 color, float3 posWorld, half premultipliedAlpha)
     return color * transmittance + inscatter * (1.0h - transmittance) * premultipliedAlpha;
 }
 
-// For additive passes (extra lights, additive surfaces): the fog only dims what is added. Every extra light re-draws
-// what it touches, so this uses the height fog alone (a few ALU): local fog boxes dim only the main pass. The light
-// of an extra lamp seen through a fog box is a little brighter than in HDRP; the cost stays flat with many lights.
-half3 ParelApplyFogAdditive(half3 color, float3 posWorld)
+half3 ParelApplyFog(half3 color, float3 posWorld, half premultipliedAlpha)
 {
+    half3 result = color;
     UNITY_BRANCH
-    if (_ParelFogParams.x <= 0.0) return color;
+    if (ParelFogHere(PARELVR_FOG_TRANSPARENT_SURFACE)) result = ParelApplyFogAt(color, posWorld, premultipliedAlpha);
+    return result;
+}
+
+half3 ParelFogDimAdditive(half3 color, float3 posWorld)
+{
     float3 cam = _WorldSpaceCameraPos;
     float3 ray = posWorld - cam;
     float len = length(ray);
@@ -97,12 +112,34 @@ half3 ParelApplyFogAdditive(half3 color, float3 posWorld)
     return color * exp(-ParelHeightFogDepth(cam, dir, min(len, _ParelFogColor.a)));
 }
 
-// The sky: the fog seen along a view direction out to the max distance.
+// An additive surface (blended One One, drawn with the transparent ones): the fog only dims what it adds.
+half3 ParelApplyFogAdditiveSurface(half3 color, float3 posWorld)
+{
+    half3 result = color;
+    UNITY_BRANCH
+    if (ParelFogHere(true)) result = ParelFogDimAdditive(color, posWorld);
+    return result;
+}
+
+// For additive passes (extra lights, additive surfaces): the fog only dims what is added. Every extra light re-draws
+// what it touches, so this uses the height fog alone (a few ALU): local fog boxes dim only the main pass. The light
+// of an extra lamp seen through a fog box is a little brighter than in HDRP; the cost stays flat with many lights.
+half3 ParelApplyFogAdditive(half3 color, float3 posWorld)
+{
+    half3 result = color;
+    UNITY_BRANCH
+    if (ParelFogHere(PARELVR_FOG_TRANSPARENT_SURFACE)) result = ParelFogDimAdditive(color, posWorld);
+    return result;
+}
+
+// The sky: the fog seen along a view direction out to the max distance (drawn before the screen-space pass, which then
+// fogs it like any opaque surface).
 half3 ParelApplyFogSky(half3 color, float3 viewDir)
 {
+    half3 result = color;
     UNITY_BRANCH
-    if (_ParelFogParams.x <= 0.0) return color;
-    return ParelApplyFog(color, _WorldSpaceCameraPos + normalize(viewDir) * _ParelFogColor.a, 1.0h);
+    if (ParelFogHere(false)) result = ParelApplyFogAt(color, _WorldSpaceCameraPos + normalize(viewDir) * _ParelFogColor.a, 1.0h);
+    return result;
 }
 
 #endif

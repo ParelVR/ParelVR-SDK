@@ -95,7 +95,7 @@ fixed4 fragUnlit(v2fUnlit i) : SV_Target
 
     UNITY_APPLY_FOG(i.fogCoord, c);
     // ParelVR volumetric fog: additive blending only dims, premultiplied adds its share of the fog light.
-    if (_DstBlend == 1.0h) c.rgb = ParelApplyFogAdditive(c.rgb, i.worldPos);
+    if (_DstBlend == 1.0h) c.rgb = ParelApplyFogAdditiveSurface(c.rgb, i.worldPos);
 #if defined(_ALPHAPREMULTIPLY_ON)
     else c.rgb = ParelApplyFog(c.rgb, i.worldPos, c.a);
 #else

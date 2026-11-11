@@ -21,6 +21,8 @@ namespace ParelVR.Rendering
         public float HeightFalloff = 0.1f;
         [Tooltip("Fog beyond this distance (m) is not added (HDRP: Max Fog Distance).")]
         public float MaxDistance = 1000f;
+        [Tooltip("How far (m) the fog is marched with light shafts and lamps (HDRP: Volumetric Fog Distance); beyond it the fog is worked out in one go.")]
+        public float VolumetricRange = 64f;
         [Tooltip("Colour of the fog particles (as picked in HDRP).")]
         public Color Albedo = Color.white;
         [Tooltip("Light the fog receives from all around: the sky's ambient light, or Ambient.")]
@@ -31,6 +33,36 @@ namespace ParelVR.Rendering
         [Tooltip("Multiplier for the sun light scattered in the fog (0 switches it off).")]
         public float SunScattering = 1f;
         public LocalFogVolume[] Volumes = Array.Empty<LocalFogVolume>();
+    }
+
+    /// <summary>
+    /// A world's volumetric clouds, converted from HDRP's Volumetric Clouds override. Drawn by ParelSkyClouds into a
+    /// panorama ParelVR/Sky shows, with cloud shadows on the ground. Distances in km, as in HDRP's inspector.
+    /// </summary>
+    [Serializable]
+    public sealed class ParelCloudSettings
+    {
+        public bool Enabled;
+        [Tooltip("How much of the sky the clouds cover (0..1).")]
+        [Range(0f, 1f)] public float Coverage = 0.45f;
+        [Tooltip("How thick the clouds are (HDRP density multiplier).")]
+        public float Density = 0.4f;
+        [Tooltip("0 tall rounded clouds .. 1 flat layers (HDRP shape factor).")]
+        [Range(0f, 1f)] public float ShapeFactor = 0.9f;
+        [Tooltip("How much the edges are worn into wisps (HDRP erosion factor).")]
+        [Range(0f, 1f)] public float Erosion = 0.8f;
+        [Tooltip("Size of the cloud shapes (km per noise tile; HDRP shape scale × 2).")]
+        public float ShapeScaleKm = 10f;
+        public float BottomAltitudeKm = 1.2f;
+        public float ThicknessKm = 2f;
+        [Tooltip("Wind speed (km/h) and the direction it blows to (degrees, 0 = +Z).")]
+        public float WindSpeed = 20f;
+        public float WindOrientation;
+        public float SunLightDimmer = 1f;
+        public float AmbientDimmer = 1f;
+        public Color ScatteringTint = Color.white;
+        public bool Shadows = true;
+        [Range(0f, 1f)] public float ShadowOpacity = 0.75f;
     }
 
     /// <summary>A box of extra fog (HDRP Local Volumetric Fog). Follows its transform if it moves.</summary>
@@ -53,7 +85,7 @@ namespace ParelVR.Rendering
     [Serializable]
     public sealed class ParelPostSettings
     {
-        public enum ToneMapper { None, Neutral, Aces }
+        public enum ToneMapper { None, Neutral, Aces, Custom, External }
 
         public bool Enabled;
 
@@ -109,15 +141,44 @@ namespace ParelVR.Rendering
         public bool LensDistortion;
         public float LensDistortionIntensity;
 
+        [Header("Tonemapping (Custom / External)")]
+        public float ToeStrength, ToeLength = 0.5f, ShoulderStrength, ShoulderLength = 0.5f, ShoulderAngle, TonemapGamma = 1f;
+        [Tooltip("HDRP External tonemapping: the 3D LUT it uses.")]
+        public Texture ExternalLut;
+
+        [Header("Channel Mixer")]
+        public bool ChannelMixer;
+        public Vector3 MixerRed = new Vector3(100f, 0f, 0f), MixerGreen = new Vector3(0f, 100f, 0f), MixerBlue = new Vector3(0f, 0f, 100f);
+
+        [Header("Colour Curves")]
+        public bool Curves;
+        public AnimationCurve MasterCurve, RedCurve, GreenCurve, BlueCurve, HueVsHue, HueVsSat, SatVsSat, LumVsSat;
+
+        [Header("Split Toning")]
+        public bool SplitToning;
+        public Color SplitShadows = new Color(0.5f, 0.5f, 0.5f), SplitHighlights = new Color(0.5f, 0.5f, 0.5f);
+        [Range(-100f, 100f)] public float SplitBalance;
+
+        [Header("Shadows Midtones Highlights")]
+        public bool ShadowsMidtonesHighlights;
+        public Vector4 Shadows = new Vector4(1f, 1f, 1f, 0f), Midtones = new Vector4(1f, 1f, 1f, 0f), Highlights = new Vector4(1f, 1f, 1f, 0f);
+
+        [Header("Pannini Projection")]
+        public bool Pannini;
+        [Range(0f, 1f)] public float PanniniDistance;
+        [Range(0f, 1f)] public float PanniniCropToFit = 1f;
+
         /// <summary>True when at least one effect is switched on.</summary>
         public bool Any => Enabled && (Bloom || Tonemapping != ToneMapper.None || ColorAdjustments || WhiteBalance || LiftGammaGain || Vignette ||
-                                       ChromaticAberration || FilmGrain || AmbientOcclusion || DepthOfField || MotionBlur || LensDistortion);
+                                       ChromaticAberration || FilmGrain || AmbientOcclusion || DepthOfField || MotionBlur || LensDistortion ||
+                                       ChannelMixer || Curves || SplitToning || ShadowsMidtonesHighlights || Pannini);
     }
 
     /// <summary>Sets the ParelVR fog shader globals from a world's <see cref="ParelFogSettings"/>.</summary>
     public static class ParelFogGlobals
     {
         private static readonly int ParamsId = Shader.PropertyToID("_ParelFogParams");
+        private static readonly int ModeId = Shader.PropertyToID("_ParelFogMode");
         private static readonly int ColorId = Shader.PropertyToID("_ParelFogColor");
         private static readonly int AmbientId = Shader.PropertyToID("_ParelFogAmbient");
         private static readonly int SunDirId = Shader.PropertyToID("_ParelFogSunDir");
@@ -134,6 +195,7 @@ namespace ParelVR.Rendering
         public static void Clear()
         {
             Shader.SetGlobalVector(ParamsId, Vector4.zero);
+            Shader.SetGlobalVector(ModeId, Vector4.zero);
             Shader.SetGlobalVector(CountId, Vector4.zero);
         }
 
@@ -148,7 +210,9 @@ namespace ParelVR.Rendering
                 Clear();
                 return;
             }
+            // x and the mode say every surface fogs itself; ParelVolumetricFog switches cameras it draws for to mode 2.
             Shader.SetGlobalVector(ParamsId, new Vector4(1f, Mathf.Max(0f, f.Extinction), f.BaseHeight, Mathf.Max(1e-5f, f.HeightFalloff)));
+            Shader.SetGlobalVector(ModeId, new Vector4(1f, 0f, 0f, 0f));
             Color albedo = f.Albedo.linear;
             Shader.SetGlobalVector(ColorId, new Vector4(albedo.r, albedo.g, albedo.b, Mathf.Max(1f, f.MaxDistance)));
             Shader.SetGlobalVector(AmbientId, Ambient(f, exposureScale));

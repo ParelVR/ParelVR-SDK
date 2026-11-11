@@ -156,6 +156,25 @@ namespace ParelVR.Rendering
         public float SkyExposure = 1f;
         public float SkyRotation;
 
+        // HDRP material features drawn by ParelVRLitExtras.cginc.
+        /// <summary>0 none, 1 box (planar), 2 sphere, 3 thin.</summary>
+        public int RefractionModel;
+        public float Ior = 1.5f;
+        public ColorValue TransmittanceColor = ColorValue.White;
+        public float AbsorptionDistance = 1f;
+        public float RefractionThickness = 0.1f;
+        public bool NoFog;
+        /// <summary>Back faces: 0 lit like front faces, 1 flipped normal, 2 mirrored normal.</summary>
+        public int DoubleSidedNormalMode;
+        public float Anisotropy;
+        public float Iridescence;
+        public float IridescenceThickness = 0.5f;
+        public float CoatMask;
+        public TextureSlot CoatMaskMap;
+        public bool SpecularAA;
+        public float SpecularAAVariance = 0.1f;
+        public float SpecularAAThreshold = 0.2f;
+
         /// <summary>Settings the source material uses that the description can't carry, in plain words.</summary>
         public readonly List<string> UnmappedFeatures = new List<string>();
 

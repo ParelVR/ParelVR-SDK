@@ -70,6 +70,7 @@ namespace ParelVR.Rendering.Editor
                 if (hdrp) skyChanged = AdaptHdrpLighting(scene, volumes, ev, job, report);
                 ParelFogSettings fog = hdrp ? FogFrom(scene, volumes, ev, report) : null;
                 int decals = pipeline != RenderPipelineKind.BuiltIn ? ParelDecalBaker.BakeAll(scene, options.GeneratedFolder + "/Decals", report) : 0;
+                int waters = pipeline != RenderPipelineKind.BuiltIn ? ParelWaterConverter.ConvertAll(scene, options.GeneratedFolder + "/Water", report) : 0;
                 if (volumes.Post.Enabled)
                     report.Note(DiagnosticSeverity.Info, "Post-processing", "Converted for the game's post-processing: " + PostSummary(volumes.Post) + ".");
                 else if (RenderSettings.skybox != null)
@@ -83,7 +84,7 @@ namespace ParelVR.Rendering.Editor
                     foreach (string effect in volumes.NotCarried)
                         report.Note(DiagnosticSeverity.Notice, "Volume effect", effect + " isn't available in ParelVR and is not shown.");
 
-                if (pipeline != RenderPipelineKind.BuiltIn || job.Converted > 0 || decals > 0)
+                if (pipeline != RenderPipelineKind.BuiltIn || job.Converted > 0 || decals > 0 || waters > 0)
                 {
                     var holder = new GameObject("[ParelVR Rendering]");
                     SceneManager.MoveGameObjectToScene(holder, scene);
@@ -95,6 +96,13 @@ namespace ParelVR.Rendering.Editor
                     info.MaterialsConverted = job.Converted;
                     info.MaterialsKept = job.Kept;
                     if (fog != null) info.Fog = fog;
+                    info.ScreenEffects = volumes.Screen;
+                    ParelCloudSettings cloudSettings = hdrp ? CloudsFrom(volumes) : null;
+                    if (cloudSettings != null)
+                    {
+                        info.Clouds = cloudSettings;
+                        report.Note(DiagnosticSeverity.Info, "Volumetric clouds", "Carried over (" + cloudSettings.Coverage.ToString("0.##") + " coverage, " + cloudSettings.BottomAltitudeKm.ToString("0.#") + " km up" + (cloudSettings.Shadows ? ", with cloud shadows" : "") + ").");
+                    }
                     info.Post = volumes.Post;
                     // A creator's own settings component (device overrides) is kept: copy them over and drop the duplicate.
                     foreach (GameObject root in scene.GetRootGameObjects())
@@ -307,9 +315,20 @@ namespace ParelVR.Rendering.Editor
                             float candela = before * Mathf.Max(area, 1e-4f); // nits over the area, seen face on
                             if (light.lightmapBakeType != LightmapBakeType.Baked)
                             {
-                                report.Note(DiagnosticSeverity.Warning, Path(light.transform), "Real-time area light: the Built-in renderer only bakes area lights, so it is shown as a point light.");
-                                light.type = LightType.Point;
-                                light.range = Mathf.Max(light.range, Mathf.Sqrt(area) * 4f);
+                                // Real-time area light: drawn by the ParelVR lit shaders (shape-true highlights and
+                                // soft diffuse light). The Built-in light itself only bakes, so it is switched off.
+                                var areaLight = light.gameObject.AddComponent<ParelAreaLight>();
+                                Component extra = light.GetComponent("HDAdditionalLightData");
+                                string shape = SrpSceneReader.Get(extra, "areaLightShape")?.ToString() ?? light.type.ToString();
+                                areaLight.LightShape = shape.Contains("Tube") ? ParelAreaLight.Shape.Tube : light.type == LightType.Disc || shape.Contains("Disc") ? ParelAreaLight.Shape.Disc : ParelAreaLight.Shape.Rectangle;
+                                areaLight.Size = light.type == LightType.Disc ? new Vector2(light.areaSize.x * 2f, light.areaSize.x * 2f) : light.areaSize;
+                                areaLight.Color = light.color;
+                                // nits over the surface → Built-in units (irradiance / π at 1 m), at the scene's exposure.
+                                areaLight.Intensity = before * Mathf.Max(areaLight.Size.x * Mathf.Max(areaLight.Size.y, 0.05f), 1e-4f) / Mathf.PI * LightingConversion.ExposureScale(ev);
+                                areaLight.Range = Mathf.Max(light.range, Mathf.Sqrt(Mathf.Max(areaLight.Size.x * areaLight.Size.y, 0.01f)) * 6f);
+                                light.enabled = false;
+                                report.Note(DiagnosticSeverity.Info, Path(light.transform), "Real-time " + areaLight.LightShape.ToString().ToLowerInvariant() + " light: drawn as a ParelVR area light.");
+                                break;
                             }
                             light.intensity = LightingConversion.PunctualIntensity(candela, Mathf.Max(light.range, 1f), ev);
                             break;
@@ -328,7 +347,9 @@ namespace ParelVR.Rendering.Editor
                 report.Note(DiagnosticSeverity.Warning, "Lightmaps", "This scene's lightmaps were baked by HDRP in physical units, which the Built-in renderer shows too bright. They need rebaking in a Built-in project (the ParelVR conversion environment); until then the baked light is shown as baked. Light probes are scaled when the world loads.");
 
             bool skyChanged = false;
-            if (v.HdriSky && v.SkyTexture != null)
+            bool clouds = v.CloudLayerComponent != null || v.VolumetricCloudsComponent != null;
+            Shader parelSky = Shader.Find(ParelShaderNames.Sky);
+            if (v.HdriSky && v.SkyTexture != null && !(clouds && v.SkyTexture is Cubemap && parelSky != null))
             {
                 Shader shader = (ParelShaderLibrary.Active != null ? ParelShaderLibrary.Active.Get(ShaderRole.Skybox, _target) : null) ?? Shader.Find(ParelShaderNames.Skybox);
                 if (shader != null)
@@ -350,31 +371,46 @@ namespace ParelVR.Rendering.Editor
                     report.Note(DiagnosticSeverity.Info, "Sky", "HDRI sky converted to ParelVR Skybox (exposure " + v.SkyExposureEv.ToString("0.#") + " EV, multiplier " + v.SkyMultiplier.ToString("0.##") + ").");
                 }
             }
-            else if (v.GradientSky || v.PhysicallyBasedSky)
+            else if ((v.HdriSky && v.SkyTexture is Cubemap) || v.GradientSky || v.PhysicallyBasedSky)
             {
-                float scale = LightingConversion.SkyExposure(v.SkyMultiplier, v.SkyExposureEv, ev);
-                Shader procedural = Shader.Find("Skybox/Procedural");
-                if (procedural != null)
+                if (parelSky != null)
                 {
-                    var sky = new Material(procedural) { name = (v.GradientSky ? "Gradient" : "Physically Based") + " Sky (ParelVR)" };
-                    if (v.GradientSky)
+                    var sky = new Material(parelSky);
+                    if (v.HdriSky)
                     {
-                        sky.SetColor("_SkyTint", v.GradientTop);
-                        sky.SetColor("_GroundColor", v.GradientBottom);
+                        sky.name = "HDRI Sky (ParelVR)";
+                        sky.SetFloat("_SkyMode", 2f);
+                        sky.SetTexture("_Tex", v.SkyTexture);
+                        sky.SetFloat("_Rotation", Mathf.Repeat(v.SkyRotation, 360f));
+                        sky.SetColor("_Tint", new Color(0.5f, 0.5f, 0.5f, 0.5f));
+                        sky.SetFloat("_Exposure", LightingConversion.SkyExposure(v.SkyMultiplier, v.SkyExposureEv, ev));
                     }
-                    sky.SetFloat("_Exposure", Mathf.Clamp(scale, 0f, 8f));
-                    SaveGenerated(sky, "Sky");
+                    else if (v.GradientSky)
+                    {
+                        // Gradient colours are in physical units, like every HDRP sky.
+                        float scale = LightingConversion.SkyExposure(v.SkyMultiplier, v.SkyExposureEv, ev);
+                        sky.name = "Gradient Sky (ParelVR)";
+                        sky.SetFloat("_SkyMode", 1f);
+                        sky.SetColor("_Top", v.GradientTop * scale);
+                        sky.SetColor("_Middle", v.GradientMiddle * scale);
+                        sky.SetColor("_Bottom", v.GradientBottom * scale);
+                        sky.SetFloat("_GradientDiffusion", Mathf.Max(0.01f, F(v.GradientSkyComponent, "gradientDiffusion", 1f)));
+                        sky.SetFloat("_Exposure", 1f);
+                    }
+                    else
+                    {
+                        sky.name = "Physically Based Sky (ParelVR)";
+                        sky.SetFloat("_SkyMode", 0f);
+                        WritePhysicallyBasedSky(v.PhysicallyBasedSkyComponent, sky, v);
+                        sky.SetFloat("_SunDiskSize", SunAngularDiameter(scene));
+                    }
+                    WriteCloudLayer(v.CloudLayerComponent, sky, report);
+                    SaveGenerated(sky, sky.name);
                     RenderSettings.skybox = sky;
+                    RenderSettings.ambientMode = AmbientMode.Skybox;
                     skyChanged = true;
+                    report.Note(DiagnosticSeverity.Info, "Sky", sky.name.Replace(" (ParelVR)", "") + " converted to ParelVR Sky" + (v.CloudLayerComponent != null ? ", with its cloud layer" : "") + ".");
                 }
-                if (v.GradientSky)
-                {
-                    RenderSettings.ambientMode = AmbientMode.Trilight;
-                    RenderSettings.ambientSkyColor = v.GradientTop * scale;
-                    RenderSettings.ambientEquatorColor = v.GradientMiddle * scale;
-                    RenderSettings.ambientGroundColor = v.GradientBottom * scale;
-                }
-                report.Note(DiagnosticSeverity.Notice, "Sky", (v.GradientSky ? "Gradient" : "Physically based") + " sky shown with Unity's procedural sky" + (v.GradientSky ? " and gradient ambient light" : "") + "; the look is close, not identical.");
             }
             else report.Note(DiagnosticSeverity.Notice, "Sky", "No HDRP sky was found to convert; the scene's skybox setting is used.");
 
@@ -397,6 +433,7 @@ namespace ParelVR.Rendering.Editor
                 BaseHeight = v.FogBaseHeight,
                 HeightFalloff = 6.9078f / Mathf.Max(0.01f, v.FogMaximumHeight - v.FogBaseHeight),
                 MaxDistance = v.FogMaxDistance,
+                VolumetricRange = v.VolumetricFog ? v.FogVolumetricDistance : 0f,
                 Albedo = v.VolumetricFog ? v.FogAlbedo : v.FogColorFromSky ? v.FogTint : Color.white,
                 AmbientFromSky = v.FogColorFromSky || v.VolumetricFog,
                 // HDRP keeps the fog colour in physical units: scale it like every other light value. Stored as a
@@ -486,6 +523,137 @@ namespace ParelVR.Rendering.Editor
             return null;
         }
 
+        // ---- HDRP sky and clouds -----------------------------------------------------------------------------------
+
+        private static object V(object component, string field) => SrpSceneReader.Value(component, field);
+
+        private static float F(object component, string field, float fallback)
+        {
+            object v = V(component, field);
+            return v is float || v is int || v is double ? SrpSceneReader.Float(v) : fallback;
+        }
+
+        private static Color C(object component, string field, Color fallback) => V(component, field) is Color c ? c : fallback;
+
+        // HDRP's own default for a parameter (a fresh component of the same type), so densities can be carried as
+        // "this much of HDRP's default" onto ParelVR's physical defaults.
+        private static float Default(object component, string field, float fallback)
+        {
+            if (component == null) return fallback;
+            ScriptableObject fresh = null;
+            try
+            {
+                fresh = ScriptableObject.CreateInstance(component.GetType());
+                return F(fresh, field, fallback);
+            }
+            catch { return fallback; }
+            finally { if (fresh != null) UnityEngine.Object.DestroyImmediate(fresh); }
+        }
+
+        private static float Ratio(object component, string field)
+        {
+            float d = Default(component, field, 0f);
+            float v = F(component, field, d);
+            return d > 1e-8f ? v / d : 1f;
+        }
+
+        private static void WritePhysicallyBasedSky(object pb, Material sky, SrpVolumeSettings v)
+        {
+            // Densities relative to HDRP's Earth defaults onto ParelVR's Earth values (per km); heights m -> km.
+            var air = new Vector4(0.0058f * Ratio(pb, "airDensityR"), 0.0135f * Ratio(pb, "airDensityG"), 0.0331f * Ratio(pb, "airDensityB"), 0f);
+            sky.SetVector("_AirDensity", air);
+            sky.SetColor("_AirTint", C(pb, "airTint", Color.white));
+            sky.SetFloat("_AirScaleHeight", Mathf.Max(0.1f, F(pb, "airMaximumAltitude", 55262f) / 1000f / 6.9078f));
+            sky.SetFloat("_AerosolDensity", 0.021f * Ratio(pb, "aerosolDensity"));
+            sky.SetColor("_AerosolTint", C(pb, "aerosolTint", new Color(0.9f, 0.9f, 0.9f)));
+            sky.SetFloat("_AerosolScaleHeight", Mathf.Max(0.05f, F(pb, "aerosolMaximumAltitude", 8289f) / 1000f / 6.9078f));
+            sky.SetFloat("_AerosolAnisotropy", Mathf.Clamp(F(pb, "aerosolAnisotropy", 0.76f), -0.99f, 0.99f));
+            sky.SetFloat("_PlanetRadius", Mathf.Max(1f, F(pb, "planetaryRadius", 6378100f) / 1000f));
+            sky.SetColor("_GroundTint", C(pb, "groundTint", new Color(0.4f, 0.25f, 0.15f)));
+            sky.SetColor("_HorizonTint", C(pb, "horizonTint", Color.white));
+            sky.SetColor("_ZenithTint", C(pb, "zenithTint", Color.white));
+            sky.SetFloat("_HorizonZenithShift", F(pb, "horizonZenithShift", 0f));
+            sky.SetFloat("_ColorSaturation", F(pb, "colorSaturation", 1f));
+            // The sky is lit by the converted sun, so only HDRP's own sky multiplier / exposure apply on top.
+            sky.SetFloat("_Exposure", v.SkyMultiplier * Mathf.Pow(2f, v.SkyExposureEv));
+        }
+
+        private static float SunAngularDiameter(Scene scene)
+        {
+            Light sun = Sun(scene);
+            if (sun == null) return 0.53f;
+            Component extra = sun.GetComponent("HDAdditionalLightData");
+            object a = SrpSceneReader.Get(extra, "angularDiameter");
+            return a != null ? Mathf.Clamp(SrpSceneReader.Float(a), 0.05f, 10f) : 0.53f;
+        }
+
+        private static void WriteCloudLayer(object cl, Material sky, CompatibilityReport report)
+        {
+            if (cl == null) return;
+            object layer = SrpSceneReader.Get(cl, "layerA");
+            if (layer == null) return;
+            var map = V(layer, "cloudMap") as Texture;
+            if (map == null) return;
+            float opacity = F(cl, "opacity", 1f);
+            sky.SetFloat("_CloudLayerOn", 1f);
+            sky.SetTexture("_CloudMap", map);
+            sky.SetVector("_CloudOpacity", new Vector4(F(layer, "opacityR", 1f), F(layer, "opacityG", 0f), F(layer, "opacityB", 0f), F(layer, "opacityA", 0f)) * opacity);
+            sky.SetColor("_CloudTint", C(layer, "tint", Color.white));
+            sky.SetFloat("_CloudExposure", Mathf.Pow(2f, F(layer, "exposure", 0f)));
+            sky.SetFloat("_CloudRotation", F(layer, "rotation", 0f) * 360f);
+            float speed = F(layer, "scrollSpeed", 0f);
+            object orientation = V(layer, "scrollOrientation");
+            float deg = SrpSceneReader.Float(SrpSceneReader.Get(orientation, "customValue") ?? orientation);
+            sky.SetVector("_CloudScroll", new Vector4(Mathf.Sin(deg * Mathf.Deg2Rad) * speed, Mathf.Cos(deg * Mathf.Deg2Rad) * speed, 0f, 0f));
+            sky.SetFloat("_CloudThickness", Mathf.Clamp01(F(layer, "thickness", 0.5f)));
+            object upper = V(cl, "upperHemisphereOnly");
+            sky.SetFloat("_CloudUpperOnly", upper is bool b && !b ? 0f : 1f);
+            string layers = V(cl, "layers")?.ToString() ?? "";
+            if (layers.Contains("Double"))
+            {
+                object second = SrpSceneReader.Get(cl, "layerB");
+                if (second != null) sky.SetVector("_CloudOpacity", sky.GetVector("_CloudOpacity") + new Vector4(F(second, "opacityR", 0f), F(second, "opacityG", 0f), F(second, "opacityB", 0f), F(second, "opacityA", 0f)) * opacity);
+                report.Note(DiagnosticSeverity.Info, "Cloud Layer", "Two cloud layers: both are drawn from the first layer's map.");
+            }
+        }
+
+        /// <summary>HDRP Volumetric Clouds -> ParelVR clouds (presets as HDRP's Simple mode, or the custom values).</summary>
+        private static ParelCloudSettings CloudsFrom(SrpVolumeSettings v)
+        {
+            object vc = v.VolumetricCloudsComponent;
+            if (vc == null) return null;
+            var c = new ParelCloudSettings { Enabled = true };
+            string preset = V(vc, "cloudPreset")?.ToString() ?? "Cloudy";
+            switch (preset)
+            {
+                case "Sparse": c.Coverage = 0.3f; c.Density = 0.4f; c.ShapeFactor = 0.95f; c.Erosion = 0.8f; c.ThicknessKm = 2f; break;
+                case "Overcast": c.Coverage = 0.9f; c.Density = 0.3f; c.ShapeFactor = 0.5f; c.Erosion = 0.5f; c.ThicknessKm = 1.5f; break;
+                case "Stormy":
+                case "StormClouds": c.Coverage = 0.75f; c.Density = 0.6f; c.ShapeFactor = 0.85f; c.Erosion = 0.9f; c.ThicknessKm = 3.5f; break;
+                case "Custom":
+                    c.Density = F(vc, "densityMultiplier", 0.4f);
+                    c.ShapeFactor = F(vc, "shapeFactor", 0.9f);
+                    c.Erosion = F(vc, "erosionFactor", 0.8f);
+                    c.Coverage = Mathf.Lerp(0.85f, 0.35f, c.ShapeFactor);
+                    c.ThicknessKm = F(vc, "altitudeRange", 2000f) / 1000f;
+                    break;
+                default: c.Coverage = 0.5f; c.Density = 0.4f; c.ShapeFactor = 0.9f; c.Erosion = 0.8f; c.ThicknessKm = 2f; break;
+            }
+            c.ShapeScaleKm = Mathf.Max(1f, F(vc, "shapeScale", 5f) * 2f);
+            c.BottomAltitudeKm = F(vc, "bottomAltitude", 1200f) / 1000f;
+            object windValue = SrpSceneReader.Get(V(vc, "globalWindSpeed"), "customValue");
+            c.WindSpeed = windValue != null ? SrpSceneReader.Float(windValue) : 20f;
+            object orientationValue = SrpSceneReader.Get(V(vc, "orientation"), "customValue");
+            c.WindOrientation = orientationValue != null ? SrpSceneReader.Float(orientationValue) : 0f;
+            c.SunLightDimmer = F(vc, "sunLightDimmer", 1f);
+            c.AmbientDimmer = F(vc, "ambientLightProbeDimmer", 1f);
+            Color tint = C(vc, "scatteringTint", Color.black);
+            c.ScatteringTint = new Color(1f - tint.r * 0.5f, 1f - tint.g * 0.5f, 1f - tint.b * 0.5f);
+            c.Shadows = V(vc, "shadows") is bool sh && sh;
+            c.ShadowOpacity = F(vc, "shadowOpacity", 0.75f);
+            return c;
+        }
+
         private static readonly Dictionary<string, string> PipelineOnly = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "DecalProjector", null },
@@ -493,7 +661,9 @@ namespace ParelVR.Rendering.Editor
             { "DensityVolume", null },
             { "PlanarReflectionProbe", "planar reflection probe: use a ParelVR mirror or a reflection probe instead." },
             { "VisualEffect", "Visual Effect Graph effects need compute shaders and an SRP; use a Particle System instead." },
-            { "WaterSurface", "HDRP water: not available in ParelVR." },
+            { "WaterSurface", null },
+            { "WaterExcluder", null },
+            { "WaterDeformer", null },
             { "HDAdditionalCameraData", null },
             { "HDAdditionalLightData", null },
             { "HDAdditionalReflectionData", null },

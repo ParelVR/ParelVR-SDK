@@ -29,6 +29,7 @@ Shader "ParelVR/Particles/Unlit"
             Cull [_Cull]
 
             CGPROGRAM
+            #define PARELVR_TRANSPARENT 1
             #pragma target 3.0
             #pragma shader_feature_local _ALPHATEST_ON
             #pragma shader_feature_local _ALPHAPREMULTIPLY_ON

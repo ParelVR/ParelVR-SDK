@@ -15,8 +15,12 @@ namespace ParelVR.Rendering
         public const string ParticlesUnlit = "ParelVR/Particles/Unlit";
         public const string Terrain = "ParelVR/Terrain";
         public const string Skybox = "ParelVR/Skybox";
-        public const string Emissive = "ParelVR/Emissive";
+        /// <summary>HDRP's physically based / gradient / HDRI skies with their cloud layer and volumetric clouds.</summary>
+        public const string Sky = "ParelVR/Sky";
+        /// <summary>HDRP Water Surface, and the stencil mask of its Water Excluders.</summary>
         public const string Water = "ParelVR/Water";
+        public const string WaterExcluder = "ParelVR/Water Excluder";
+        public const string Emissive = "ParelVR/Emissive";
         public const string Toon = "ParelVR/Toon";
         public const string Subsurface = "ParelVR/Subsurface";
         public const string LayeredLit = "ParelVR/Layered Lit";
