@@ -24,6 +24,13 @@ namespace ParelVR.Rendering
         [Tooltip("The creator's URP / HDRP version, for diagnostics.")]
         public string PipelineVersion = string.Empty;
 
+        [Tooltip("SDK 1.19+: ground / volumetric fog the world drew with a script of its own (the game has no such script).")]
+        public bool HasFog;
+        public ParelFogSettings Fog = new ParelFogSettings();
+        [Tooltip("SDK 1.19+: god rays the world drew with a renderer feature, volume override or script of its own.")]
+        public bool HasShafts;
+        public ParelLightShaftSettings Shafts = new ParelLightShaftSettings();
+
         /// <summary>The world's pipeline info, or null for worlds uploaded before SDK 1.18.</summary>
         public static ParelWorldPipeline Find(Scene scene)
         {

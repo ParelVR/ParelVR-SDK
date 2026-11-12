@@ -36,6 +36,32 @@ namespace ParelVR.Rendering
     }
 
     /// <summary>
+    /// A world's sun shafts ("god rays"), read at upload from the volumetric-light / god-ray effect the creator used (a
+    /// URP renderer feature with its volume override, or a camera script). The game has none of those scripts, so it
+    /// draws the shafts itself from these settings: sunlight scattered in the air near the camera, cut by the sun's
+    /// shadows (light streaming between trees).
+    /// </summary>
+    [Serializable]
+    public sealed class ParelLightShaftSettings
+    {
+        public bool Enabled;
+        [Tooltip("How bright the scattered sunlight is.")]
+        public float Intensity = 0.55f;
+        [Tooltip("How thick the lit air is (0..1).")]
+        public float Density = 0.25f;
+        [Tooltip("How far from the camera (m) the shafts are drawn.")]
+        public float MaxDistance = 40f;
+        [Tooltip("Forward scattering: 0 even, towards 1 a bright glow looking into the sun.")]
+        [Range(-0.95f, 0.95f)] public float Anisotropy = 0.5f;
+        [Tooltip("Tint over the sun's own colour.")]
+        public Color Tint = Color.white;
+        [Tooltip("Steps marched per pixel (the game caps it).")]
+        public int Samples = 48;
+        [Tooltip("Where the effect came from, for diagnostics.")]
+        public string Source = string.Empty;
+    }
+
+    /// <summary>
     /// A world's volumetric clouds, converted from HDRP's Volumetric Clouds override. Drawn by ParelSkyClouds into a
     /// panorama ParelVR/Sky shows, with cloud shadows on the ground. Distances in km, as in HDRP's inspector.
     /// </summary>

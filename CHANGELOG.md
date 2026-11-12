@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.19.0 (2026-11-11)
+
+### God rays and ground fog from your own effects
+
+- **Volumetric light / god rays and fog scripts now show in ParelVR.** A world can't bring code with it, so a
+  renderer feature or fog script from a store asset used to load as "missing" in the game. The Builder now reads
+  their settings when you upload (god rays: intensity, density, distance, scattering, tint; fog: density, height,
+  colour, distance) and the game draws matching sun shafts (cut by the sun's shadows) and height fog.
+- Worlds lit with Bakery keep their baked lighting in the game (game side; nothing to change in your project).
+- Re-upload a URP world to get this.
+
 ## 1.18.0 (2026-11-11)
 
 ### Your project's pipeline settings come with your world

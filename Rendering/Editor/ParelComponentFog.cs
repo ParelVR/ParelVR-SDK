@@ -11,7 +11,7 @@ namespace ParelVR.Rendering.Editor
     /// "volumetric fog" assets and the like). The game does not have that script, so without this the world shows no fog
     /// at all and far things stay sharp. Its settings become ParelVR volumetric fog (2026-11-11, world "Gods URP Trials").
     /// </summary>
-    internal static class ParelComponentFog
+    public static class ParelComponentFog
     {
         private const BindingFlags F = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 

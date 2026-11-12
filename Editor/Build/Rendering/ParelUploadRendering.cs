@@ -189,6 +189,24 @@ namespace ParelVR.SDK.Build
                         added++;
                     }
                 }
+                // Ground fog and god rays drawn by the creator's own scripts / renderer features: a bundle carries no
+                // code, so the game draws them itself from these settings (URP; HDRP has its own fog and volumetrics).
+                if (pipeline == RenderPipelineKind.Universal)
+                {
+                    ParelFogSettings fog = null;
+                    ParelLightShaftSettings shafts = null;
+                    try { fog = ParelVR.Rendering.Editor.ParelComponentFog.Find(scene, new CompatibilityReport()); }
+                    catch (Exception e) { Debug.LogWarning("[ParelVR SDK] Rendering: couldn't read the world's fog script: " + e.Message); }
+                    try { shafts = ParelVR.Rendering.Editor.ParelComponentShafts.Find(scene); }
+                    catch (Exception e) { Debug.LogWarning("[ParelVR SDK] Rendering: couldn't read the world's god rays: " + e.Message); }
+                    info.HasFog = fog != null;
+                    if (fog != null) info.Fog = fog;
+                    info.HasShafts = shafts != null;
+                    if (shafts != null) info.Shafts = shafts;
+                    if (fog != null) Debug.Log("[ParelVR SDK] Rendering: the world's fog script is drawn by ParelVR's own fog in the game (density " + fog.Extinction.ToString("0.####") + "/m, up to " + fog.MaxDistance.ToString("0") + " m).");
+                    if (shafts != null) Debug.Log("[ParelVR SDK] Rendering: god rays from " + shafts.Source + " are drawn by ParelVR's own sun shafts in the game.");
+                }
+
                 EditorSceneManager.SaveScene(scene);
                 Debug.Log("[ParelVR SDK] Rendering: uploading your pipeline asset '" + (info.Asset ? info.Asset.name : "none") + "' (" + info.PipelineVersion + ")" +
                           (added > 0 ? " and " + added + " default volume profile(s)" : "") + " with the world, so it renders with your settings and renderer features.");

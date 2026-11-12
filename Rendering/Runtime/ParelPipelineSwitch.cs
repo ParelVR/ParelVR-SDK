@@ -52,7 +52,39 @@ namespace ParelVR.Rendering
         }
 
         /// <summary>Switches to the pipeline <paramref name="scenePath"/> was made for. Call right before loading it.</summary>
-        public static RenderPipelineKind PrepareForScene(string scenePath) => Use(PipelineOfScene(scenePath));
+        public static RenderPipelineKind PrepareForScene(string scenePath)
+        {
+            // A new world: the last world's own pipeline asset goes with it (AdoptWorld picks the new one's).
+            _worldAsset = null;
+            return Use(PipelineOfScene(scenePath));
+        }
+
+        /// <summary>
+        /// The pipeline <paramref name="made"/> actually runs on here: HDRP falls back to Built-in where HDRP can't run,
+        /// and to Built-in when the game has no asset for it.
+        /// </summary>
+        public static RenderPipelineKind Runnable(RenderPipelineKind made)
+        {
+            if (made != RenderPipelineKind.Universal && made != RenderPipelineKind.HighDefinition) return RenderPipelineKind.BuiltIn;
+            if (made == RenderPipelineKind.HighDefinition && (Application.isMobilePlatform || !SystemInfo.supportsComputeShaders)) return RenderPipelineKind.BuiltIn;
+            return AssetFor(made) != null ? made : RenderPipelineKind.BuiltIn;
+        }
+
+        /// <summary>The pipeline a loaded world scene runs on here.</summary>
+        public static RenderPipelineKind RunnableFor(UnityEngine.SceneManagement.Scene scene) => Runnable(PipelineOfScene(scene.path));
+
+        /// <summary>
+        /// Runs an already loaded world (one loaded beside the old world for a portal, walked into) on its pipeline, with
+        /// its own pipeline asset when it carries one, in one switch.
+        /// </summary>
+        public static RenderPipelineKind EnterWorld(UnityEngine.SceneManagement.Scene scene)
+        {
+            RenderPipelineKind made = PipelineOfScene(scene.path);
+            ParelWorldPipeline info = ParelWorldPipeline.Find(scene);
+            _worldAsset = info != null && info.Asset != null && KindOf(info.Asset) == Runnable(made) ? info.Asset : null;
+            if (_worldAsset != null) Debug.Log("[ParelVR Pipeline] Running the world on its own " + KindOf(_worldAsset) + " asset '" + _worldAsset.name + "'.");
+            return Use(made);
+        }
 
         public static RenderPipelineAsset AssetFor(RenderPipelineKind p)
         {
@@ -72,7 +104,12 @@ namespace ParelVR.Rendering
         public static RenderPipelineKind AdoptWorld(UnityEngine.SceneManagement.Scene scene)
         {
             ParelWorldPipeline info = ParelWorldPipeline.Find(scene);
-            if (info == null || info.Asset == null || _wanted == RenderPipelineKind.BuiltIn) return Current;
+            if (info == null || info.Asset == null || _wanted == RenderPipelineKind.BuiltIn)
+            {
+                // No asset of its own: the game's, never the one of a world that ran before.
+                if (_worldAsset != null && _wanted != RenderPipelineKind.BuiltIn) { _worldAsset = null; return Use(_wanted); }
+                return Current;
+            }
             RenderPipelineKind kind = KindOf(info.Asset);
             if (kind != _wanted)
             {
@@ -101,7 +138,7 @@ namespace ParelVR.Rendering
                 p = RenderPipelineKind.BuiltIn;
             }
             // The world's own asset while it is loaded (AdoptWorld); a new pipeline choice drops it.
-            if (p != _wanted || (_worldAsset != null && KindOf(_worldAsset) != p)) _worldAsset = null;
+            if (_worldAsset != null && KindOf(_worldAsset) != p) _worldAsset = null;
             RenderPipelineAsset asset = _worldAsset != null ? _worldAsset : AssetFor(p);
             if (p != RenderPipelineKind.BuiltIn && asset == null)
             {
