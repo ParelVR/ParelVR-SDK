@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.20.0 (2026-11-11)
+
+### Your quality settings go with your world
+
+- **URP and HDRP worlds now carry your project's quality settings.** The quality level you work in decides things your
+  pipeline asset doesn't: how far away trees and models switch to their simpler LODs (LOD bias, maximum LOD level),
+  how sharp textures stay at an angle (anisotropic filtering), the texture quality limit, whether realtime reflection
+  probes update, how baked and realtime shadows mix (shadowmask mode), mesh LOD, texture streaming and the terrain
+  overrides. The Builder now uploads them with the world, and the game runs the world on them instead of the
+  player's graphics preset, so trees, shadows and textures look the way they did in your editor.
+- Re-upload a URP or HDRP world to get this. The upload log lists the quality level and values it took.
+
 ## 1.19.1 (2026-11-11)
 
 ### Converted materials keep their textures and cut-out

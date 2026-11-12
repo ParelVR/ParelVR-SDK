@@ -31,6 +31,10 @@ namespace ParelVR.Rendering
         public bool HasShafts;
         public ParelLightShaftSettings Shafts = new ParelLightShaftSettings();
 
+        [Tooltip("SDK 1.20+: the creator's quality settings (LOD bias, anisotropic filtering, shadowmask mode, reflection probes, terrain...).")]
+        public bool HasQuality;
+        public ParelWorldQuality Quality = new ParelWorldQuality();
+
         /// <summary>The world's pipeline info, or null for worlds uploaded before SDK 1.18.</summary>
         public static ParelWorldPipeline Find(Scene scene)
         {

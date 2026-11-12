@@ -107,6 +107,13 @@ namespace ParelVR.Rendering
 
         private static void Set(QualityLimits v)
         {
+            // A world that carries its creator's quality settings runs on them (ParelWorldQuality.Hold); only the
+            // headset's foveation stays PVAR's.
+            if (ParelWorldQuality.Held != null)
+            {
+                SetFoveation(v.Foveation);
+                return;
+            }
             // Only write what changed: some setters do work even when the value is the same.
             if (!Mathf.Approximately(QualitySettings.shadowDistance, v.ShadowDistance)) QualitySettings.shadowDistance = v.ShadowDistance;
             if (QualitySettings.shadowCascades != v.ShadowCascades) QualitySettings.shadowCascades = v.ShadowCascades;

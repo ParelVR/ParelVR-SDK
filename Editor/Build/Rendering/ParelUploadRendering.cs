@@ -163,6 +163,11 @@ namespace ParelVR.SDK.Build
                 string id = pipeline == RenderPipelineKind.HighDefinition ? "com.unity.render-pipelines.high-definition" : "com.unity.render-pipelines.universal";
                 var pkg = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/" + id + "/package.json");
                 info.PipelineVersion = CompatibilityReport.PipelineLabel(pipeline) + " " + (pkg != null ? pkg.version : "unknown");
+                // The project's quality settings (not part of the pipeline asset): LOD bias, anisotropic filtering,
+                // shadowmask mode, realtime reflection probes, terrain and texture streaming... The game runs the world on them.
+                info.Quality = ParelWorldQuality.Capture();
+                info.HasQuality = true;
+                Debug.Log("[ParelVR SDK] Rendering: uploading your quality settings " + info.Quality + " with the world.");
 
                 // The project's default volume profiles (global default, and URP's per-quality default) sit under every
                 // volume in the creator's editor; in the game they become global volumes below every other volume.
