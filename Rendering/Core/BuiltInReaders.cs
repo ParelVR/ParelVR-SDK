@@ -350,6 +350,9 @@ namespace ParelVR.Rendering
                 RenderQueue = s.RenderQueue,
             };
             if (color != null && d.BaseColor.A <= 0f && d.BaseColor.MaxRgb > 0f) d.BaseColor = d.BaseColor.WithAlpha(1f);
+            // Vegetation shaders (SpeedTree, tree / leaf / grass / bark shaders) take metalness from a packed texture, if
+            // at all; a lone "_Metallic" slider on them (often 1) made stand-in trees dark and mirror-like.
+            if (IsVegetation(name)) { d.Metallic = 0f; d.Smoothness = Math.Min(d.Smoothness, 0.25f); }
 
             if (emissionColor != null)
             {
@@ -364,12 +367,22 @@ namespace ParelVR.Rendering
 
             string renderType = s.GetTag("RenderType");
             int queue = s.RenderQueue;
+            // Alpha clipping is also switched on by URP's / Shader Graph's own toggles, whatever the queue says.
+            bool clipped = s.IsKeywordEnabled("_ALPHATEST_ON") || (s.HasProperty("_AlphaClip") && s.GetFloat("_AlphaClip") > 0.5f);
             if (queue >= Queues.Transparent || renderType == "Transparent") d.Surface = SurfaceType.Fade;
-            else if (queue >= Queues.AlphaTest || renderType == "TransparentCutout") { d.Surface = SurfaceType.Cutout; d.AlphaClip = true; }
+            else if (clipped || queue >= Queues.AlphaTest || renderType == "TransparentCutout") { d.Surface = SurfaceType.Cutout; d.AlphaClip = true; }
             if (cutoff != null) d.AlphaCutoff = s.GetFloat(cutoff);
 
             d.Unmapped("custom shader effects (approximated with a standard look)");
             return d;
+        }
+
+        private static bool IsVegetation(string shaderName)
+        {
+            if (string.IsNullOrEmpty(shaderName)) return false;
+            string n = shaderName.ToLowerInvariant();
+            return n.Contains("speedtree") || n.Contains("tree") || n.Contains("leaf") || n.Contains("leaves") || n.Contains("foliage")
+                || n.Contains("grass") || n.Contains("bark") || n.Contains("vegetation") || n.Contains("/nature/");
         }
 
         /// <summary>The first of <paramref name="names"/> that holds a texture, else the first that exists.</summary>

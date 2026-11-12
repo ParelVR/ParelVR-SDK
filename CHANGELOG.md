@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.19.1 (2026-11-11)
+
+### Converted materials keep their textures and cut-out
+
+- **Custom shaders keep their textures when converted.** Materials made with Shader Graphs or store shaders (SpeedTree
+  and the like) are read by their shader's own main texture, colour, normal map, cut-off and emission properties
+  (found by the shader's [MainTexture] / [MainColor] / [Normal] flags and by name), so the converted version is no
+  longer white.
+- **Leaves stay cut out.** Alpha clipping switched on with URP's / Shader Graph's own toggles is kept, and the render
+  queue and tags are read from the sub-shader the material was made for, so cut-out foliage no longer turns solid.
+- Vegetation (trees, leaves, grass, bark) is no longer converted as metal.
+
 ## 1.19.0 (2026-11-11)
 
 ### God rays and ground fog from your own effects
