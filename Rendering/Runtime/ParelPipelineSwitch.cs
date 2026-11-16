@@ -28,6 +28,25 @@ namespace ParelVR.Rendering
         private static bool _hooked;
         private static int _assetChanges;
 
+        /// <summary>
+        /// One pipeline for everything: the game, its menus and every world run on it and nothing switches per world.
+        /// A world made for another pipeline loads on it all the same (the game shows its materials through stand-ins).
+        /// Built-in (the default) means no single pipeline: each world runs on the pipeline it was made with.
+        /// The game sets this when it starts (ParelVR runs on URP everywhere since 2026-11).
+        /// </summary>
+        public static RenderPipelineKind Single { get; set; } = RenderPipelineKind.BuiltIn;
+
+        /// <summary>True while every world runs on <see cref="Single"/>.</summary>
+        public static bool IsSingle => Single == RenderPipelineKind.Universal || Single == RenderPipelineKind.HighDefinition;
+
+        /// <summary>The game's own pipeline (menus, loading screens, home): <see cref="Single"/>, or Built-in.</summary>
+        public static RenderPipelineKind UseGame()
+        {
+            // The game's own pipeline asset, never the one of the world that was left.
+            _worldAsset = null;
+            return Use(IsSingle ? Single : RenderPipelineKind.BuiltIn);
+        }
+
         /// <summary>The pipeline running now.</summary>
         public static RenderPipelineKind Current
         {
@@ -65,6 +84,7 @@ namespace ParelVR.Rendering
         /// </summary>
         public static RenderPipelineKind Runnable(RenderPipelineKind made)
         {
+            if (IsSingle && AssetFor(Single) != null) return Single;
             if (made != RenderPipelineKind.Universal && made != RenderPipelineKind.HighDefinition) return RenderPipelineKind.BuiltIn;
             if (made == RenderPipelineKind.HighDefinition && (Application.isMobilePlatform || !SystemInfo.supportsComputeShaders)) return RenderPipelineKind.BuiltIn;
             return AssetFor(made) != null ? made : RenderPipelineKind.BuiltIn;
@@ -132,6 +152,8 @@ namespace ParelVR.Rendering
         public static RenderPipelineKind Use(RenderPipelineKind made)
         {
             RenderPipelineKind p = made == RenderPipelineKind.Universal || made == RenderPipelineKind.HighDefinition ? made : RenderPipelineKind.BuiltIn;
+            // One pipeline for everything: whatever a world was made with, it runs on that one.
+            if (IsSingle) p = Single;
             if (p == RenderPipelineKind.HighDefinition && (Application.isMobilePlatform || !SystemInfo.supportsComputeShaders))
             {
                 Debug.LogWarning("[ParelVR Pipeline] This device can't run HDRP; the world stays on Built-in.");

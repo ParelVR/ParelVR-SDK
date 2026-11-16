@@ -2,11 +2,11 @@
   "schema": 1,
   "apiVersion": {
     "major": 1,
-    "minor": 5
+    "minor": 6
   },
   "bytecodeVersion": "1.0",
-  "sdkVersion": "1.8.0",
-  "hash": "26907cff1c53bb3659087674bbb41fe8948f242cdb6736bf60dab1102d8b21fe",
+  "sdkVersion": "1.11.0",
+  "hash": "2c1f1f67aa40a5dde8da035536375786cfc8e954fb94a1c389d3913d9cc7b240",
   "types": [
     {
       "id": "0xCD3E4C3C",
@@ -448,6 +448,11 @@
           "name": "Local",
           "value": 5,
           "doc": "Only this client; nothing is sent."
+        },
+        {
+          "name": "AllBuffered",
+          "value": 6,
+          "doc": "Everyone in the instance, the sender included, and every player who joins later: a newcomer runs these events once, in the order they were sent, as soon as it has loaded. Use it for global toggles, buttons and anything else whose effect late joiners must see. Up to 1024 are kept per instance; for state that changes often, use a synced field instead."
         }
       ]
     },
@@ -469,7 +474,7 @@
       "host": "Platform",
       "hostType": "ParelVR.Volt.Networking.VoltObjectPool",
       "base": "ParelVR.Volt.Objects.VoltSceneComponent",
-      "doc": "Keeps the position and rotation of an object the same for every player. The owner\u0027s copy decides; the others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges."
+      "doc": "A fixed set of scene objects that the master turns on (spawns) and off (returns) for everyone. Late joiners see the same objects on. Add a VoltObjectSync to the objects to sync where they are too."
     },
     {
       "id": "0xD67EAF09",
@@ -479,7 +484,8 @@
       "kind": "component",
       "host": "Platform",
       "hostType": "ParelVR.Volt.Networking.VoltObjectSync",
-      "base": "ParelVR.Volt.Objects.VoltSceneComponent"
+      "base": "ParelVR.Volt.Objects.VoltSceneComponent",
+      "doc": "Keeps the position and rotation of an object the same for every player. The owner\u0027s copy decides; the others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges."
     },
     {
       "id": "0xFC0AB7DF",
@@ -1125,6 +1131,15 @@
       "kind": "static",
       "host": "Unity",
       "doc": "Helpers for world UI."
+    },
+    {
+      "id": "0xBDF64280",
+      "name": "ParelVR.Volt.UI.VoltWorldMenu",
+      "docId": "T:ParelVR.Volt.UI.VoltWorldMenu",
+      "namespace": "ParelVR.Volt.UI",
+      "kind": "static",
+      "host": "Platform",
+      "doc": "The world\u0027s own menu in ParelVR\u0027s main menu (a ParelVR World Menu component in the scene): its icon in the menu\u0027s top bar opens its pages, buttons, toggles, sliders and option switchers. Controls and pages are named by the id set on them. Values are the local player\u0027s own; a script that wants everyone to see a change sends it as a network event or keeps it in a synced field. A player using a control raises OnWorldMenuButton, OnWorldMenuToggle, OnWorldMenuSlider or OnWorldMenuOption on every script; changes made here raise nothing."
     },
     {
       "id": "0x21BC5A21",
@@ -11316,6 +11331,282 @@
         }
       ],
       "doc": "Redoes the layout of a rectangle and its children now instead of at the end of the frame."
+    },
+    {
+      "id": "0xE5C2F37F",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.GetOption(System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "GetOption",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 6,
+      "returns": "System.Int32",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        }
+      ],
+      "doc": "The picked choice of an option switcher, from 0."
+    },
+    {
+      "id": "0x7A385F27",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.GetSlider(System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "GetSlider",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 6,
+      "returns": "System.Single",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        }
+      ],
+      "doc": "A slider\u0027s value."
+    },
+    {
+      "id": "0x435837A0",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.GetToggle(System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "GetToggle",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 1,
+      "retCount": 1,
+      "since": 6,
+      "returns": "System.Boolean",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Whether a toggle is on."
+    },
+    {
+      "id": "0xF2347FDA",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.Open(System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "Open",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 1,
+      "argCount": 1,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "pageId",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Opens ParelVR\u0027s menu on a page of the world\u0027s menu (empty: the page it was on)."
+    },
+    {
+      "id": "0xDCF652E8",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetDescription(System.String,System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetDescription",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "text",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Changes the short line under a control\u0027s name."
+    },
+    {
+      "id": "0x07356849",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetInteractable(System.String,System.Boolean)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetInteractable",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "interactable",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "Lets the player use a control, or greys it out."
+    },
+    {
+      "id": "0x0B353BFC",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetLabel(System.String,System.String)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetLabel",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "text",
+          "type": "System.String"
+        }
+      ],
+      "doc": "Changes a control\u0027s name in the menu."
+    },
+    {
+      "id": "0xE90E08CE",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetOption(System.String,System.Int32)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetOption",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "index",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "Picks a choice of an option switcher, from 0."
+    },
+    {
+      "id": "0x53C15834",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetSlider(System.String,System.Single)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetSlider",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "value",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "Moves a slider (kept between its minimum and maximum)."
+    },
+    {
+      "id": "0xB4DE027B",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetToggle(System.String,System.Boolean)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetToggle",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "on",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "Switches a toggle on or off (and what it switches without code)."
+    },
+    {
+      "id": "0x23EEB17F",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.SetVisible(System.String,System.Boolean)",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "SetVisible",
+      "kind": "Method",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 2,
+      "retCount": 0,
+      "since": 6,
+      "returns": "System.Void",
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "visible",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "Shows or hides a control."
+    },
+    {
+      "id": "0x317EF7F9",
+      "sig": "M:ParelVR.Volt.UI.VoltWorldMenu.get_IsAvailable",
+      "type": "ParelVR.Volt.UI.VoltWorldMenu",
+      "name": "IsAvailable",
+      "kind": "PropertyGet",
+      "property": "P:ParelVR.Volt.UI.VoltWorldMenu.IsAvailable",
+      "static": true,
+      "host": "Platform",
+      "capability": 0,
+      "argCount": 0,
+      "retCount": 1,
+      "since": 6,
+      "returns": "System.Boolean",
+      "params": [],
+      "doc": "True when the world has a menu."
     },
     {
       "id": "0xC09C7CEE",
@@ -28238,6 +28529,18 @@
       "doc": "A player left the VoltStation on this object."
     },
     {
+      "id": 25,
+      "name": "OnPlayerReady",
+      "returns": false,
+      "params": [
+        {
+          "name": "player",
+          "type": "ParelVR.Volt.Players.VoltPlayer"
+        }
+      ],
+      "doc": "A player has loaded the world and caught up with it: synced fields, owners and late-joiner events have arrived. On the other players it means network events sent to this player now reach them (OnPlayerJoined comes while they may still be loading); for the local player it comes once, when this client is caught up. The place to send a late joiner anything it needs that is not already synced."
+    },
+    {
       "id": 30,
       "name": "OnOwnershipTransferred",
       "returns": false,
@@ -28562,6 +28865,66 @@
         }
       ],
       "doc": "A purchase the local player started in this world went through or failed."
+    },
+    {
+      "id": 100,
+      "name": "OnWorldMenuButton",
+      "returns": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        }
+      ],
+      "doc": "The local player pressed a button of the world\u0027s menu."
+    },
+    {
+      "id": 101,
+      "name": "OnWorldMenuToggle",
+      "returns": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "on",
+          "type": "System.Boolean"
+        }
+      ],
+      "doc": "The local player switched a toggle of the world\u0027s menu."
+    },
+    {
+      "id": 102,
+      "name": "OnWorldMenuSlider",
+      "returns": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "value",
+          "type": "System.Single"
+        }
+      ],
+      "doc": "The local player moved a slider of the world\u0027s menu (while they drag it, too)."
+    },
+    {
+      "id": 103,
+      "name": "OnWorldMenuOption",
+      "returns": false,
+      "params": [
+        {
+          "name": "id",
+          "type": "System.String"
+        },
+        {
+          "name": "index",
+          "type": "System.Int32"
+        }
+      ],
+      "doc": "The local player picked a choice of an option switcher of the world\u0027s menu."
     }
   ],
   "aliases": {

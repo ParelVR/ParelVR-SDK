@@ -9,7 +9,7 @@
         "ParelVR.AvatarSDK",
         "ParelVR.Rendering.Core",
         "ParelVR.Rendering",
-        "ParelVR.Rendering.Editor"
+        "ParelVR.Rendering.Editor", "ParelVR.SDK.Port"
     ],
     "includePlatforms": ["Editor"],
     "excludePlatforms": [],

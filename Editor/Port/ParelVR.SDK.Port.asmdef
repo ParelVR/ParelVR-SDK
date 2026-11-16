@@ -1,0 +1,22 @@
+{
+    "name": "ParelVR.SDK.Port",
+    "rootNamespace": "ParelVR.SDK.Port",
+    "references": [
+        "ParelVR.SDK.Core",
+        "ParelVR.AvatarSDK",
+        "ParelVR.WorldSDK",
+        "ParelVR.SDK.Worlds.Components",
+        "ParelVR.Volt.Api"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

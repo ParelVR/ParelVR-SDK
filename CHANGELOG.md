@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.21.0 (2026-11-16)
+
+### Your world, your menu
+
+- **World Menu: your world's own menu inside ParelVR's main menu.** Add **ParelVR SDK > World > Create World Menu**
+  (or the ParelVR World Menu component), give it a name and an icon, and fill its pages with controls: buttons,
+  toggles, sliders, option switchers, page links and text. While players are in your world its icon sits in the main
+  menu's top bar and opens your pages in ParelVR's own style. Each player has their own values.
+  Without code, toggles switch objects on and off, buttons flip objects, sliders set sounds' volume and option
+  switchers show one object per choice. With Volt scripts, `OnWorldMenuButton`, `OnWorldMenuToggle`,
+  `OnWorldMenuSlider` and `OnWorldMenuOption` tell you when a player uses a control, and `VoltWorldMenu` reads and sets
+  values, names, descriptions, visibility, whether a control can be used, and opens the menu on a page.
+  A world has one World Menu: a second one is refused when you add it, and the world check reports any extra (copied
+  objects, subrooms) with an Auto Fix. The world check also catches missing ids, duplicate ids and page links to pages
+  that don't exist. In the simulator press M to open your menu.
+
+### Everything runs on URP
+
+- **ParelVR runs every world on URP.** PC, PC VR and standalone headsets all use Unity's Universal Render Pipeline.
+  URP worlds look exactly as you made them (your own URP asset, renderer features, volumes). Worlds made with the
+  Built-in pipeline or HDRP still load, with their materials shown as URP Lit copies (and HDRP lights scaled into
+  URP's range); the world check now says so. Switch your project to URP for the best result.
+
+### Auto Port
+
+- **Auto Port replaces other platforms' components instead of switching them off.** Avatar descriptors (view
+  position, lip sync, eye look, playable layers, colliders, Expressions), PhysBones and their colliders, contacts,
+  head chop, spatial audio, stations, constraints (as Unity's own), animator state behaviours (parameter drivers,
+  tracking / layer / locomotion control, pose space, play audio), Expressions menus and parameters (new ParelVR assets
+  next to the originals), world descriptors and spawn points, pickups, object sync, mirrors, portals and video players
+  (with their screens and speakers) become their ParelVR counterparts with the same settings, and the originals are
+  removed. What ParelVR has nothing like (Udon scripts, avatar pedestals, upload IDs) is removed too, and listed.
+  It works with or without the other platform's SDK in the project: without it the settings are read from the saved
+  scene, prefab or asset file. Project prefabs are ported in the prefab itself, so every copy is fixed. Missing scripts
+  that belong to your own project are never touched, and nothing runs while the project has compile errors.
+  Use **ParelVR SDK > Auto Port**, the scene scan's Auto Fix, or switch on Auto Port Content to run it before every
+  build. Undo takes it back. Convert PhysBones to Motion Bones now goes through it and removes the originals.
+
+### Volt: late joiners and global events
+
+- **Late joiners see everything.** A player who joins an instance gets every synced field, who owns what, held
+  pickups, seats, object pools and physics settings even when their world takes a while to load (before, what was sent
+  while they were still loading was lost). Video players start at the same point in the video as everyone else's.
+- **`VoltNetworkTarget.AllBuffered`**: a network event that runs for everyone now and for every player who joins later,
+  once and in order. Global toggles, buttons and anything late joiners must see: `SendNetworkEvent(VoltNetworkTarget.AllBuffered, nameof(Toggle))`.
+- **`OnPlayerReady(VoltPlayer player)`**: a player has loaded the world and caught up. Network events sent to them now
+  arrive (`OnPlayerJoined` comes while they may still be loading); for the local player it comes once, when this
+  client is caught up.
+- **Faster global interactions.** A synced field changed by a player who is not the instance master reaches everyone in
+  one trip instead of waiting for the master first, scripts that serialize by hand send each change at once (up to 30
+  a second), and script messages leave at the end of the frame instead of on the next network tick.
+- **Volt Graph:** "Set Active For Everyone" (a global toggle in one node, late joiners included) and an `AllBuffered`
+  choice on Send Network Event.
+- Fixed: Volt Object Pool was listed as "Volt Object Sync" in the Add Component menu.
+
 ## 1.20.0 (2026-11-11)
 
 ### Your quality settings go with your world

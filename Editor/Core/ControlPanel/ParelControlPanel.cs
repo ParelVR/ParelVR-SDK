@@ -611,6 +611,12 @@ namespace ParelVR.SDK.Core.ControlPanel
             check.style.alignSelf = Align.FlexStart;
             Setting(card, "Version " + installed.Version, check,
                 installed.Describe() + ". Checks GitHub for a newer ParelVR SDK, shows what changed, and installs it for you.");
+
+            bool older = global::ParelVR.SDK.Core.Util.ParelUnityVersion.IsOlderThanRecommended;
+            var unity = new Label("Unity " + Application.unityVersion);
+            Setting(card, "Unity Version", unity,
+                "Recommended: Unity " + global::ParelVR.SDK.Core.Util.ParelUnityVersion.Recommended + "." +
+                (older ? " Your version is older and may not work properly. Get the recommended one from Unity Hub > Installs > Install Editor > Archive." : string.Empty));
         }
 
         private void BuildPreferencesContent()
@@ -626,7 +632,12 @@ namespace ParelVR.SDK.Core.ControlPanel
             var toggle = new Toggle { value = ParelPreferences.AutoPortContentEnabled };
             toggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoPortContentEnabled(evt.newValue));
             VisualElement portValue = Setting(card, "Auto Port Content", toggle,
-                "Automatically detects and fixes common setup issues in the open scene.");
+                "Takes components made for other platforms out of your scene and puts ParelVR's in their place, with the same " +
+                "settings: avatar descriptors, PhysBones, contacts, Expressions menus, animator behaviours, pickups, object sync, " +
+                "stations, mirrors, video players, spawn points and constraints. Anything ParelVR has nothing like is removed, not " +
+                "switched off. Works with or without the other platform's SDK installed. While on, it runs before every build; " +
+                "Scan Now shows what it would change and its Auto Fix does it now (Edit > Undo takes it back). Also under " +
+                "ParelVR SDK > Auto Port.");
 
             var scanBtn = new Button(RunAutoPortScan) { text = "Scan Now" };
             scanBtn.AddToClassList("bk-btn");

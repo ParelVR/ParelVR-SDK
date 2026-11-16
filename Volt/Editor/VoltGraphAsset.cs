@@ -90,10 +90,13 @@ namespace ParelVR.Volt.EditorTools
             Event("network", "Network Event", "[VoltNetworkEvent] public void {0}()", P("Name", VoltGraphParam.Text, "MyNetworkEvent")),
 
             Action("active", "Set Active", "if ({0} != null) {0}.SetActive({1});", P("Object", VoltGraphParam.GameObject), P("To", VoltGraphParam.Choice, "On", "On", "Off", "Toggle")),
+            // A global toggle in one node: runs for everyone at once and for every player who joins later.
+            Action("globalActive", "Set Active For Everyone", "", P("Object", VoltGraphParam.GameObject), P("To", VoltGraphParam.Choice, "Toggle", "On", "Off", "Toggle")),
             Action("audio", "Play Audio", "if ({0} != null) {0}.Play();", P("Source", VoltGraphParam.AudioSource)),
             Action("anim", "Play Animation", "if ({0} != null) {0}.Play({1}, 0);", P("Animator", VoltGraphParam.Animator), P("State", VoltGraphParam.Text, "Idle")),
             Action("send", "Send Custom Event", "SendCustomEvent({0});", P("Name", VoltGraphParam.Text, "MyEvent")),
-            Action("sendNet", "Send Network Event", "SendNetworkEvent(VoltNetworkTarget.{0}, {1});", P("To", VoltGraphParam.Choice, "All", "All", "Others", "Owner", "Master"), P("Name", VoltGraphParam.Text, "MyNetworkEvent")),
+            // AllBuffered: everyone now and every player who joins later (late joiners run it once, in order).
+            Action("sendNet", "Send Network Event", "SendNetworkEvent(VoltNetworkTarget.{0}, {1});", P("To", VoltGraphParam.Choice, "All", "All", "AllBuffered", "Others", "Owner", "Master"), P("Name", VoltGraphParam.Text, "MyNetworkEvent")),
             Action("broadcast", "Broadcast Event", "VoltEvents.Broadcast({0});", P("Name", VoltGraphParam.Text, "MyEvent")),
             Action("teleport", "Teleport Local Player", "if ({0} != null) VoltNetworking.LocalPlayer.Teleport({0}.position, {0}.rotation);", P("To", VoltGraphParam.Transform)),
             Action("respawn", "Respawn Local Player", "VoltNetworking.LocalPlayer.Respawn();"),
@@ -144,7 +147,7 @@ namespace ParelVR.Volt.EditorTools
                     return float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float f) ? f.ToString("R", CultureInfo.InvariantCulture) + "f" : "0f";
                 case VoltGraphParam.Choice:
                     if (Array.IndexOf(p.Choices, v) < 0) v = p.Default;
-                    if (node.kind == "active") return v == "On" ? "true" : v == "Off" ? "false" : "!" + FieldName(node, ps[0]) + ".activeSelf";
+                    if (node.kind == "active" || node.kind == "globalActive") return v == "On" ? "true" : v == "Off" ? "false" : "!" + FieldName(node, ps[0]) + ".activeSelf";
                     return v;
                 case VoltGraphParam.Text:
                     return node.kind == "custom" || node.kind == "network" ? Identifier(v) : Literal(v);
@@ -211,6 +214,17 @@ namespace ParelVR.Volt.EditorTools
                         Chain(graph, byId, node.id, 0, 2, body, extra, new HashSet<string>(path), problems);
                         extra.Append("\n    public void ").Append(next).Append("()\n    {\n").Append(body).Append("    }\n");
                     }
+                }
+                else if (node.kind == "globalActive")
+                {
+                    // Sent to everyone and kept for late joiners; the change itself is a network event of its own.
+                    string target = FieldName(node, def.Params[0]);
+                    string evt = "__Everyone_" + target;
+                    code.Append(pad).Append("SendNetworkEvent(VoltNetworkTarget.AllBuffered, \"").Append(evt).Append("\");\n");
+                    if (extra.ToString().IndexOf("public void " + evt + "()", StringComparison.Ordinal) < 0)
+                        extra.Append("\n    [VoltNetworkEvent] public void ").Append(evt).Append("()\n    {\n        if (").Append(target)
+                             .Append(" != null) ").Append(target).Append(".SetActive(").Append(Value(node, def.Params, 1)).Append(");\n    }\n");
+                    Chain(graph, byId, node.id, 0, depth, code, extra, path, problems);
                 }
                 else if (node.kind == "ifMaster")
                 {

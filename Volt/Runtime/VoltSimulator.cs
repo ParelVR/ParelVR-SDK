@@ -113,9 +113,12 @@ namespace ParelVR.Volt.Simulator
             UnityEngine.Object.DontDestroyOnLoad(go); // outside the world's scene, so scripts cannot reach it, as in the client
             _player = go.AddComponent<SimulatedPlayer>();
             _player.Setup(scene, options, localId, name, network);
+            var worldMenu = go.AddComponent<SimulatedWorldMenu>();
+            worldMenu.Setup(scene);
 
             var services = new VoltPlatformServices
             {
+                WorldMenu = worldMenu,
                 Players = _player,
                 Info = _player,
                 Input = _player,

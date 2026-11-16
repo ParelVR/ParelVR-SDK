@@ -780,17 +780,15 @@ namespace ParelVR.SDK.Avatars.UI
             if (_current == null) return;
 
             GameObject root = _current.gameObject;
-            int choice = EditorUtility.DisplayDialogComplex("Convert PhysBones",
-                $"Convert every PhysBone and PhysBone collider under '{root.name}' to Motion Bones?",
-                "Convert, keep originals off", "Cancel", "Convert, remove originals");
-            if (choice == 1) return;
+            if (!EditorUtility.DisplayDialog("Convert PhysBones",
+                $"Replace every PhysBone and PhysBone collider under '{root.name}' with Motion Bones (same settings) and remove the originals?",
+                "Convert", "Cancel")) return;
 
-            ParelPhysBoneConverter.Convert(root, choice == 2,
+            ParelPhysBoneConverter.Convert(root, true,
                 out int bones, out int colliders, out int found);
             if (found == 0)
             {
-                EditorUtility.DisplayDialog("Convert PhysBones",
-                    "No PhysBones were found. If they show as \"Missing Script\", import the VRChat SDK into this project first, convert, then remove it.", "OK");
+                EditorUtility.DisplayDialog("Convert PhysBones", "No PhysBones were found on this avatar.", "OK");
                 return;
             }
 

@@ -89,6 +89,9 @@ namespace ParelVR.SDK.Build
                 throw new System.Exception("Scene is not saved. Please save your scene before building.");
             }
 
+            // Auto Port Content: other platforms' components are replaced with ParelVR's before the scene is saved and built.
+            ParelVR.SDK.Core.Settings.ParelAutoPortHook.BeforeWorldBuild();
+
             if (!UnityEditor.SceneManagement.EditorSceneManager.SaveScene(activeScene))
             {
                 throw new System.Exception("Failed to save scene.");

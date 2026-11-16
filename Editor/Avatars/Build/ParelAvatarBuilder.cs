@@ -62,6 +62,8 @@ namespace ParelVR.SDK.Avatars.Build
 
             try
             {
+                // Auto Port Content: other platforms' components on the avatar become ParelVR's first.
+                ParelAutoPortHook.BeforeAvatarBuild(descriptor.gameObject);
                 // The bundle is built from what's on disk, so unsaved material / animation edits must land first.
                 if (!descriptor.LayoutUpgraded)
                 {

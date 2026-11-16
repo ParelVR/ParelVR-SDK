@@ -108,6 +108,17 @@ namespace ParelVR.SDK.Worlds.Validation
                 report.AddWarning("Your world has no Directional Light. It might be completely dark.");
             }
 
+            // ParelVR runs every world on URP (PC, PC VR and standalone headsets).
+            UnityEngine.Rendering.RenderPipelineAsset pipeline = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+            bool hdrp = pipeline != null && pipeline.GetType().Name.IndexOf("HDRenderPipeline", StringComparison.Ordinal) >= 0;
+            if (pipeline == null || hdrp)
+            {
+                report.AddWarning("ParelVR runs every world on URP, and this project uses " + (hdrp ? "HDRP" : "the Built-in pipeline") + ". In ParelVR your materials " +
+                                  "are shown as URP Lit copies (colour, textures, normal map, emission and transparency)" +
+                                  (hdrp ? ", lights are scaled down from HDRP's physical units, and HDRP sky, fog and post-processing don't show." : " and Built-in post-processing doesn't show.") +
+                                  " Switch the project to URP (Window > Rendering > Render Pipeline Converter) so the world looks exactly as you made it.");
+            }
+
             return Task.FromResult(report);
         }
     }

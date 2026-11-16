@@ -556,6 +556,14 @@
         <member name="M:ParelVR.Volt.VoltBehaviour.OnStationExited(ParelVR.Volt.Players.VoltPlayer)">
             <summary>A player left the VoltStation on this object.</summary>
         </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPlayerReady(ParelVR.Volt.Players.VoltPlayer)">
+            <summary>
+            A player has loaded the world and caught up with it: synced fields, owners and late-joiner events have
+            arrived. On the other players it means network events sent to this player now reach them (OnPlayerJoined
+            comes while they may still be loading); for the local player it comes once, when this client is caught up.
+            The place to send a late joiner anything it needs that is not already synced.
+            </summary>
+        </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnOwnershipTransferred(ParelVR.Volt.Players.VoltPlayer)">
             <summary>Ownership of this object moved to another player.</summary>
         </member>
@@ -630,6 +638,18 @@
         </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnDialogResult(System.Int32,System.Boolean)">
             <summary>The local player answered a dialog this script opened with VoltDialogs.ShowDialog.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnWorldMenuButton(System.String)">
+            <summary>The local player pressed a button of the world's menu.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnWorldMenuToggle(System.String,System.Boolean)">
+            <summary>The local player switched a toggle of the world's menu.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnWorldMenuSlider(System.String,System.Single)">
+            <summary>The local player moved a slider of the world's menu (while they drag it, too).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnWorldMenuOption(System.String,System.Int32)">
+            <summary>The local player picked a choice of an option switcher of the world's menu.</summary>
         </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnPurchaseCompleted(System.String,System.Boolean)">
             <summary>A purchase the local player started in this world went through or failed.</summary>
@@ -846,6 +866,14 @@
         <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.Local">
             <summary>Only this client; nothing is sent.</summary>
         </member>
+        <member name="F:ParelVR.Volt.Networking.VoltNetworkTarget.AllBuffered">
+            <summary>
+            Everyone in the instance, the sender included, and every player who joins later: a newcomer runs these
+            events once, in the order they were sent, as soon as it has loaded. Use it for global toggles, buttons and
+            anything else whose effect late joiners must see. Up to 1024 are kept per instance; for state that
+            changes often, use a synced field instead.
+            </summary>
+        </member>
         <member name="T:ParelVR.Volt.Networking.VoltNetworking">
             <summary>The state of the connection to other players, and ownership of world objects.</summary>
         </member>
@@ -890,8 +918,8 @@
         </member>
         <member name="T:ParelVR.Volt.Networking.VoltObjectPool">
             <summary>
-            Keeps the position and rotation of an object the same for every player. The owner's copy decides; the
-            others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges.
+            A fixed set of scene objects that the master turns on (spawns) and off (returns) for everyone. Late joiners see
+            the same objects on. Add a VoltObjectSync to the objects to sync where they are too.
             </summary>
         </member>
         <member name="F:ParelVR.Volt.Networking.VoltObjectPool.objects">
@@ -911,6 +939,12 @@
         </member>
         <member name="M:ParelVR.Volt.Networking.VoltObjectPool.Return(ParelVR.Volt.Objects.VoltGameObject)">
             <summary>Turns an object of the pool off for everyone. Master only.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Networking.VoltObjectSync">
+            <summary>
+            Keeps the position and rotation of an object the same for every player. The owner's copy decides; the
+            others follow it smoothly. Add it to anything players can move: pickups, physics props, doors on hinges.
+            </summary>
         </member>
         <member name="F:ParelVR.Volt.Networking.VoltObjectSync.syncScale">
             <summary>Sync the object's scale as well as its position and rotation.</summary>
@@ -1877,6 +1911,51 @@
             Asks the local player a yes/no question. Returns an id, or 0 when a dialog of this world is already open; the answer
             arrives as OnDialogResult(id, confirmed) on the calling script.
             </summary>
+        </member>
+        <member name="T:ParelVR.Volt.UI.VoltWorldMenu">
+            <summary>
+            The world's own menu in ParelVR's main menu (a ParelVR World Menu component in the scene): its icon in the menu's
+            top bar opens its pages, buttons, toggles, sliders and option switchers. Controls and pages are named by the id
+            set on them. Values are the local player's own; a script that wants everyone to see a change sends it as a
+            network event or keeps it in a synced field. A player using a control raises OnWorldMenuButton,
+            OnWorldMenuToggle, OnWorldMenuSlider or OnWorldMenuOption on every script; changes made here raise nothing.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.UI.VoltWorldMenu.IsAvailable">
+            <summary>True when the world has a menu.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.GetToggle(System.String)">
+            <summary>Whether a toggle is on.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetToggle(System.String,System.Boolean)">
+            <summary>Switches a toggle on or off (and what it switches without code).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.GetSlider(System.String)">
+            <summary>A slider's value.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetSlider(System.String,System.Single)">
+            <summary>Moves a slider (kept between its minimum and maximum).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.GetOption(System.String)">
+            <summary>The picked choice of an option switcher, from 0.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetOption(System.String,System.Int32)">
+            <summary>Picks a choice of an option switcher, from 0.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetLabel(System.String,System.String)">
+            <summary>Changes a control's name in the menu.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetDescription(System.String,System.String)">
+            <summary>Changes the short line under a control's name.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetVisible(System.String,System.Boolean)">
+            <summary>Shows or hides a control.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.SetInteractable(System.String,System.Boolean)">
+            <summary>Lets the player use a control, or greys it out.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.UI.VoltWorldMenu.Open(System.String)">
+            <summary>Opens ParelVR's menu on a page of the world's menu (empty: the page it was on).</summary>
         </member>
         <member name="T:ParelVR.Volt.Video.VoltVideoError">
             <summary>Why a video failed.</summary>
