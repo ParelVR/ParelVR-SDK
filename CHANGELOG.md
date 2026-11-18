@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.21.1 (2026-11-17)
+
+### Updates
+
+- **The update window finishes on its own.** After **Update**, the window could stay on "Updating" until it was
+  closed and opened again, even though the new SDK was already installed: it only moved on when Unity reloaded its
+  scripts, and Unity skips that reload when the new scripts compile to the same thing. It now watches for the new SDK
+  to arrive and for Unity to finish importing and compiling, then shows **SDK updated**. If Unity is in the background
+  or Auto Refresh is off, it asks Unity to pick up the new files, and it tells you when Unity reports script errors.
+- This fix runs from 1.21.1 on: updating from 1.21.0 to 1.21.1 can still show the old waiting screen once. Close and
+  reopen the window (ParelVR SDK > Check for Updates) and it shows 1.21.1.
+
 ## 1.21.0 (2026-11-16)
 
 ### Your world, your menu

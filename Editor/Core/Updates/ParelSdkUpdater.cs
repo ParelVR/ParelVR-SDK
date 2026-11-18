@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Compilation;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
@@ -161,6 +162,19 @@ namespace ParelVR.SDK.Core.Updates
 
         private static string Normalize(string notes) => string.Join(" ", notes.Split((char[])null, StringSplitOptions.RemoveEmptyEntries));
 
+        /// <summary>True once the Package Manager reports <paramref name="latest"/> as this project's SDK.</summary>
+        public static bool IsInstalled(Latest latest)
+        {
+            if (latest == null) return false;
+            Installed now = ReadInstalled();
+            if (!string.IsNullOrEmpty(now.Commit) && !string.IsNullOrEmpty(latest.Commit))
+                return latest.Commit.StartsWith(now.Commit, StringComparison.OrdinalIgnoreCase) ||
+                       now.Commit.StartsWith(latest.Commit, StringComparison.OrdinalIgnoreCase);
+            int order = CompareVersions(now.Version, latest.Version);
+            if (order != 0) return order > 0;
+            return string.IsNullOrEmpty(latest.Notes) || string.IsNullOrEmpty(now.Notes) || Normalize(latest.Notes) == Normalize(now.Notes);
+        }
+
         // ------------------------------------------------------------------------------------------ updating
 
         /// <summary>Installs <paramref name="check"/>'s newest SDK. Unity reloads its scripts once it is in.</summary>
@@ -177,6 +191,7 @@ namespace ParelVR.SDK.Core.Updates
                     while (!request.IsCompleted) await Task.Delay(100);
                     if (request.Status == StatusCode.Failure) throw new Exception(request.Error != null ? request.Error.message : "The Package Manager could not update the SDK.");
                     progress(1f, "Updated. Unity is reloading the SDK...");
+                    CompilationPipeline.RequestScriptCompilation();
                     return;
                 }
                 await InstallFromZipAsync(latest, progress);
@@ -233,6 +248,8 @@ namespace ParelVR.SDK.Core.Updates
             progress(1f, "Updated. Unity is importing the new SDK...");
             Client.Resolve();
             AssetDatabase.Refresh();
+            // compile the new scripts now, even with Auto Refresh off or Unity in the background
+            CompilationPipeline.RequestScriptCompilation();
         }
 
         private static void Unzip(string zip, string destination)
@@ -336,7 +353,10 @@ namespace ParelVR.SDK.Core.Updates
         }
     }
 
-    /// <summary>After an update Unity reloads its scripts; this opens the updates pane again to say it is done.</summary>
+    /// <summary>
+    /// After an update Unity usually reloads its scripts; this opens the updates pane again to say it is done. When no
+    /// reload comes (the new SDK compiled to the same assemblies), the open pane says so itself (ParelUpdateWindow).
+    /// </summary>
     [InitializeOnLoad]
     internal static class ParelSdkUpdateResume
     {

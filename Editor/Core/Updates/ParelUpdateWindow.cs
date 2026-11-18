@@ -24,6 +24,10 @@ namespace ParelVR.SDK.Core.Updates
         private ParelSdkUpdater.CheckResult _check;
         private string _updatedVersion;
         private bool _busy;
+        // the update being waited for (not serialized: after a script reload ParelSdkUpdateResume takes over)
+        [NonSerialized] private ParelSdkUpdater.Latest _waitingFor;
+        [NonSerialized] private double _waitStarted, _settledAt;
+        [NonSerialized] private bool _nudged, _compileErrors;
 
         [MenuItem("ParelVR SDK/Check for Updates...", priority = 900)]
         public static void Open()
@@ -134,7 +138,10 @@ namespace ParelVR.SDK.Core.Updates
             try
             {
                 await ParelSdkUpdater.UpdateAsync(_check, SetProgress);
-                // Unity reloads its scripts next; ParelSdkUpdateResume reopens this pane to confirm.
+                // Unity usually reloads its scripts next, and ParelSdkUpdateResume reopens this pane to confirm. When
+                // the new SDK compiles to the same assemblies there is no reload, and the pane used to wait forever
+                // (closing and reopening it showed the new version): watch for the install to land instead.
+                WaitForInstall(_check.Latest);
             }
             catch (Exception e)
             {
@@ -143,6 +150,67 @@ namespace ParelVR.SDK.Core.Updates
                 _check.Error = e.Message;
                 Render(Phase.Failed, updating: true);
             }
+        }
+
+        private void WaitForInstall(ParelSdkUpdater.Latest latest)
+        {
+            _waitingFor = latest;
+            _waitStarted = EditorApplication.timeSinceStartup;
+            _settledAt = 0;
+            _nudged = false;
+            EditorApplication.update -= PollInstall;
+            EditorApplication.update += PollInstall;
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.update -= PollInstall;
+        }
+
+        /// <summary>Done once the Package Manager reports the new SDK and Unity has stopped importing and compiling.</summary>
+        private void PollInstall()
+        {
+            if (this == null || _waitingFor == null)
+            {
+                EditorApplication.update -= PollInstall;
+                return;
+            }
+            double now = EditorApplication.timeSinceStartup;
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                _settledAt = 0;
+                SetProgress(1f, "Unity is compiling the new SDK...");
+                return;
+            }
+            if (!ParelSdkUpdater.IsInstalled(_waitingFor))
+            {
+                _settledAt = 0;
+                // Unity hasn't looked at the new files yet (Auto Refresh off, or in the background): ask it once more
+                if (!_nudged && now - _waitStarted > 20)
+                {
+                    _nudged = true;
+                    UnityEditor.PackageManager.Client.Resolve();
+                    AssetDatabase.Refresh();
+                    UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
+                }
+                SetProgress(1f, "Waiting for Unity to pick up the new SDK...");
+                return;
+            }
+            if (_settledAt <= 0)
+            {
+                _settledAt = now;
+                return;
+            }
+            if (now - _settledAt < 1.5) return;
+
+            EditorApplication.update -= PollInstall;
+            SessionState.EraseString(ParelSdkUpdater.JustUpdatedKey);
+            _updatedVersion = _waitingFor.Version;
+            _compileErrors = EditorUtility.scriptCompilationFailed;
+            _waitingFor = null;
+            _busy = false;
+            _check = null;
+            Render(Phase.Updated);
         }
 
         private void SetProgress(float amount, string step)
@@ -229,6 +297,8 @@ namespace ParelVR.SDK.Core.Updates
                     _glyph.Mode = ParelStatusGlyph.Kind.Check;
                     status.Add(Text("SDK updated", "pu-title"));
                     status.Add(Text($"You're now on ParelVR SDK {_updatedVersion ?? installed.Version}.", "pu-text"));
+                    if (_compileErrors)
+                        status.Add(Text("Unity reports script errors in this project. Open the Console to see them; errors from other packages can stop the new SDK from loading.", "pu-meta"));
                     Footer(("Check Again", StartCheck, false), ("Done", Close, true));
                     break;
 
