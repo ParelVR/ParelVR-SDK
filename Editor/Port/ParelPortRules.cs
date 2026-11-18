@@ -161,7 +161,13 @@ namespace ParelVR.SDK.Port
                 R("Video screen", 6).Live("VRCAVProVideoScreen").Print("VideoPlayer", "MaterialIndex"),
                 R("Video speaker", 6).Live("VRCAVProVideoSpeaker").Print("VideoPlayer", "Mode").Not("MaterialIndex"),
                 R("UI shape").Live("VRCUiShape", "VRC_UiShape").Then(UiShapeDone),
-                R("Avatar pedestal").Live("VRCAvatarPedestal", "VRC_AvatarPedestal").Print("ChangeAvatarsOnUse"),
+                R("Avatar pedestal").Live("VRCAvatarPedestal", "VRC_AvatarPedestal").Print("ChangeAvatarsOnUse").To<ParelVRAvatarPedestal>()
+                    .Ignore("blueprintId", "Placement", "scale")
+                    .Then(job =>
+                    {
+                        job.Set("allowWearing", PortValue.Num(job.Source.Get("ChangeAvatarsOnUse").AsBool() ? 1 : 0));
+                        job.Session.Note("An avatar pedestal on '" + job.Go.name + "' showed an avatar from another platform: enter a ParelVR Avatar ID on its Avatar Pedestal.");
+                    }),
                 R("Upload ID").Live("PipelineManager").Print("blueprintId", "completedSDKPipeline")
                     .Then(job => job.Session.Note("'" + job.Go.name + "' had another platform's upload ID; it was not kept.")),
                 R("Udon script").Live("UdonBehaviour").Print("serializedProgramAsset").Then(job => job.Session.UdonRemoved()),

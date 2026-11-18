@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.22.0 (2026-11-18)
+
+### Worlds
+
+- **Avatar Pedestal: show an avatar in your world and let players wear it.** Add the Avatar Pedestal component
+  (**ParelVR/World SDK/Avatar Pedestal**) to the top of your pedestal model and enter an Avatar ID (any avatar, from
+  its page on the website or the uploader). When a player comes within the Activation Radius (you set it) a small
+  portal ring sparks up on the pedestal, spirals open onto a deep shaft in the portal's colours, and the avatar rises
+  up out of it, the full avatar as it looks on the Avatars page in the menu; walking away sends it back down and the
+  ring closes. Players press on it to wear it (who may wear it follows the avatar's own visibility). You can also set
+  the ring's size, the avatar's height on show, how fast it turns, whether it can be worn, and keep it always open.
+  The scene view shows the activation radius, the ring and roughly where the avatar stands. An avatar whose creator
+  has blacklisted you won't show on pedestals in your worlds.
+- **Auto Port turns other platforms' avatar pedestals into Avatar Pedestals.** Enter a ParelVR Avatar ID on each one;
+  the port report lists them.
+
 ## 1.21.1 (2026-11-17)
 
 ### Updates
