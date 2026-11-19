@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.23.0 (2026-11-19)
+
+### Worlds
+
+- **World Portals open when players come near, and show the world through them.** A World Portal now has an
+  **Activation Radius** (6 m by default). When a player comes within it, the portal sparks up and spirals open. It
+  shows the world's picture and a loading bar while that world loads, then shows the world live through the ring.
+  Walking through takes the player straight there with no loading screen, into the world's default instance (one is
+  made on the way in if none is open). A card above it shows the world's name, its creator and how many players are
+  in it. Walking away spirals it shut. Tick **Always Open** to keep it open all the time. The scene view shows the
+  activation radius. Portals with **Show Doorway** off still work as before: walking through joins the world the usual
+  way.
+
+### Control panel
+
+- **The SDK stays signed in.** Once you sign in to the control panel, the SDK keeps you signed in on this computer, in
+  every Unity project, until you press Sign Out, even after deleting the Library folder. If the server ends the
+  session, the SDK signs you back in on its own and carries on with what you were doing (accounts with 2FA only need
+  the code). Sign Out forgets the saved sign-in, so nothing signs you back in after that. The SDK's sign-in is its
+  own: signing in or out of the game does not change it.
+
 ## 1.22.1 (2026-11-18)
 
 ### Fixes

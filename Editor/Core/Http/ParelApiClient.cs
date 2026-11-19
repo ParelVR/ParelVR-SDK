@@ -32,15 +32,20 @@ namespace ParelVR.SDK.Core.Http
             public string message;
         }
 
+        private const string SessionEndedReason =
+            "Your ParelVR session has ended (the server no longer accepts it). Sign in again in the ParelVR control panel.";
+
         private static void ApplyAuthHeaders(UnityWebRequest request)
         {
+            // A sign-in goes out bare, as from a signed-out panel, even when it replaces a ticket the server dropped.
+            if (IsLoginCall(request.url)) return;
             if (!string.IsNullOrEmpty(ParelSession.UserId))
                 request.SetRequestHeader("X-ParelVR-Id", ParelSession.UserId);
             if (!string.IsNullOrEmpty(ParelSession.SessionTicket))
                 request.SetRequestHeader("Authorization", $"Bearer {ParelSession.SessionTicket}");
         }
 
-        private static async Task PumpAsync(UnityWebRequestAsyncOperation operation, CancellationToken ct)
+        private static async Task PumpAsync(UnityWebRequestAsyncOperation operation, CancellationToken ct, IProgress<float> uploadProgress = null)
         {
             while (!operation.isDone)
             {
@@ -49,25 +54,57 @@ namespace ParelVR.SDK.Core.Http
                     operation.webRequest.Abort();
                     ct.ThrowIfCancellationRequested();
                 }
+                uploadProgress?.Report(operation.webRequest.uploadProgress);
                 await Task.Yield();
             }
         }
 
-        private static void ThrowIfFailed(UnityWebRequest request)
+        private static string BearerOf(UnityWebRequest request)
         {
-            try { ThrowIfFailedCore(request); }
-            catch (ParelApiException ex) when (ex.StatusCode == 401 && !IsSignInCall(request.url))
+            string auth = request.GetRequestHeader("Authorization");
+            return !string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.Ordinal) ? auth.Substring(7) : string.Empty;
+        }
+
+        /// <summary>
+        /// Sends the request make() builds and returns the body. When the server refuses the session ticket it carried,
+        /// the SDK signs back in with its saved sign-in and sends a fresh copy once more, so an ended session never
+        /// shows up as a failed call or a sign-out. Without a saved sign-in the session ends as before.
+        /// </summary>
+        private static async Task<string> SendAsync(Func<UnityWebRequest> make, CancellationToken ct, IProgress<float> uploadProgress = null)
+        {
+            for (int attempt = 0; ; attempt++)
             {
-                // The server refused the ticket this request carried: the session is over, whatever the screen says.
-                string auth = request.GetRequestHeader("Authorization");
-                if (!string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.Ordinal))
-                    ParelSession.Expire(auth.Substring(7), "Your ParelVR session has ended (the server no longer accepts it). Sign in again in the ParelVR control panel.");
-                throw;
+                string sentTicket;
+                ParelApiException refused;
+                using (UnityWebRequest request = make())
+                {
+                    ApplyAuthHeaders(request);
+                    sentTicket = BearerOf(request);
+                    await PumpAsync(request.SendWebRequest(), ct, uploadProgress);
+                    try
+                    {
+                        ThrowIfFailedCore(request);
+                        return request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
+                    }
+                    catch (ParelApiException ex) when (ex.StatusCode == 401 && !string.IsNullOrEmpty(sentTicket) && !IsSignInCall(request.url))
+                    {
+                        refused = ex;
+                    }
+                }
+
+                if (attempt > 0)
+                {
+                    ParelSession.Expire(sentTicket, SessionEndedReason); // refused again straight after signing back in
+                    throw refused;
+                }
+                if (!await ParelSession.RecoverAsync(sentTicket, SessionEndedReason)) throw refused;
             }
         }
 
         private static bool IsSignInCall(string url) =>
             url != null && (url.Contains("/api/auth/login") || url.Contains("/api/auth/logout") || url.Contains("/api/auth/register"));
+
+        private static bool IsLoginCall(string url) => url != null && url.Contains("/api/auth/login");
 
         private static void ThrowIfFailedCore(UnityWebRequest request)
         {
@@ -100,31 +137,29 @@ namespace ParelVR.SDK.Core.Http
             }
         }
 
-        public static async Task<string> GetRawAsync(string path, CancellationToken ct = default)
+        public static Task<string> GetRawAsync(string path, CancellationToken ct = default)
         {
-            using var request = UnityWebRequest.Get(BaseUrl + path);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            ApplyAuthHeaders(request);
-
-            var operation = request.SendWebRequest();
-            await PumpAsync(operation, ct);
-            ThrowIfFailed(request);
-            return request.downloadHandler.text;
+            string url = BaseUrl + path;
+            return SendAsync(() =>
+            {
+                var request = UnityWebRequest.Get(url);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                return request;
+            }, ct);
         }
 
-        private static async Task<string> SendRawAsync(string method, string path, object payload, CancellationToken ct)
+        private static Task<string> SendRawAsync(string method, string path, object payload, CancellationToken ct)
         {
-            using var request = new UnityWebRequest(BaseUrl + path, method);
-            string json = payload != null ? JsonUtility.ToJson(payload) : "{}";
-            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
-            ApplyAuthHeaders(request);
-
-            var operation = request.SendWebRequest();
-            await PumpAsync(operation, ct);
-            ThrowIfFailed(request);
-            return request.downloadHandler.text;
+            string url = BaseUrl + path;
+            byte[] body = Encoding.UTF8.GetBytes(payload != null ? JsonUtility.ToJson(payload) : "{}");
+            return SendAsync(() =>
+            {
+                var request = new UnityWebRequest(url, method);
+                request.uploadHandler = new UploadHandlerRaw(body);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                return request;
+            }, ct);
         }
 
         public static async Task<T> GetJsonAsync<T>(string path, CancellationToken ct = default) where T : class
@@ -248,27 +283,18 @@ namespace ParelVR.SDK.Core.Http
             IProgress<float> progress,
             CancellationToken ct)
         {
-            using var request = new UnityWebRequest(BaseUrl + path, "PUT");
-            request.uploadHandler = new UploadHandlerRaw(data);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType);
-            ApplyAuthHeaders(request);
-
-            var operation = request.SendWebRequest();
-            while (!operation.isDone)
+            string url = BaseUrl + path;
+            string type = string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType;
+            string text = await SendAsync(() =>
             {
-                if (ct.IsCancellationRequested)
-                {
-                    operation.webRequest.Abort();
-                    ct.ThrowIfCancellationRequested();
-                }
-                progress?.Report(request.uploadProgress);
-                await Task.Yield();
-            }
+                var request = new UnityWebRequest(url, "PUT");
+                request.uploadHandler = new UploadHandlerRaw(data);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", type);
+                return request;
+            }, ct, progress);
             progress?.Report(1f);
-
-            ThrowIfFailed(request);
-            return request.downloadHandler.text;
+            return text;
         }
 
         public static async Task<T> PutBytesAsync<T>(

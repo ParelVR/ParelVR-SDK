@@ -441,7 +441,14 @@ namespace ParelVR.SDK.Core.ControlPanel
             if (!loggedIn)
             {
                 if (_loginServerLabel != null) _loginServerLabel.text = "Server: " + ParelEnvironment.Current + " (" + ParelEnvironment.BaseUrl + ")";
-                CancelTotp();
+                ResetTotpForm();
+                // The saved sign-in got as far as 2FA: only the code is missing.
+                if (!string.IsNullOrEmpty(ParelAuth.SavedLoginTotpToken))
+                {
+                    ShowTotpForm(ParelAuth.SavedLoginTotpToken);
+                    if (_statusLabel != null) _statusLabel.text = "Enter your 2FA code to sign back in as " + ParelAuth.SavedLoginTotpUser + ".";
+                    return;
+                }
                 // Ended by the server (expired, or signed out elsewhere): say so, instead of a silent sign-in form.
                 if (_statusLabel != null && !string.IsNullOrEmpty(ParelSession.EndedReason)) _statusLabel.text = ParelSession.EndedReason;
                 return;
@@ -461,6 +468,11 @@ namespace ParelVR.SDK.Core.ControlPanel
             if (!string.IsNullOrEmpty(ParelSession.UserId)) AddAccountRow(card, "User ID", ParelSession.UserId);
             if (!string.IsNullOrEmpty(ParelSession.Rank)) AddAccountRow(card, "Rank", ParelSession.Rank);
             AddAccountRow(card, "Server", ParelEnvironment.Current + "  (" + ParelEnvironment.BaseUrl + ")");
+
+            var stay = new Label("The SDK stays signed in on this computer, in every project, until you sign out here. " +
+                                 "It has its own sign-in, separate from the game's.");
+            stay.AddToClassList("bk-hint");
+            card.Add(stay);
 
             var buttons = new VisualElement();
             buttons.AddToClassList("bk-row");
@@ -500,13 +512,28 @@ namespace ParelVR.SDK.Core.ControlPanel
                 OnLoginSubmit();
         }
 
+        /// <summary>Cancel on the 2FA step: back to the full sign-in form, and the waiting sign-in is dropped.</summary>
         private void CancelTotp()
+        {
+            ParelAuth.ClearPendingTotp();
+            ResetTotpForm();
+            if (_statusLabel != null) _statusLabel.text = string.Empty;
+        }
+
+        private void ResetTotpForm()
         {
             _pendingTotpToken = null;
             if (_totpField != null) _totpField.value = string.Empty;
             if (_loginForm != null) _loginForm.style.display = DisplayStyle.Flex;
             if (_totpForm != null) _totpForm.style.display = DisplayStyle.None;
             HideError();
+        }
+
+        private void ShowTotpForm(string pendingToken)
+        {
+            _pendingTotpToken = pendingToken;
+            if (_loginForm != null) _loginForm.style.display = DisplayStyle.None;
+            if (_totpForm != null) _totpForm.style.display = DisplayStyle.Flex;
         }
 
         private async void OnLoginSubmit()
@@ -520,16 +547,14 @@ namespace ParelVR.SDK.Core.ControlPanel
                 if (!string.IsNullOrEmpty(_pendingTotpToken))
                 {
                     await ParelAuth.LoginTotpAsync(_pendingTotpToken, _totpField?.value ?? "");
-                    CancelTotp(); // Clears state on success
+                    ResetTotpForm(); // signed in: the waiting sign-in was used up
                 }
                 else
                 {
                     var result = await ParelAuth.LoginAsync(_identifierField.value, _passwordField.value);
                     if (result.requiresTotp)
                     {
-                        _pendingTotpToken = result.pendingToken;
-                        if (_loginForm != null) _loginForm.style.display = DisplayStyle.None;
-                        if (_totpForm != null) _totpForm.style.display = DisplayStyle.Flex;
+                        ShowTotpForm(result.pendingToken);
                         _statusLabel.text = string.Empty;
                         _submitButton.SetEnabled(true);
                         return;
@@ -671,11 +696,15 @@ namespace ParelVR.SDK.Core.ControlPanel
             var envDropdown = new EnumField(ParelEnvironment.Current);
             envDropdown.RegisterValueChangedCallback(evt =>
             {
-                if (ParelSession.IsLoggedIn) ParelAuth.Logout(); // with the old environment's server, which issued the ticket
+                // Ends the session with the old environment's server, which issued the ticket. The saved sign-in is
+                // kept: it belongs to one environment and signs in again by itself when the SDK points back there.
+                ParelAuth.Logout(forgetSavedLogin: false);
                 ParelPreferences.SetEnvironment((ParelEnvironmentType)evt.newValue);
+                _ = ParelAuth.TrySavedLoginAsync();
             });
             Setting(card, "API Environment", envDropdown,
-                "Connects the SDK to different backend instances (Development, Staging, Production). Changing it signs you out.");
+                "Connects the SDK to different backend instances (Development, Staging, Production). Changing it signs you " +
+                "out of the old one; coming back to the server you last signed in to signs you in again.");
         }
 
         /// <summary>One setting: its name on the left; its control and what it does on the right.</summary>

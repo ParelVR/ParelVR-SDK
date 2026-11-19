@@ -19,6 +19,11 @@ namespace ParelVR.WorldSDK
         public static Action<string> JoinWorld;
         /// <summary>Puts the game's portal doorway on a transform (height in metres); returns it, or null.</summary>
         public static Func<Transform, float, GameObject> CreateDoorway;
+        /// <summary>
+        /// Builds the game's whole world portal for this component (opening near the player, the world behind it shown
+        /// live, walking through it); returns it, or null. When it returns one, the game notices the player walking in.
+        /// </summary>
+        public static Func<ParelVRWorldPortal, GameObject> CreateWorldPortal;
         /// <summary>A moment of portal light over the view while the player passes through (strength 0..1).</summary>
         public static Action<float> Flash;
 
