@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.24.0 (2026-11-19)
+
+### Worlds
+
+- **3D Audio Raycast: sounds that walls muffle, in two components.** **ParelVR/World SDK/3D Audio Raycast Single
+  Object** goes next to an AudioSource on one object (a radio, a fire, a speaker). **ParelVR/World SDK/3D Audio Raycast
+  Zone** fills an area (a river, a waterfall, rain, a room's hum): outside it the sound comes from the zone's nearest
+  point to the player, so a river runs along beside you and a room's hum comes out of its doorway; inside it the sound
+  is all around you. The zone is a box, a sphere, or the colliders on it and its children (use triggers; several boxes
+  make a long river). Adding the zone makes a child Zone Sound with the AudioSource for your clip (an AudioSource
+  already on the object moves onto it). Both play through the headset's 3D audio like players' voices. Rays from the
+  player to the sound find the walls, floors and props in between, which muffle it and turn it down: it clears bit by
+  bit as you step round a corner, and the object's own colliders never block it. Far sounds lose their highs, and rays
+  round the sound measure the room, so closed rooms echo, big ones echo longer and outdoors stays dry. You set what
+  blocks it, how much quieter and how muffled it gets behind a wall, how fast it changes, and the echo. The
+  AudioSource's own Min/Max Distance still sets how it fades, and World Menu sliders and Volt scripts can still change
+  its volume.
+
 ## 1.23.0 (2026-11-19)
 
 ### Worlds
