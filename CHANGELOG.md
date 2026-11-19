@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.22.1 (2026-11-18)
+
+### Fixes
+
+- **The SDK compiles again.** 1.21.0, 1.21.1 and 1.22.0 left out a file the Control Panel uses for its Unity version
+  notice, so Unity showed `error CS0234: The type or namespace name 'ParelUnityVersion' does not exist` and the SDK
+  menus stopped working. The file is back. On those versions the SDK's own updater can't run, so update through
+  Unity: **Window > Package Manager > + > Install package from git URL**, enter
+  `https://github.com/ParelVR/ParelVR-SDK.git` again.
+
 ## 1.22.0 (2026-11-18)
 
 ### Worlds
