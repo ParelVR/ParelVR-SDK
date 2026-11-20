@@ -25,8 +25,12 @@ namespace ParelVR.SDK.Build
                 report.AddInfo($"This world runs on the {CompatibilityReport.PipelineLabel(pipeline)} in ParelVR: its materials, shaders, lights and " +
                                $"volumes are uploaded as they are. Use {CompatibilityReport.PipelineLabel(pipeline)} {ParelUploadRendering.GamePipelineVersion} " +
                                $"and Unity {ParelUploadRendering.GameUnityVersion} so its shaders match the game.");
+            else if (!world && pipeline == RenderPipelineKind.Universal)
+                report.AddInfo($"This avatar runs on the {CompatibilityReport.PipelineLabel(pipeline)} in ParelVR: its materials and shaders are uploaded as they are. " +
+                               "Only materials that can't draw at all (a missing shader, a shader with errors) are converted. Use " +
+                               $"{CompatibilityReport.PipelineLabel(pipeline)} {ParelUploadRendering.GamePipelineVersion} and Unity {ParelUploadRendering.GameUnityVersion} so its shaders match the game.");
             else if (pipeline == RenderPipelineKind.Universal || pipeline == RenderPipelineKind.HighDefinition)
-                report.AddInfo($"This project uses the {CompatibilityReport.PipelineLabel(pipeline)}. ParelVR renders with Unity's Built-in pipeline, so your " +
+                report.AddInfo($"This project uses the {CompatibilityReport.PipelineLabel(pipeline)}. ParelVR renders with Unity's Universal Render Pipeline, so your " +
                                "materials (and, for HDRP, lights, sky and fog) are converted when you upload. Your project's files are not changed.");
         }
 

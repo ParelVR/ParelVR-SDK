@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ParelVR.AvatarSDK;
@@ -23,10 +24,14 @@ namespace ParelVR.SDK.Avatars.Validation
 #endif
             if (descriptors.Length == 0) return Task.FromResult(report);
             ParelRenderingValidation.AddPipelineIssues(report);
+            // A URP avatar uploads as it is (ParelVR runs on URP): only materials that can't draw at all are converted.
+            bool urp = ParelVR.Rendering.Editor.ParelSceneConverter.ProjectPipeline() == ParelVR.Rendering.RenderPipelineKind.Universal;
             foreach (ParelAvatarDescriptor d in descriptors)
             {
                 var single = new ValidationReport();
-                ParelRenderingValidation.AddMaterialIssues(single, d.GetComponentsInChildren<Renderer>(true).SelectMany(r => r.sharedMaterials), d.name);
+                IEnumerable<Material> materials = d.GetComponentsInChildren<Renderer>(true).SelectMany(r => r.sharedMaterials).Where(m => m != null).Distinct();
+                if (urp) materials = materials.Where(m => ParelVR.SDK.Build.ParelUploadRendering.NeedsConversion(new[] { m }, ParelVR.Rendering.RepairPolicy.BrokenOnly)).ToList();
+                ParelRenderingValidation.AddMaterialIssues(single, materials, d.name);
                 ParelRenderingValidation.AddQuestBudgetIssues(single, new[] { d.gameObject }, true);
                 foreach (ValidationIssue issue in single.Issues)
                     report.Issues.Add(new ValidationIssue($"[{d.name}] {issue.Message}", issue.Level, issue.AutoFix, issue.Context));

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Avatars
+
+- **URP avatars upload as they are.** ParelVR runs on URP (since game 0.29.0), but an avatar made in a URP project
+  still had every material turned into a Built-in ParelVR material at upload, which the game then had to turn back
+  into a URP stand-in: two conversions between render pipelines for every material, losing its look on the way. A URP
+  avatar's materials and shaders now go up unchanged, the way URP worlds already do. Only a material that can't draw
+  at all (a missing shader, or a shader with errors) is still converted. The avatar checks say so too. Re-upload an
+  avatar to get this.
+
 ## 1.24.0 (2026-11-19)
 
 ### Worlds

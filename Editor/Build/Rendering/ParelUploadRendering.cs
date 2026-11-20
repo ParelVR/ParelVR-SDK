@@ -257,12 +257,22 @@ namespace ParelVR.SDK.Build
             if (copy == null) return null;
             RenderPipelineKind pipeline = ParelSceneConverter.ProjectPipeline();
             var materials = copy.GetComponentsInChildren<Renderer>(true).SelectMany(r => r.sharedMaterials).Where(m => m != null).Distinct().ToList();
-            if (pipeline == RenderPipelineKind.BuiltIn && !NeedsConversion(materials)) return null;
+            // ParelVR runs on URP (since 0.29.0), so a URP avatar's materials draw in the game as they are. They used to be
+            // turned into Built-in ParelVR materials here, which the game then had to turn back into URP stand-ins: two
+            // conversions between pipelines for every material. Only materials that can't draw at all are converted now.
+            RepairPolicy policy = pipeline == RenderPipelineKind.Universal ? RepairPolicy.BrokenOnly : RepairPolicy.ForeignPipelines;
+            if ((pipeline == RenderPipelineKind.BuiltIn || pipeline == RenderPipelineKind.Universal) && !NeedsConversion(materials, policy))
+            {
+                if (pipeline == RenderPipelineKind.Universal)
+                    Debug.Log("[ParelVR SDK] Rendering: this avatar runs on URP in ParelVR. Its materials and shaders are uploaded as they are (nothing converted).");
+                return null;
+            }
             CompatibilityReport report = ParelSceneConverter.ConvertObject(copy, new SceneConversionOptions
             {
                 Target = TargetPlatform.Pc,
                 GeneratedFolder = generatedFolder,
                 SourcePipeline = pipeline,
+                Policy = policy,
             });
             Log(report, "Upload-Avatar-" + copy.name);
             return LastSummary;
@@ -274,7 +284,9 @@ namespace ParelVR.SDK.Build
         public static bool NeedsConversion(IEnumerable<string> assetPaths) =>
             NeedsConversion(assetPaths.Where(p => p.EndsWith(".mat", StringComparison.OrdinalIgnoreCase)).Select(AssetDatabase.LoadAssetAtPath<Material>));
 
-        public static bool NeedsConversion(IEnumerable<Material> materials)
+        public static bool NeedsConversion(IEnumerable<Material> materials) => NeedsConversion(materials, RepairPolicy.ForeignPipelines);
+
+        public static bool NeedsConversion(IEnumerable<Material> materials, RepairPolicy policy)
         {
             ParelRenderManager.Initialize();
             foreach (Material m in materials)
@@ -282,7 +294,7 @@ namespace ParelVR.SDK.Build
                 if (m == null) continue;
                 bool broken = m.shader == null || m.shader.name == ShaderClassifier.ErrorShaderName || ShaderUtil.ShaderHasError(m.shader);
                 ShaderClassification c = ParelRenderManager.Classify(m, TargetPlatform.Pc);
-                if (RuntimeRepair.Decide(c, broken, RepairPolicy.ForeignPipelines) != RepairAction.Keep) return true;
+                if (RuntimeRepair.Decide(c, broken, policy) != RepairAction.Keep) return true;
             }
             return false;
         }
