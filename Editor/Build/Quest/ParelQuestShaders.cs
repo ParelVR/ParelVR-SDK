@@ -104,11 +104,12 @@ namespace ParelVR.SDK.Build.Quest
             Match target = Regex.Match(source, @"#pragma\s+target\s+(5\.0|4\.6)\b");
             if (target.Success) return "targets shader model " + target.Groups[1].Value + " (the tessellation class), which a headset can't run";
             Match only = Regex.Match(source, @"#pragma\s+only_renderers\s+([^\n]+)");
-            if (only.Success && !Regex.IsMatch(only.Groups[1].Value, @"\b(vulkan|gles3|gles)\b"))
-                return "is limited to " + only.Groups[1].Value.Trim() + " (#pragma only_renderers), so it has no Vulkan / OpenGL ES version";
+            // Headset bundles are Vulkan only (ParelQuestLocalWorker), so a shader needs a Vulkan version.
+            if (only.Success && !Regex.IsMatch(only.Groups[1].Value, @"\bvulkan\b"))
+                return "is limited to " + only.Groups[1].Value.Trim() + " (#pragma only_renderers), so it has no Vulkan version";
             Match exclude = Regex.Match(source, @"#pragma\s+exclude_renderers\s+([^\n]+)");
-            if (exclude.Success && Regex.IsMatch(exclude.Groups[1].Value, @"\bvulkan\b") && Regex.IsMatch(exclude.Groups[1].Value, @"\bgles3\b"))
-                return "excludes Vulkan and OpenGL ES (#pragma exclude_renderers)";
+            if (exclude.Success && Regex.IsMatch(exclude.Groups[1].Value, @"\bvulkan\b"))
+                return "excludes Vulkan (#pragma exclude_renderers)";
             return null;
         }
 

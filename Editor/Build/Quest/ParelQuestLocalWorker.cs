@@ -127,7 +127,7 @@ namespace ParelVR.SDK.Build.Quest
                     if (step.format == TextureImporterFormat.Automatic) ParelQuestConverter.ConvertTextures(textures, step.cap, report);
                     else ShrinkTextures(textures, step.cap, step.format, report);
                     if (step.squeezeMeshesAndSound && !steps[i - 1].squeezeMeshesAndSound) SqueezeMeshesAndSound(models, sounds, report);
-                    Step("Building the Android bundle (shaders compile for Vulkan and OpenGL ES)");
+                    Step("Building the Android bundle (shaders compile for Vulkan)");
                     string bundle = Build(avatar, avatar ? new[] { hints.mainAsset } : scenes.ToArray(), job.outputDir);
                     long size = new FileInfo(bundle).Length;
                     Debug.Log($"[ParelVR SDK] Android bundle: {size} bytes (textures up to {step.cap} px, {step.format}).");
@@ -284,12 +284,14 @@ namespace ParelVR.SDK.Build.Quest
             report.Note("meshes and sound squeezed to fit the size limit");
         }
 
-        /// <summary>The game's Android settings, so what is built here renders the same as the game: Linear, Vulkan + GLES3, ASTC, DXT5nm normals.</summary>
+        /// <summary>The game's Android settings, so what is built here renders the same as the game: Linear, Vulkan, ASTC, DXT5nm normals.</summary>
         private static void ApplyAndroidSettings()
         {
             if (PlayerSettings.colorSpace != ColorSpace.Linear) PlayerSettings.colorSpace = ColorSpace.Linear;
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
-            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan, GraphicsDeviceType.OpenGLES3 });
+            // Vulkan only: every Quest (2, 3, 3S, Pro) runs the game on Vulkan, and compiling each shader a second time for
+            // OpenGL ES doubled the longest step and kept the CPU at 100% (11-21).
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan });
             PlayerSettings.SetNormalMapEncoding(NamedBuildTarget.Android, NormalMapEncoding.DXT5nm);
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
 

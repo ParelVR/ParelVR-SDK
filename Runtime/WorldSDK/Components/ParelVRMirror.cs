@@ -166,7 +166,7 @@ namespace ParelVR.WorldSDK
             camera.CopyFrom(view);
             // A copied headset camera would take its pose and projection from the headset on Render(), throwing away
             // the reflected ones set below; these cameras draw one plain picture into a texture.
-            camera.stereoTargetEye = StereoTargetEyeMask.None;
+            if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null) camera.stereoTargetEye = StereoTargetEyeMask.None;
             camera.enabled = false;
             // The player's own screen (HUD, notifications, menu: the UI and OverlayUI layers) is never reflected.
             int layers = reflectLayers;

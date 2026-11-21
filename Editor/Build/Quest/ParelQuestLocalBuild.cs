@@ -360,7 +360,9 @@ namespace ParelVR.SDK.Build.Quest
             string unity = UnityExecutable();
             string args = "-batchmode -nographics -buildTarget Android -projectPath " + Arg(BackgroundProject) +
                           " -executeMethod ParelVR.SDK.Build.Quest.ParelQuestLocalWorker.Run -parelJob " + Arg(JobPath) +
-                          " -logFile " + Arg(job.logPath);
+                          " -logFile " + Arg(job.logPath) +
+                          // Half the cores for its jobs: it ran every core at 100% beside the creator's own editor (11-21).
+                          " -job-worker-count " + Math.Max(1, Environment.ProcessorCount / 2);
             var start = new ProcessStartInfo(unity, args) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = BackgroundProject };
 
             status?.Invoke("Starting Unity for Android in the background...");
@@ -368,6 +370,10 @@ namespace ParelVR.SDK.Build.Quest
             try
             {
                 process = Process.Start(start);
+                // Below normal: the PC stays usable while it builds. Its shader compilers start from it and keep the
+                // same priority on Windows.
+                try { process.PriorityClass = ProcessPriorityClass.BelowNormal; }
+                catch (Exception) { }
             }
             catch (Exception ex)
             {

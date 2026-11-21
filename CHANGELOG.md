@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.26.1 (2026-11-21)
+
+### Meta / Standalone VR
+
+- **The background Android build no longer takes your whole CPU.** It runs at below-normal priority on half your
+  cores, so the Editor and your other programs stay usable while it works.
+- **Headset bundles are built for Vulkan only** (the game runs on Vulkan on Quest). Before, every shader was compiled
+  a second time for OpenGL ES, which roughly doubled "Building the Android bundle". The shader check now asks for a
+  Vulkan version only.
+
+### Worlds
+
+- **Mirrors in URP worlds now draw for both eyes in VR.**
+
 ## 1.26.0 (2026-11-21)
 
 ### Meta / Standalone VR
