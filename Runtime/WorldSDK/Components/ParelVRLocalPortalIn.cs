@@ -26,6 +26,12 @@ namespace ParelVR.WorldSDK
         public static Func<ParelVRWorldPortal, GameObject> CreateWorldPortal;
         /// <summary>A moment of portal light over the view while the player passes through (strength 0..1).</summary>
         public static Action<float> Flash;
+        /// <summary>
+        /// Whether a point where the head crossed (the portal's own space, on its plane) is inside the doorway the game
+        /// drew there (its round ring), so walking through any part of what is seen as the way through goes through.
+        /// Null, or no doorway drawn: the Size rectangle.
+        /// </summary>
+        public static Func<GameObject, Vector3, bool> InsideDoorway;
 
         internal static Vector3? Head()
         {
@@ -95,7 +101,10 @@ namespace ParelVR.WorldSDK
 
             float t = before.z / (before.z - local.z);
             Vector3 at = Vector3.Lerp(before, local, t);
-            if (Mathf.Abs(at.x) > size.x * 0.5f || at.y < -0.4f || at.y > size.y + 0.3f) return;
+            bool inside = doorway != null && doorway.activeInHierarchy && ParelVRPortalHooks.InsideDoorway != null
+                ? ParelVRPortalHooks.InsideDoorway(doorway, at)
+                : Mathf.Abs(at.x) <= size.x * 0.5f && at.y >= -0.4f && at.y <= size.y + 0.3f;
+            if (!inside) return;
             Through(before.z > 0f);
         }
 
@@ -107,13 +116,16 @@ namespace ParelVR.WorldSDK
                 return;
             }
 
-            // In and out are one doorway: what is in front of this one comes out in front of the exit.
+            // In and out are one doorway: the player comes out exactly where the view through it showed them going (the
+            // same distance from the exit as from this one, mirrored through it), so nothing jumps as they pass. Only
+            // never behind the exit's plane: something often stands right behind an exit.
             Quaternion flip = Quaternion.Euler(0f, fromFront ? 180f : 0f, 0f);
             Quaternion turn = exit.transform.rotation * flip * Quaternion.Inverse(transform.rotation);
             Pose player = ParelVRPortalHooks.LocalPlayer();
-            Vector3 offset = transform.InverseTransformPoint(player.position);
-            offset.z = 0f;   // out on the exit's plane, a step beyond it
-            Vector3 position = exit.transform.TransformPoint(flip * offset) + exit.transform.forward * 0.35f;
+            Vector3 offset = Quaternion.Inverse(transform.rotation) * (player.position - transform.position);
+            Vector3 there = flip * offset;
+            there.z = Mathf.Max(there.z, 0.03f);
+            Vector3 position = exit.transform.position + exit.transform.rotation * there;
             Vector3 forward = turn * player.rotation * Vector3.forward;
             forward.y = 0f;
             Quaternion facing = forward.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(forward.normalized, Vector3.up) : exit.transform.rotation;

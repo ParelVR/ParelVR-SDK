@@ -22,8 +22,12 @@ namespace ParelVR.Rendering
         /// <summary>The game's pipeline assets (game only; the SDK doesn't ship them).</summary>
         public const string UrpResource = "ParelPipelines/ParelURP";
         public const string HdrpResource = "ParelPipelines/ParelHDRP";
+        /// <summary>The game's URP / HDRP global settings (<see cref="ParelPipelineGlobals"/>).</summary>
+        public const string GlobalsResource = "ParelPipelines/ParelPipelineGlobals";
 
         private static RenderPipelineAsset _urp, _hdrp;
+        private static ParelPipelineGlobals _globals;
+        private static RenderPipelineKind _globalsActive = RenderPipelineKind.BuiltIn;
         private static RenderPipelineKind _wanted = RenderPipelineKind.BuiltIn;
         private static bool _hooked;
         private static int _assetChanges;
@@ -130,6 +134,13 @@ namespace ParelVR.Rendering
                 if (_worldAsset != null && _wanted != RenderPipelineKind.BuiltIn) { _worldAsset = null; return Use(_wanted); }
                 return Current;
             }
+            // In a headset the game's own asset (set up for VR) runs: a creator's desktop asset showed a black headset.
+            if (UnityEngine.XR.XRSettings.isDeviceActive)
+            {
+                Debug.Log("[ParelVR Pipeline] Headset on: keeping the game's asset instead of the world's '" + info.Asset.name + "'.");
+                if (_worldAsset != null) { _worldAsset = null; return Use(_wanted); }
+                return Current;
+            }
             RenderPipelineKind kind = KindOf(info.Asset);
             if (kind != _wanted)
             {
@@ -194,8 +205,22 @@ namespace ParelVR.Rendering
             // and reflection settings), then destroys that material when HDRP shuts down: the scene that was active
             // around the switch (the loading screen, the game's own scenes) would come back with no sky.
             if (p == RenderPipelineKind.HighDefinition && before != RenderPipelineKind.HighDefinition) SceneLook.Save();
-            if (GraphicsSettings.defaultRenderPipeline != asset) GraphicsSettings.defaultRenderPipeline = asset;
-            if (QualitySettings.renderPipeline != asset) QualitySettings.renderPipeline = asset;
+            ActivateGlobalSettings(p);
+            try
+            {
+                if (GraphicsSettings.defaultRenderPipeline != asset) GraphicsSettings.defaultRenderPipeline = asset;
+                if (QualitySettings.renderPipeline != asset) QualitySettings.renderPipeline = asset;
+            }
+            catch (InvalidOperationException e)
+            {
+                // 2026-11-14 (build 1.0.1): "no current RenderPipelineGlobalSettings" failed every URP/HDRP join. Whatever
+                // else stops a switch, the join goes on, on Built-in, instead of failing.
+                Debug.LogError("[ParelVR Pipeline] Couldn't switch to " + p + " (" + e.Message + "); the world runs on Built-in.");
+                _wanted = RenderPipelineKind.BuiltIn;
+                _worldAsset = null;
+                if (GraphicsSettings.defaultRenderPipeline != null) GraphicsSettings.defaultRenderPipeline = null;
+                if (QualitySettings.renderPipeline != null) QualitySettings.renderPipeline = null;
+            }
             RenderPipelineKind after = Current;
             if (before == RenderPipelineKind.HighDefinition && after != RenderPipelineKind.HighDefinition) SceneLook.Restore();
             if (after != before)
@@ -205,6 +230,28 @@ namespace ParelVR.Rendering
                 catch (Exception e) { Debug.LogException(e); }
             }
             return after;
+        }
+
+        /// <summary>
+        /// The game is built with no SRP active, so a player build has no URP or HDRP global settings, and Unity throws
+        /// when either pipeline asset is assigned. A build activates the matching one first (the editor has them already,
+        /// and the call only works in a player).
+        /// </summary>
+        private static void ActivateGlobalSettings(RenderPipelineKind p)
+        {
+#if !UNITY_EDITOR
+            if (p == RenderPipelineKind.BuiltIn || _globalsActive == p) return;
+            if (_globals == null) _globals = Resources.Load<ParelPipelineGlobals>(GlobalsResource);
+            RenderPipelineGlobalSettings settings = _globals == null ? null
+                : p == RenderPipelineKind.Universal ? _globals.universal : _globals.highDefinition;
+            if (settings == null)
+            {
+                Debug.LogError("[ParelVR Pipeline] The game has no " + p + " global settings (Resources/" + GlobalsResource + ").");
+                return;
+            }
+            if (GraphicsSettings.TrySetCurrentRenderPipelineGlobalSettings(settings)) _globalsActive = p;
+            else Debug.LogError("[ParelVR Pipeline] Unity refused the " + p + " global settings '" + settings.name + "'.");
+#endif
         }
 
         /// <summary>The active scene's sky and ambient settings, kept across an HDRP stretch.</summary>

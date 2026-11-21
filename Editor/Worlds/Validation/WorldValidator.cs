@@ -98,6 +98,14 @@ namespace ParelVR.SDK.Worlds.Validation
             // Scenes: MainScene and its subrooms, all from Build Profiles, and every scene the scripts switch to.
             foreach (string problem in global::ParelVR.SDK.Build.WorldScenes.Problems(SceneManager.GetActiveScene().path))
                 report.AddError(problem);
+            // Headsets: each leads to a sub room in Build Profiles, or to a world by its ID.
+            List<string> buildScenes = global::ParelVR.SDK.Build.WorldScenes.Paths();
+            foreach (var headset in allBehaviours.OfType<global::ParelVR.WorldSDK.ParelVRHeadset>())
+            {
+                string problem = global::ParelVR.SDK.Worlds.ParelVRHeadsetEditor.Problem(headset, buildScenes);
+                if (problem != null) report.AddError(problem);
+            }
+
             var worldScenes = global::ParelVR.SDK.Build.WorldScenes.BuildOrder();
             if (worldScenes.Count > 1)
                 report.AddInfo("Subrooms (VoltScene.Switch): " + string.Join(", ", worldScenes.Skip(1).Select(global::ParelVR.SDK.Build.WorldScenes.NameOf)) +

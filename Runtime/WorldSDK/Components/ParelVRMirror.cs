@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 #if UNITY_EDITOR
@@ -91,6 +92,10 @@ namespace ParelVR.WorldSDK
             _leftTexture = _rightTexture = null;
         }
 
+        // After the game moves the head and the avatar to this frame's pose (they run in onBeforeRender at order 0):
+        // in the order they were added, a mirror already in the world when the player loaded in drew from last
+        // frame's head, and the reflection swam until it was turned off and on.
+        [BeforeRenderOrder(1000)]
         private void Render()
         {
             if (_rendering || _material == null || _renderer == null || !_renderer.isVisible) return;
@@ -163,7 +168,12 @@ namespace ParelVR.WorldSDK
             // the reflected ones set below; these cameras draw one plain picture into a texture.
             camera.stereoTargetEye = StereoTargetEyeMask.None;
             camera.enabled = false;
-            camera.cullingMask = reflectLayers;
+            // The player's own screen (HUD, notifications, menu: the UI and OverlayUI layers) is never reflected.
+            int layers = reflectLayers;
+            int ui = LayerMask.NameToLayer("UI"), overlay = LayerMask.NameToLayer("OverlayUI");
+            if (ui >= 0) layers &= ~(1 << ui);
+            if (overlay >= 0) layers &= ~(1 << overlay);
+            camera.cullingMask = layers;
             camera.useOcclusionCulling = false;
             camera.farClipPlane = farClipPlane;
             camera.targetTexture = texture;
@@ -183,7 +193,9 @@ namespace ParelVR.WorldSDK
             else
             {
                 var stereoEye = (Camera.StereoscopicEye)eye;
-                origin = view.GetStereoViewMatrix(stereoEye).inverse.MultiplyPoint(Vector3.zero);
+                // Not GetStereoViewMatrix: on URP it still holds last frame's eyes here (before rendering), so
+                // the reflection trailed the head by a frame and drifted in VR.
+                EyePose.Get(view, stereoEye, out origin, out viewRotation);
                 projection = view.GetStereoProjectionMatrix(stereoEye);
             }
             eyePosition = origin;
@@ -204,13 +216,17 @@ namespace ParelVR.WorldSDK
             Vector3 normalInCamera = worldToCamera.MultiplyVector(normal);
             var clip = new Vector4(normalInCamera.x, normalInCamera.y, normalInCamera.z, -Vector3.Dot(planeInCamera, normalInCamera));
             clip.x *= -1f; // the projection is flipped below
+            Matrix4x4 plain = projection;
             Oblique(ref projection, clip);
 
             // Flipped on X to keep triangle winding after the reflection; the shader flips the picture back.
+            // Unity draws the sky of an oblique projection with the last NON-oblique projection the camera was given
+            // (Built-in and URP alike): the plain one goes first, or the reflected sky keeps a stale framing.
             Matrix4x4 flip = Matrix4x4.Scale(new Vector3(-1f, 1f, 1f));
+            camera.farClipPlane = farClipPlane;
+            camera.projectionMatrix = flip * plain * flip;
             camera.projectionMatrix = flip * projection * flip;
             camera.cullingMatrix = camera.projectionMatrix * camera.worldToCameraMatrix;
-            camera.farClipPlane = farClipPlane;
             camera.Render();
         }
 
@@ -224,6 +240,68 @@ namespace ParelVR.WorldSDK
             projection[6] = c.y - projection[7];
             projection[10] = c.z - projection[11];
             projection[14] = c.w - projection[15];
+        }
+
+        /// <summary>
+        /// The current pose of a headset camera's eye. On a render pipeline the camera's eye matrices are written
+        /// while it renders (URP: UniversalRenderPipeline.UpdateCameraStereoMatrices), so before rendering they are
+        /// last frame's. This keeps each eye's pose relative to its camera from the last render and puts it on the
+        /// camera's current transform.
+        /// </summary>
+        private static class EyePose
+        {
+            private struct Eyes { public Vector3 lp, rp; public Quaternion lr, rr; }
+
+            private static readonly Dictionary<int, Eyes> Offsets = new Dictionary<int, Eyes>();
+            private static bool _hooked;
+
+            public static void Get(Camera camera, Camera.StereoscopicEye eye, out Vector3 position, out Quaternion rotation)
+            {
+                if (!_hooked)
+                {
+                    _hooked = true;
+                    RenderPipelineManager.endCameraRendering += OnEndCamera;
+                }
+                Transform t = camera.transform;
+                if (Offsets.TryGetValue(camera.GetInstanceID(), out Eyes eyes))
+                {
+                    bool left = eye == Camera.StereoscopicEye.Left;
+                    position = t.TransformPoint(left ? eyes.lp : eyes.rp);
+                    rotation = t.rotation * (left ? eyes.lr : eyes.rr);
+                    return;
+                }
+                // Built-in RP, or nothing rendered yet: the camera's own matrices.
+                if (!FromView(camera.GetStereoViewMatrix(eye), out position, out rotation)) rotation = t.rotation;
+            }
+
+            // Right after the pipeline drew the camera its eye matrices and its transform belong to the same moment.
+            private static void OnEndCamera(ScriptableRenderContext context, Camera camera)
+            {
+                if (camera == null || !camera.stereoEnabled) return;
+                Transform t = camera.transform;
+                Quaternion inverse = Quaternion.Inverse(t.rotation);
+                if (!FromView(camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left), out Vector3 lp, out Quaternion lr)) return;
+                if (!FromView(camera.GetStereoViewMatrix(Camera.StereoscopicEye.Right), out Vector3 rp, out Quaternion rr)) return;
+                Offsets[camera.GetInstanceID()] = new Eyes
+                {
+                    lp = t.InverseTransformPoint(lp),
+                    rp = t.InverseTransformPoint(rp),
+                    lr = inverse * lr,
+                    rr = inverse * rr,
+                };
+            }
+
+            // A view matrix looks down -Z; its inverse's columns are the eye's right, up and back in world space.
+            private static bool FromView(Matrix4x4 view, out Vector3 position, out Quaternion rotation)
+            {
+                Matrix4x4 eyeToWorld = view.inverse;
+                position = eyeToWorld.GetColumn(3);
+                Vector3 forward = -(Vector3)eyeToWorld.GetColumn(2);
+                Vector3 up = eyeToWorld.GetColumn(1);
+                bool valid = forward.sqrMagnitude > 1e-8f && up.sqrMagnitude > 1e-8f;
+                rotation = valid ? Quaternion.LookRotation(forward, up) : Quaternion.identity;
+                return valid;
+            }
         }
 
 #if UNITY_EDITOR

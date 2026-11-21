@@ -4,10 +4,11 @@ namespace ParelVR.WorldSDK
 {
     /// <summary>
     /// 3D Audio Raycast, Single Object: a sound that comes from one object (a radio, a fire, a speaker, a machine).
-    /// Add it next to the object's AudioSource. The sound plays through the headset's 3D audio, walls, floors and props
-    /// between the listener and the object muffle it and turn it down (rays go to the middle of the object and to four
-    /// points Sound Size out from it, so it clears bit by bit as you step round a corner), it loses its highs far away,
-    /// and it echoes as much as the room it is in does. The object's own colliders never block it.
+    /// Add it next to the object's AudioSource. Walls and props between you and it let only some of it through by what
+    /// they are made of, it finds its way round corners and through doorways and is heard from there, it reflects off
+    /// the walls, floor and ceiling round you, it fills the room with that room's echo, and it loses its highs far
+    /// away. The object's own colliders never block it. A Single Object inside a 3D Audio Raycast Zone uses its own
+    /// settings instead of the zone's.
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     [AddComponentMenu("ParelVR/World SDK/3D Audio Raycast Single Object")]
@@ -15,21 +16,27 @@ namespace ParelVR.WorldSDK
     public sealed class ParelRaycastAudioObject : ParelRaycastAudio
     {
         [Header("Object")]
-        [Tooltip("How big the sound is (meters). The muffling rays go to points this far round the object's middle, so a big " +
-                 "sound peeking out past a wall is only half muffled.")]
+        [Tooltip("How big the sound is (meters). The muffling rays spread over this size, so a big sound peeking out " +
+                 "past a wall is only partly muffled, and up close it sounds as big as this.")]
         [Min(0f)] public float soundSize = 0.25f;
 
         private AudioSource _own;
+        private ParelRaycastAudioVoice _voice;
 
-        public override AudioSource Sound => _own != null ? _own : _own = GetComponent<AudioSource>();
+        /// <summary>The AudioSource this drives.</summary>
+        public AudioSource Sound => _own != null ? _own : _own = GetComponent<AudioSource>();
 
-        protected override int RayTargets(Vector3 ear, Vector3[] targets)
+        public override float Occlusion => _voice != null ? _voice.Occlusion : 0f;
+
+        internal override void Begin()
         {
-            Vector3 centre = transform.position;
-            targets[0] = centre;
-            if (soundSize <= 0.001f) return 1;
-            Around(ear, centre, soundSize, targets, 1);
-            return 5;
+            _voice = ParelRaycastAudioEngine.Attach(this, Sound, soundSize, false);
+        }
+
+        internal override void Prepare(Vector3 ear, float dt)
+        {
+            if (_voice == null) Begin();
+            else _voice.Radius = soundSize;
         }
 
 #if UNITY_EDITOR
@@ -44,7 +51,7 @@ namespace ParelVR.WorldSDK
                 Gizmos.DrawWireSphere(transform.position, source.maxDistance);
             }
 
-            DrawHearing();
+            ParelRaycastAudioZone.DrawHearing(_voice);
         }
 #endif
     }

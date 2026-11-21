@@ -5,6 +5,18 @@
 #define PARELVR_UNLIT_INCLUDED
 
 #include "UnityCG.cginc"
+#if defined(UNITY_STEREO_MULTIVIEW_ENABLED)
+    // Quest multiview: in the fragment, _WorldSpaceCameraPos is an eye-indexed array read that the shader compiler
+    // turned into invalid bytecode here (2026-11-21: ParelVR/Unlit and ParelVR/Emissive rendered magenta in the headset).
+    // The vertex shader reads it instead and the fog (ParelVRFog.cginc, below) gets it through an interpolant.
+    // Done here, not in ParelVRFog.cginc: every ParelVR shader includes that file, and changing it makes a Quest build
+    // recompile all of them (ParelVR/Cutout alone is ~1500 variants, 5 minutes).
+    #define PARELVR_UNLIT_CAMERA_INTERPOLANT 1
+    #define PARELVR_EYE_CAMERA_POS unity_StereoWorldSpaceCameraPos[unity_StereoEyeIndex]
+    static float3 parelUnlitCameraPos;
+    #undef _WorldSpaceCameraPos
+    #define _WorldSpaceCameraPos parelUnlitCameraPos
+#endif
 #include "ParelVRFog.cginc"
 #if defined(PARELVR_PARTICLES_LIT)
     #include "UnityLightingCommon.cginc"
@@ -43,6 +55,9 @@ struct v2fUnlit
     half3 lighting : TEXCOORD2;
 #endif
     float3 worldPos : TEXCOORD3;
+#if defined(PARELVR_UNLIT_CAMERA_INTERPOLANT)
+    float3 cameraPos : TEXCOORD4;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -56,6 +71,9 @@ v2fUnlit vertUnlit(appdataUnlit v)
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
     o.pos = UnityObjectToClipPos(v.vertex);
     o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
+#if defined(PARELVR_UNLIT_CAMERA_INTERPOLANT)
+    o.cameraPos = PARELVR_EYE_CAMERA_POS;
+#endif
     o.uv = TRANSFORM_TEX(v.texcoord, _MainTex);
 #if defined(PARELVR_VERTEX_COLOR)
     o.color = v.color;
@@ -72,6 +90,9 @@ fixed4 fragUnlit(v2fUnlit i) : SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+#if defined(PARELVR_UNLIT_CAMERA_INTERPOLANT)
+    parelUnlitCameraPos = i.cameraPos;
+#endif
 
     fixed4 c = tex2D(_MainTex, i.uv) * _Color;
 #if defined(PARELVR_VERTEX_COLOR)

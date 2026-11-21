@@ -54,7 +54,7 @@ namespace ParelVR.SDK.Backend
 
         /// <summary>The proxy in front of the API refuses bodies over 100 MB, so packages go up in parts.</summary>
         private const int ChunkBytes = 32 * 1024 * 1024;
-        public const long SourceLimitBytes = 1024L * 1024 * 1024;
+        public const long SourceLimitBytes = 2048L * 1024 * 1024;
 
         [Serializable]
         private sealed class TargetsRequest
