@@ -29,6 +29,8 @@ namespace ParelVR.SDK.Build.Quest
         public string kind;
         /// <summary>The scene (world) or prefab (avatar) the bundle is built from.</summary>
         public string mainAsset;
+        /// <summary>Worlds: every scene of the bundle, MainScene first, then the subrooms.</summary>
+        public List<string> scenes = new List<string>();
         public string skybox;
         public string unityVersion;
         public string sdkVersion;
@@ -93,28 +95,7 @@ namespace ParelVR.SDK.Build.Quest
             IEnumerable<GameObject> contentRoots, Material skybox = null, IEnumerable<string> extraAssets = null)
         {
             if (string.IsNullOrEmpty(mainAssetPath)) throw new ArgumentNullException(nameof(mainAssetPath));
-
-            var assets = new HashSet<string>(StringComparer.Ordinal) { mainAssetPath };
-            foreach (string dependency in AssetDatabase.GetDependencies(mainAssetPath, true)) assets.Add(dependency);
-            foreach (string extra in extraAssets ?? Enumerable.Empty<string>())
-            {
-                if (string.IsNullOrEmpty(extra)) continue;
-                assets.Add(extra);
-                foreach (string dependency in AssetDatabase.GetDependencies(extra, true)) assets.Add(dependency);
-            }
-            string skyboxPath = skybox != null ? AssetDatabase.GetAssetPath(skybox) : null;
-            if (!string.IsNullOrEmpty(skyboxPath))
-            {
-                assets.Add(skyboxPath);
-                foreach (string dependency in AssetDatabase.GetDependencies(skyboxPath, true)) assets.Add(dependency);
-            }
-
-            // Shader include files are not asset dependencies, but the server needs them to compile the shaders it keeps.
-            foreach (string shader in assets.Where(a => ShaderSourceExtensions.Contains(Path.GetExtension(a))).ToList())
-                AddIncludes(shader, assets, 0);
-
-            List<string> packable = assets.Where(IsPackable).Distinct().OrderBy(p => p, StringComparer.Ordinal).ToList();
-
+            List<string> packable = Collect(mainAssetPath, skybox, extraAssets, out string skyboxPath).Where(IsPackable).Distinct().OrderBy(p => p, StringComparer.Ordinal).ToList();
             ParelQuestHints hints = BuildHints(kind, mainAssetPath, skyboxPath, packable, contentRoots);
             try
             {
@@ -147,7 +128,33 @@ namespace ParelVR.SDK.Build.Quest
             }
         }
 
-        private static ParelQuestHints BuildHints(string kind, string mainAssetPath, string skyboxPath, IEnumerable<string> assets, IEnumerable<GameObject> contentRoots)
+        /// <summary>
+        /// Every asset the bundle of <paramref name="mainAssetPath"/> is built from: its dependencies, those of
+        /// <paramref name="extraAssets"/> (subrooms, lighting data) and of the skybox, and the include files of its shaders.
+        /// </summary>
+        public static HashSet<string> Collect(string mainAssetPath, Material skybox, IEnumerable<string> extraAssets, out string skyboxPath)
+        {
+            var assets = new HashSet<string>(StringComparer.Ordinal) { mainAssetPath };
+            foreach (string dependency in AssetDatabase.GetDependencies(mainAssetPath, true)) assets.Add(dependency);
+            foreach (string extra in extraAssets ?? Enumerable.Empty<string>())
+            {
+                if (string.IsNullOrEmpty(extra)) continue;
+                assets.Add(extra);
+                foreach (string dependency in AssetDatabase.GetDependencies(extra, true)) assets.Add(dependency);
+            }
+            skyboxPath = skybox != null ? AssetDatabase.GetAssetPath(skybox) : null;
+            if (!string.IsNullOrEmpty(skyboxPath))
+            {
+                assets.Add(skyboxPath);
+                foreach (string dependency in AssetDatabase.GetDependencies(skyboxPath, true)) assets.Add(dependency);
+            }
+            // Shader include files are not asset dependencies, but the Quest build compiles the shaders it keeps.
+            foreach (string shader in assets.Where(a => ShaderSourceExtensions.Contains(Path.GetExtension(a))).ToList())
+                AddIncludes(shader, assets, 0);
+            return assets;
+        }
+
+        public static ParelQuestHints BuildHints(string kind, string mainAssetPath, string skyboxPath, IEnumerable<string> assets, IEnumerable<GameObject> contentRoots)
         {
             var particleMaterials = new HashSet<Material>();
             foreach (GameObject root in contentRoots ?? Enumerable.Empty<GameObject>())
@@ -185,6 +192,9 @@ namespace ParelVR.SDK.Build.Quest
             }
             return hints;
         }
+
+        /// <summary>Code and native plugins (never part of a bundle).</summary>
+        public static bool IsCode(string path) => !string.IsNullOrEmpty(path) && CodeExtensions.Contains(Path.GetExtension(path));
 
         /// <summary>The installed SDK's version (package.json).</summary>
         public static string SdkVersion()

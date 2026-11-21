@@ -9,7 +9,10 @@ namespace ParelVR.SDK.Build
 {
     public static class WorldBuilder
     {
-        /// <summary>Worlds are always built for PC. The Meta / Standalone VR version is made by ParelVR's servers.</summary>
+        /// <summary>
+        /// Worlds are always built for PC here. The Meta / Standalone VR version is built on this PC too, by a background
+        /// Unity in Android mode (<see cref="ParelQuestLocalBuild"/>), so the project never switches platform.
+        /// </summary>
         public const BuildTarget Target = BuildTarget.StandaloneWindows64;
 
         /// <summary>
@@ -27,12 +30,19 @@ namespace ParelVR.SDK.Build
         public static string BuiltPlatform { get; private set; }
 
         /// <summary>
-        /// Set before <see cref="BuildWorldBundle"/> to also pack what the bundle was built from for the Meta / Standalone VR
-        /// version. After the build, <see cref="QuestSource"/> is that package (null when it wasn't asked for or failed).
+        /// Set before <see cref="BuildWorldBundle"/> to also get the Meta / Standalone VR version ready: what the bundle was
+        /// built from is copied into the background Android project. After the build, <see cref="QuestJob"/> is that job,
+        /// for <see cref="ParelQuestLocalBuild.RunAsync"/> (null when it wasn't asked for or failed: <see cref="QuestJobError"/>).
         /// </summary>
-        public static bool ExportQuestSource;
-        public static ParelQuestSourceResult QuestSource { get; private set; }
-        public static string QuestSourceError { get; private set; }
+        public static bool BuildQuestVersion;
+        public static ParelQuestLocalJob QuestJob { get; private set; }
+        public static string QuestJobError { get; private set; }
+
+        /// <summary>
+        /// Packs the world's scripts for another platform's bundle (Volt: bundle path, platform -> the package's path, or
+        /// null when the world has no scripts). The package is written to <see cref="VoltPackagePathFor"/> of that bundle.
+        /// </summary>
+        public static System.Func<string, string, string> PackageScripts;
 
         /// <summary>The platform name the backend files a bundle under, or null when ParelVR has no client for the target.</summary>
         public static string PlatformName(BuildTarget target)
@@ -66,8 +76,8 @@ namespace ParelVR.SDK.Build
         {
             string built = null;
             BuiltPlatform = PlatformName(Target);
-            QuestSource = null;
-            QuestSourceError = null;
+            QuestJob = null;
+            QuestJobError = null;
             try
             {
                 built = Build(Target);
@@ -75,7 +85,7 @@ namespace ParelVR.SDK.Build
             }
             finally
             {
-                ExportQuestSource = false;
+                BuildQuestVersion = false;
                 ParelUploadRendering.FinishWorld();
                 Finished?.Invoke(built);
             }
@@ -148,29 +158,25 @@ namespace ParelVR.SDK.Build
             }
 
             // The scene that was built (a prepared copy when the world has scripts) still exists here: Finished deletes it.
-            if (ExportQuestSource)
+            if (BuildQuestVersion)
             {
                 try
                 {
                     string lighting = UnityEditor.Lightmapping.lightingDataAsset != null
                         ? AssetDatabase.GetAssetPath(UnityEditor.Lightmapping.lightingDataAsset)
                         : null;
-                    // The subrooms travel with MainScene.
-                    var extras = scenePaths.Skip(1).ToList();
-                    if (!string.IsNullOrEmpty(lighting)) extras.Add(lighting);
-                    QuestSource = ParelQuestSource.Export(
+                    QuestJob = ParelQuestLocalBuild.Prepare(
                         ParelQuestSource.WorldKind,
-                        scenePath,
-                        Path.Combine(outputDir, "worldbundle.questsource.unitypackage"),
+                        scenePaths,
                         activeScene.GetRootGameObjects(),
                         RenderSettings.skybox,
-                        extras.Count == 0 ? null : extras);
+                        string.IsNullOrEmpty(lighting) ? null : new[] { lighting });
                 }
                 catch (System.Exception ex)
                 {
                     // The PC world still publishes; only the Meta / Standalone VR version waits for the next publish.
-                    QuestSourceError = ex.Message;
-                    Debug.LogError("[ParelVR SDK] Could not pack the world for Meta / Standalone VR: " + ex);
+                    QuestJobError = ex.Message;
+                    Debug.LogError("[ParelVR SDK] Could not get the world ready for Meta / Standalone VR: " + ex);
                 }
             }
 

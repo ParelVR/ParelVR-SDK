@@ -17,6 +17,24 @@ namespace ParelVR.SDK.Build.Quest
         public const string Particles = "ParelVR/Mobile/Particles";
         public const string ErrorShader = "Hidden/InternalErrorShader";
 
+        // A URP project's Quest build stays on URP (ParelVR runs URP on the headset too): the light URP shaders.
+        public const string UrpSimpleLit = "Universal Render Pipeline/Simple Lit";
+        public const string UrpUnlit = "Universal Render Pipeline/Unlit";
+        public const string UrpParticlesUnlit = "Universal Render Pipeline/Particles/Unlit";
+
+        /// <summary>True when the project renders with URP: replacements are URP shaders, not the Built-in mobile ones.</summary>
+        public static bool UrpProject
+        {
+            get
+            {
+                UnityEngine.Rendering.RenderPipelineAsset rp = UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline;
+                return rp != null && rp.GetType().Name.IndexOf("Universal", StringComparison.Ordinal) >= 0;
+            }
+        }
+
+        public static bool IsUrpTarget(string shaderName) =>
+            !string.IsNullOrEmpty(shaderName) && shaderName.StartsWith("Universal Render Pipeline/", StringComparison.Ordinal);
+
         public enum Mode { Opaque, Cutout, Transparent }
 
         // Cheap on a mobile GPU and part of every Unity install or of this SDK: kept as they are, on avatars too.
@@ -82,6 +100,15 @@ namespace ParelVR.SDK.Build.Quest
             if (Regex.IsMatch(source, @"#pragma\s+geometry")) return "uses a geometry stage";
             if (Regex.IsMatch(source, @"#pragma\s+(hull|domain)")) return "uses tessellation";
             if (Regex.IsMatch(source, @"\bGrabPass\b")) return "uses GrabPass";
+            if (Regex.IsMatch(source, @"#pragma\s+require\s+[^\n]*\b(geometry|tessellation|tesshw)\b")) return "requires geometry / tessellation support";
+            Match target = Regex.Match(source, @"#pragma\s+target\s+(5\.0|4\.6)\b");
+            if (target.Success) return "targets shader model " + target.Groups[1].Value + " (the tessellation class), which a headset can't run";
+            Match only = Regex.Match(source, @"#pragma\s+only_renderers\s+([^\n]+)");
+            if (only.Success && !Regex.IsMatch(only.Groups[1].Value, @"\b(vulkan|gles3|gles)\b"))
+                return "is limited to " + only.Groups[1].Value.Trim() + " (#pragma only_renderers), so it has no Vulkan / OpenGL ES version";
+            Match exclude = Regex.Match(source, @"#pragma\s+exclude_renderers\s+([^\n]+)");
+            if (exclude.Success && Regex.IsMatch(exclude.Groups[1].Value, @"\bvulkan\b") && Regex.IsMatch(exclude.Groups[1].Value, @"\bgles3\b"))
+                return "excludes Vulkan and OpenGL ES (#pragma exclude_renderers)";
             return null;
         }
 
@@ -89,16 +116,38 @@ namespace ParelVR.SDK.Build.Quest
         /// The shader a material gets on a standalone headset, or null when it keeps its own. Avatars only keep
         /// mobile shaders; worlds keep any shader that runs there and isn't one of the heavy PC families.
         /// </summary>
-        public static string Replacement(string shaderName, string problem, bool avatar, bool particle)
+        public static string Replacement(string shaderName, string problem, bool avatar, bool particle) =>
+            Replacement(shaderName, problem, avatar, particle, UrpProject);
+
+        /// <param name="urp">The project renders with URP: replacements are URP's light shaders, which ParelVR draws as they are.</param>
+        public static string Replacement(string shaderName, string problem, bool avatar, bool particle, bool urp)
         {
             bool broken = string.IsNullOrEmpty(shaderName) || shaderName == ErrorShader;
-            if (!broken && IsMobile(shaderName)) return null;
-            string swap = BuiltInSwap(shaderName);
-            if (swap != null) return swap;
+            if (!broken && problem == null && IsMobile(shaderName)) return null;
+            if (!urp)
+            {
+                string swap = BuiltInSwap(shaderName);
+                if (swap != null) return swap;
+            }
             if (!avatar && !broken && problem == null && !IsHeavy(shaderName)) return null;
+            if (urp)
+            {
+                if (particle || LooksParticle(shaderName)) return UrpParticlesUnlit;
+                return LooksUnlit(shaderName) ? UrpUnlit : UrpSimpleLit;
+            }
             if (particle || LooksParticle(shaderName)) return Particles;
             if (avatar) return ToonLit;
             return LooksUnlit(shaderName) ? Unlit : StandardLite;
+        }
+
+        /// <summary>Why a material's shader is replaced on a standalone headset, for logs and validation.</summary>
+        public static string ReasonFor(string shaderName, string problem, bool avatar)
+        {
+            if (string.IsNullOrEmpty(shaderName) || shaderName == ErrorShader) return "its shader is missing or failed to import";
+            if (problem != null) return "the shader " + problem;
+            if (IsHeavy(shaderName)) return "it is a heavy PC shader";
+            if (avatar) return "avatars on a headset only use mobile shaders";
+            return "it is replaced for the headset";
         }
 
         /// <summary>How a material blends, from its render queue, keywords and the usual blend-mode properties.</summary>

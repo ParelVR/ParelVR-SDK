@@ -377,7 +377,7 @@ namespace ParelVR.SDK.Avatars.UI
 
             // ---- Platforms --------------------------------------------------------------------------
             VisualElement platforms = Section(_builderBody, "Platforms");
-            platforms.Add(Hint("You build on PC. For Meta / Standalone VR, ParelVR converts shaders, textures and performance settings on its servers."));
+            platforms.Add(Hint("You build on PC. The Meta / Standalone VR version is built on this PC too, in the background (shaders, textures and performance settings made headset-ready); this project stays on Windows."));
             _platformPc = new Toggle(ParelPlatformTargets.PcLabel) { value = true };
             _platformStandalone = new Toggle(ParelPlatformTargets.StandaloneLabel) { value = true };
             _platformPc.RegisterValueChangedCallback(_ => RenderPlatformStatus());
@@ -386,7 +386,9 @@ namespace ParelVR.SDK.Avatars.UI
             platforms.Add(_platformStandalone);
             _platformStatus = Hint(string.Empty);
             platforms.Add(_platformStatus);
-            // While the standalone version is being made, its status is fetched again now and then (only while the window shows it).
+            // While the standalone version builds in the background, its line follows what it's doing; a protected avatar's
+            // server build is fetched again now and then.
+            _platformStatus.schedule.Execute(() => { if (ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.IsRunning) RenderPlatformStatus(); }).Every(1000);
             _platformStatus.schedule.Execute(PollQuestStatus).Every(20000);
 
             // ---- Avatar Tools -----------------------------------------------------------------------
@@ -915,9 +917,53 @@ namespace ParelVR.SDK.Avatars.UI
                 pills.Add(Pill("PC", "bk-pill-accent"));
             if (!ParelPlatformTargets.Has(record.targetPlatforms, ParelPlatformTargets.Standalone)) return;
             ParelQuestConversionRecord quest = record.questConversion;
-            if (quest != null && quest.InProgress) pills.Add(Pill("Standalone: " + quest.Label, "bk-pill-neutral"));
+            if (HasBuild(record.platforms?.android)) pills.Add(Pill("Standalone", "bk-pill-accent"));
+            else if (quest != null && quest.InProgress) pills.Add(Pill("Standalone: " + quest.Label, "bk-pill-neutral"));
             else if (quest != null && quest.Failed) pills.Add(Pill("Standalone failed", "bk-pill-bad"));
-            else if (HasBuild(record.platforms?.android)) pills.Add(Pill("Standalone", "bk-pill-accent"));
+        }
+
+        /// <summary>Starts the Android build the avatar build prepared (null when it couldn't be prepared: result.QuestJobError).</summary>
+        private Task<ParelVR.SDK.Build.Quest.ParelQuestLocalResult> StartQuestBuild(ParelAvatarBuildResult windows, string content, CancellationToken ct)
+        {
+            if (windows?.QuestJob == null) return null;
+            Task<ParelVR.SDK.Build.Quest.ParelQuestLocalResult> task = ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.BuildAsync(windows.QuestJob, content, null, ct);
+            RenderPlatformStatus();
+            return task;
+        }
+
+        /// <summary>
+        /// Waits for the background Android build, then uploads its bundle. Returns the record the upload answered with
+        /// (or null) and what to tell the creator (null when it went up cleanly). Only cancelling throws.
+        /// </summary>
+        private async Task<(AvatarRecord record, string note)> FinishQuestAsync(Task<ParelVR.SDK.Build.Quest.ParelQuestLocalResult> build, string prepareError,
+            string avatarId, float from, float to, CancellationToken ct)
+        {
+            if (build == null) return (null, "The Meta / Standalone VR version wasn't built: " + (prepareError ?? "it couldn't be prepared") + ". Publish again to retry.");
+            while (!build.IsCompleted)
+            {
+                SetProgress(from, "Meta / Standalone VR (on this PC, in the background): " + (ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.RunningStatus ?? "building..."));
+                await Task.Delay(500);
+            }
+            ParelVR.SDK.Build.Quest.ParelQuestLocalResult result = await build;
+            RenderPlatformStatus();
+            if (!result.success)
+                return (null, "The Meta / Standalone VR version wasn't built: " + result.error + "\nThe Console lists what Unity reported for Android (the [Meta / Standalone VR] lines).");
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(result.bundlePath);
+                AvatarResponse uploaded = await AvatarApiClient.UploadBundleAsync(avatarId, "android", bytes,
+                    new Progress<float>(p => SetProgress(from + p * (to - from), $"Uploading Meta / Standalone VR build... {(int)(p * 100)}%")), ct);
+                AvatarRecord record = uploaded?.avatar != null && !string.IsNullOrEmpty(uploaded.avatar.id) ? uploaded.avatar : null;
+                string note = $"Meta / Standalone VR version built on this PC ({EditorUtility.FormatBytes(result.bundleBytes)}" +
+                              (string.IsNullOrEmpty(result.rank) ? ")." : ", " + result.rank + ").");
+                if (result.Errors > 0) note += $" Unity's Android build reported {result.Errors} error(s): they're in the Console and under Validation.";
+                return (record, note);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                return (null, "The Meta / Standalone VR version was built but not uploaded: " + ex.Message + " Publish again to retry.");
+            }
         }
 
         private bool _pollingQuest;
@@ -960,19 +1006,13 @@ namespace ParelVR.SDK.Avatars.UI
             if (_platformStatus == null) return;
             bool pc = _platformPc.value;
             bool standalone = _platformStandalone.value;
-            ParelQuestConversionRecord quest = _existingRecord?.questConversion;
             string text;
+            bool questBad = false;
             if (!pc && !standalone) text = "Pick at least one platform.";
             else if (!standalone) text = "Meta / Standalone VR players won't be able to wear or see this avatar.";
-            else if (quest != null && !string.IsNullOrEmpty(quest.status))
-            {
-                text = "Meta / Standalone VR version: " + quest.Label + ".";
-                string detail = quest.Failed ? quest.message : quest.summary;
-                if (!string.IsNullOrEmpty(detail)) text += " " + detail;
-            }
-            else text = "The Meta / Standalone VR version is made after each publish and usually takes a few minutes.";
+            else text = ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.StatusLine(ParelVR.SDK.Build.Quest.ParelQuestSource.AvatarKind, _current != null ? _current.gameObject.name : null, out questBad);
             _platformStatus.text = text;
-            _platformStatus.EnableInClassList("bk-text-bad", (!pc && !standalone) || (quest != null && quest.Failed && standalone));
+            _platformStatus.EnableInClassList("bk-text-bad", (!pc && !standalone) || (questBad && standalone));
         }
 
         private void UpdateButtons()
@@ -1229,6 +1269,26 @@ namespace ParelVR.SDK.Avatars.UI
             List<ParelLockedMap> locked = ParelLocked.MapsUsedBy(descriptor.gameObject);
             bool serverBuild = locked.Count > 0;
 
+            // Everything else gets its Meta / Standalone VR version built on this PC, in the background.
+            if (forStandalone && !serverBuild && !ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.AndroidSupportInstalled)
+            {
+                string missing = ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.AndroidSupportMissingMessage;
+                if (!forPc)
+                {
+                    EditorUtility.DisplayDialog("Meta / Standalone VR", missing, "OK");
+                    return;
+                }
+                if (!EditorUtility.DisplayDialog("Meta / Standalone VR", missing +
+                        "\n\nPublish for PC / PCVR only for now? Headset players keep the avatar's previous Meta / Standalone VR version, if it has one.", "Publish PC Only", "Cancel"))
+                    return;
+                forStandalone = false;
+            }
+            if (forStandalone && !serverBuild && ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.IsRunning)
+            {
+                EditorUtility.DisplayDialog("Meta / Standalone VR", "A Meta / Standalone VR build is still running in the background. Publish again when it's done.", "OK");
+                return;
+            }
+
             if (_forOther != null && _forOther.Enabled)
             {
                 if (!_forOther.Ready)
@@ -1254,7 +1314,8 @@ namespace ParelVR.SDK.Avatars.UI
             try
             {
                 // 1. Build first so a broken build never leaves an empty avatar on your account. One PC build; with
-                //    Meta / Standalone VR on, what it was built from is packed for ParelVR's servers too.
+                //    Meta / Standalone VR on, what it was built from goes to the background Android project, whose build
+                //    runs while the PC version uploads.
                 if (serverBuild)
                 {
                     foreach (ParelLockedMap map in locked)
@@ -1269,17 +1330,14 @@ namespace ParelVR.SDK.Avatars.UI
                         }
                     }
                 }
-                string questSourceFile = forStandalone && !serverBuild ? Path.Combine(workDir, "standalone.unitypackage") : null;
+                bool questLocal = forStandalone && !serverBuild;
                 ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
-                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questSourceFile));
+                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questLocal));
                 if (forPc && windows.BundleBytes > MaxWindowsBundleBytes)
                 {
                     throw new Exception($"The PC build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
                 }
-                if (forStandalone && !serverBuild && windows.QuestSource == null)
-                {
-                    notes.Add("The Meta / Standalone VR version wasn't sent: " + (windows.QuestSourceError ?? "the package wasn't made") + ". Publish again to retry.");
-                }
+                Task<ParelVR.SDK.Build.Quest.ParelQuestLocalResult> questBuild = questLocal ? StartQuestBuild(windows, descriptor.gameObject.name, ct) : null;
                 if (windows.RemovedComponents.Count > 0)
                 {
                     notes.Add("Left out of the upload: " + string.Join(", ", windows.RemovedComponents.Distinct()));
@@ -1300,8 +1358,7 @@ namespace ParelVR.SDK.Avatars.UI
                 }
 
                 // 3. The PC bundle.
-                bool sendStandalone = forStandalone && !serverBuild && windows.QuestSource != null;
-                float pcEnd = sendStandalone ? 65f : 90f;
+                float pcEnd = questLocal ? 65f : 90f;
                 if (serverBuild)
                 {
                     // What was built here has stand-ins in it, so it never goes up: the avatar and its stand-ins go to the
@@ -1326,24 +1383,12 @@ namespace ParelVR.SDK.Avatars.UI
                     if (uploaded?.avatar != null && !string.IsNullOrEmpty(uploaded.avatar.id)) record = uploaded.avatar;
                 }
 
-                // 4. What the Meta / Standalone VR version is built from; the server queues the conversion.
-                if (sendStandalone)
+                // 4. The Meta / Standalone VR version, built on this PC in the background: wait for it, then upload it.
+                if (questLocal)
                 {
-                    try
-                    {
-                        ParelQuestApiClient.QuestResponse queued = await ParelQuestApiClient.UploadSourceAsync(
-                            ParelQuestApiClient.Avatars, record.id, windows.QuestSource.PackagePath, null,
-                            ParelVR.SDK.Build.Quest.ParelQuestSource.SdkVersion(),
-                            new Progress<float>(p => SetProgress(pcEnd + p * (90 - pcEnd), $"Sending to ParelVR for Meta / Standalone VR... {(int)(p * 100)}%")),
-                            ct);
-                        if (queued?.questConversion != null) record.questConversion = queued.questConversion;
-                        notes.Add("ParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes; the Builder and the Content Manager show when it's ready.");
-                    }
-                    catch (OperationCanceledException) { throw; }
-                    catch (Exception questError)
-                    {
-                        notes.Add("The Meta / Standalone VR version wasn't sent: " + questError.Message + " Publish again to retry.");
-                    }
+                    var (questRecord, questNote) = await FinishQuestAsync(questBuild, windows.QuestJobError, record.id, pcEnd, 90f, ct);
+                    if (questRecord != null) record = questRecord;
+                    if (questNote != null) notes.Add(questNote);
                 }
 
                 // 5. Thumbnail -- the one you picked, or an automatic portrait for brand-new avatars.
@@ -1387,7 +1432,7 @@ namespace ParelVR.SDK.Avatars.UI
                     ? $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}). It goes live once ParelVR's build server has built it with the protected parts."
                     : forPc
                     ? $"'{record.name}' is live on ParelVR ({VisibilityLabel(record.releaseStatus)}).\n\nYou'll find it on the Avatars page in game."
-                    : $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}). It shows on the Avatars page once its Meta / Standalone VR version is ready.";
+                    : $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}) for Meta / Standalone VR only. It shows on the Avatars page on headsets once its Meta / Standalone VR version is up (see below).";
                 if (notes.Count > 0) message += "\n\n" + string.Join("\n\n", notes);
                 EditorUtility.DisplayDialog("Avatar Published", message, "OK");
             }
@@ -1427,18 +1472,21 @@ namespace ParelVR.SDK.Avatars.UI
             CancellationToken ct = _cts.Token;
             try
             {
-                // 1. Build, the same as for your own account.
-                string questSourceFile = forStandalone ? Path.Combine(workDir, "standalone.unitypackage") : null;
+                // 1. Build, the same as for your own account. The Android build runs in the background while the request waits.
+                if (forStandalone && !ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.AndroidSupportInstalled)
+                {
+                    notes.Add(ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.AndroidSupportMissingMessage);
+                    forStandalone = false;
+                }
+                if (forStandalone && ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.IsRunning)
+                    throw new Exception("A Meta / Standalone VR build is still running in the background. Upload again when it's done.");
                 ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
-                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questSourceFile));
+                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), forStandalone));
                 if (windows.BundleBytes > MaxWindowsBundleBytes)
                 {
                     throw new Exception($"The PC build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
                 }
-                if (forStandalone && windows.QuestSource == null)
-                {
-                    notes.Add("The Meta / Standalone VR version wasn't sent: " + (windows.QuestSourceError ?? "the package wasn't made") + ".");
-                }
+                Task<ParelVR.SDK.Build.Quest.ParelQuestLocalResult> questBuild = forStandalone ? StartQuestBuild(windows, descriptor.gameObject.name, ct) : null;
                 if (windows.RemovedComponents.Count > 0) notes.Add("Left out of the upload: " + string.Join(", ", windows.RemovedComponents.Distinct()));
 
                 // 2. The request. The build is held by ParelVR (not public) until the other player answers.
@@ -1489,23 +1537,11 @@ namespace ParelVR.SDK.Avatars.UI
                     }
                 }
 
-                // 5. What the Meta / Standalone VR version is built from.
-                if (forStandalone && windows.QuestSource != null)
+                // 5. The Meta / Standalone VR version, built on this PC in the background.
+                if (forStandalone)
                 {
-                    try
-                    {
-                        await ParelQuestApiClient.UploadSourceAsync(
-                            ParelQuestApiClient.Avatars, record.id, windows.QuestSource.PackagePath, null,
-                            ParelVR.SDK.Build.Quest.ParelQuestSource.SdkVersion(),
-                            new Progress<float>(p => SetProgress(86 + p * 6, $"Sending to ParelVR for Meta / Standalone VR... {(int)(p * 100)}%")),
-                            ct);
-                        notes.Add("ParelVR is making the Meta / Standalone VR version now. It usually takes a few minutes.");
-                    }
-                    catch (OperationCanceledException) { throw; }
-                    catch (Exception questError)
-                    {
-                        notes.Add("The Meta / Standalone VR version wasn't sent: " + questError.Message);
-                    }
+                    var (_, questNote) = await FinishQuestAsync(questBuild, windows.QuestJobError, record.id, 86f, 92f, ct);
+                    if (questNote != null) notes.Add(questNote);
                 }
 
                 // 6. Thumbnail: the one picked here, or a portrait. Your own pending thumbnail is left as it is.

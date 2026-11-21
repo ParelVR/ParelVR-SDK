@@ -1,6 +1,36 @@
 # Changelog
 
-## Unreleased
+## 1.26.0 (2026-11-21)
+
+### Meta / Standalone VR
+
+- **The Meta / Standalone VR version is now built on your PC, and your project never switches to Android.** Before,
+  the SDK sent what your world or avatar was built from to ParelVR's servers, which were meant to make the headset
+  version. Now, right after the PC build, the SDK copies only what the bundle is made of (the scene or avatar and the
+  assets it uses, never code) into a small project of its own (`Library/ParelQuestBuild`) and builds the Android
+  bundle there with your installed Unity, in the background with no window, while the PC version uploads. Nothing is
+  re-imported in your project, the first Quest build imports only that content for Android once, and later builds
+  re-import only what changed. When it's done the Android bundle (and, for worlds, the Volt scripts for it) uploads
+  with the same publish. Needs Unity's **Android Build Support** module (just the module: the Android SDK, NDK and
+  OpenJDK are not needed); without it the Builder says so and offers to publish for PC only.
+- **What changes for the headset, on the copy only:** materials whose shaders can't run on a headset (geometry or
+  tessellation stages, GrabPass, shader model 4.6 / 5.0, no Vulkan / OpenGL ES version, missing or broken shaders,
+  heavy PC shader families) get URP Simple Lit, Unlit or Particles Unlit with their colour, textures, normal map,
+  emission, smoothness, culling and transparency carried over. Shaders that run on a headset are kept. Textures,
+  sound and meshes are compressed for Android, and lowered step by step until the bundle fits (100 MB for worlds,
+  10 MB for avatars). Your own files are never changed.
+- **Validation shows what isn't Quest-compatible, as an Android project's Console would.** The world and avatar
+  checks now list, under "Meta / Standalone VR": each material that gets a headset shader and why; shaders with no URP
+  pass; every pass of the shaders that are kept, compiled for the headset (Vulkan on Android), with the compiler's
+  own errors and the pass name; components whose C# scripts don't run in a bundle (write world logic as Volt
+  scripts); your project's scripts compiled for Android (errors with file and line); and everything the last Quest
+  build reported. Everything Unity prints while building the Android bundle comes back into your Console as
+  `[Meta / Standalone VR]` errors and warnings.
+- **New menu: ParelVR > Meta - Standalone VR:** Show Last Android Build Log, Clear Android Build Cache, and Check
+  Scripts for Android.
+- Avatars with protected content by another creator are still built by ParelVR's build server, as before.
+
+## 1.25.0 (2026-11-21)
 
 ### Avatars
 

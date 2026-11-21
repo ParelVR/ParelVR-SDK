@@ -33,6 +33,8 @@ namespace ParelVR.SDK.Avatars.Validation
                 if (urp) materials = materials.Where(m => ParelVR.SDK.Build.ParelUploadRendering.NeedsConversion(new[] { m }, ParelVR.Rendering.RepairPolicy.BrokenOnly)).ToList();
                 ParelRenderingValidation.AddMaterialIssues(single, materials, d.name);
                 ParelRenderingValidation.AddQuestBudgetIssues(single, new[] { d.gameObject }, true);
+                // What isn't headset-compatible, as an Android project's Console would show it (the project stays on Windows).
+                ParelVR.SDK.Build.Quest.ParelQuestValidation.AddIssues(single, new[] { d.gameObject }, true, null, d.gameObject.name, d == descriptors[0]);
                 foreach (ValidationIssue issue in single.Issues)
                     report.Issues.Add(new ValidationIssue($"[{d.name}] {issue.Message}", issue.Level, issue.AutoFix, issue.Context));
             }

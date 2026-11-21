@@ -18,9 +18,9 @@ namespace ParelVR.SDK.Avatars.Build
         public List<string> RemovedComponents = new List<string>();
         /// <summary>What Avatar Tools did (merged clothing, generated toggles...), for the summary dialog.</summary>
         public List<string> Notes = new List<string>();
-        /// <summary>What the Meta / Standalone VR version is built from, when asked for (null otherwise or when it failed).</summary>
-        public ParelVR.SDK.Build.Quest.ParelQuestSourceResult QuestSource;
-        public string QuestSourceError;
+        /// <summary>The Meta / Standalone VR build, ready to run in the background, when asked for (null otherwise or when it failed).</summary>
+        public ParelVR.SDK.Build.Quest.ParelQuestLocalJob QuestJob;
+        public string QuestJobError;
     }
 
     /// <summary>
@@ -47,10 +47,11 @@ namespace ParelVR.SDK.Avatars.Build
 
         /// <summary>
         /// Builds <paramref name="descriptor"/>'s avatar for <paramref name="target"/> into <paramref name="outputFile"/>. With
-        /// <paramref name="questSourceFile"/>, the cleaned copy the bundle was built from is also packed there for ParelVR's
-        /// servers, which make the Meta / Standalone VR version from it.
+        /// <paramref name="questVersion"/>, the cleaned copy the bundle was built from is also copied into the background
+        /// Android project, where <see cref="ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.RunAsync"/> builds the Meta /
+        /// Standalone VR version (result.QuestJob) without switching this project.
         /// </summary>
-        public static ParelAvatarBuildResult Build(ParelAvatarDescriptor descriptor, BuildTarget target, string outputFile, string questSourceFile = null)
+        public static ParelAvatarBuildResult Build(ParelAvatarDescriptor descriptor, BuildTarget target, string outputFile, bool questVersion = false)
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
             if (string.IsNullOrEmpty(outputFile)) throw new ArgumentNullException(nameof(outputFile));
@@ -109,19 +110,20 @@ namespace ParelVR.SDK.Avatars.Build
                 result.BundleBytes = new FileInfo(outputFile).Length;
                 if (result.Performance == null) result.Performance = ParelAvatarPerformance.Measure(descriptor.gameObject);
 
-                // The build copy (Avatar Tools applied, disallowed components out) is what the standalone version starts from.
-                if (!string.IsNullOrEmpty(questSourceFile))
+                // The build copy (Avatar Tools applied, disallowed components out) is what the standalone version is built from,
+                // in the background Android project: copied there before the copy is deleted below.
+                if (questVersion)
                 {
                     try
                     {
-                        result.QuestSource = ParelVR.SDK.Build.Quest.ParelQuestSource.Export(
-                            ParelVR.SDK.Build.Quest.ParelQuestSource.AvatarKind, TempPrefabPath, questSourceFile,
+                        result.QuestJob = ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.Prepare(
+                            ParelVR.SDK.Build.Quest.ParelQuestSource.AvatarKind, new[] { TempPrefabPath },
                             new[] { AssetDatabase.LoadAssetAtPath<GameObject>(TempPrefabPath) });
                     }
                     catch (Exception ex)
                     {
-                        result.QuestSourceError = ex.Message;
-                        Debug.LogError("[ParelVR SDK] Could not pack the avatar for Meta / Standalone VR: " + ex);
+                        result.QuestJobError = ex.Message;
+                        Debug.LogError("[ParelVR SDK] Could not get the avatar ready for Meta / Standalone VR: " + ex);
                     }
                 }
                 return result;

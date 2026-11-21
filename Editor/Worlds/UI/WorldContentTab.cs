@@ -147,7 +147,8 @@ namespace ParelVR.SDK.Worlds.UI
             AddPlatformPills(pills, world);
             info.Add(pills);
             ParelQuestConversionRecord quest = world.questConversion;
-            if (quest != null && quest.Failed && !string.IsNullOrEmpty(quest.message) && ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone))
+            if (quest != null && quest.Failed && !string.IsNullOrEmpty(quest.message) && string.IsNullOrEmpty(world.platforms?.android?.bundleUrl)
+                && ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone))
             {
                 var why = new Label("Meta / Standalone VR: " + quest.message);
                 why.AddToClassList("bk-hint");
@@ -304,10 +305,8 @@ namespace ParelVR.SDK.Worlds.UI
             bool standalone = !string.IsNullOrEmpty(world.platforms?.android?.bundleUrl);
             if (pc && ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Pc)) pills.Add(Pill("PC", "bk-pill-accent"));
             if (!ParelPlatformTargets.Has(world.targetPlatforms, ParelPlatformTargets.Standalone)) return;
-            ParelQuestConversionRecord quest = world.questConversion;
-            if (quest != null && quest.InProgress) pills.Add(Pill("Standalone: " + quest.Label, "bk-pill-neutral"));
-            else if (quest != null && quest.Failed) pills.Add(Pill("Standalone failed", "bk-pill-bad"));
-            else if (standalone) pills.Add(Pill("Standalone", "bk-pill-accent"));
+            // The Meta / Standalone VR version is built in the creator's editor and uploaded with each publish.
+            pills.Add(standalone ? Pill("Standalone", "bk-pill-accent") : Pill("No standalone build: publish again", "bk-pill-neutral"));
         }
 
         private static Label Pill(string text, string modifier)

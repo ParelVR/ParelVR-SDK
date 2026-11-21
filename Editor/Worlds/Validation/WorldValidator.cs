@@ -127,6 +127,15 @@ namespace ParelVR.SDK.Worlds.Validation
                                   " Switch the project to URP (Window > Rendering > Render Pipeline Converter) so the world looks exactly as you made it.");
             }
 
+            // What isn't headset-compatible, as an Android project's Console would show it (the project stays on Windows).
+            var roots = new List<GameObject>();
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                Scene loaded = SceneManager.GetSceneAt(i);
+                if (loaded.isLoaded) roots.AddRange(loaded.GetRootGameObjects());
+            }
+            global::ParelVR.SDK.Build.Quest.ParelQuestValidation.AddIssues(report, roots, false, RenderSettings.skybox, SceneManager.GetActiveScene().path);
+
             return Task.FromResult(report);
         }
     }

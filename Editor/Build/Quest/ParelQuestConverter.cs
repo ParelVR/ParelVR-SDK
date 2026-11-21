@@ -125,13 +125,13 @@ namespace ParelVR.SDK.Build.Quest
             bool particle = hint != null && hint.particle;
 
             string target = ParelQuestShaders.Replacement(original, problem, avatar, particle);
-            if (target == null && broken) target = avatar ? ParelQuestShaders.ToonLit : ParelQuestShaders.StandardLite;
+            if (target == null && broken) target = ParelQuestShaders.UrpProject ? ParelQuestShaders.UrpSimpleLit : avatar ? ParelQuestShaders.ToonLit : ParelQuestShaders.StandardLite;
             if (target == null) return false;
 
             Shader shader = Shader.Find(target);
             if (shader == null)
             {
-                report.Note(path + ": the shader " + target + " is missing on the server");
+                report.Note(path + ": the shader " + target + " is missing in the Android build project");
                 return false;
             }
 
@@ -145,9 +145,100 @@ namespace ParelVR.SDK.Build.Quest
             material.shaderKeywords = Array.Empty<string>();
             if (target.StartsWith("ParelVR/Mobile/", StringComparison.Ordinal))
                 ApplyMobile(material, snapshot, target, mode, additive, queue);
+            else if (ParelQuestShaders.IsUrpTarget(target))
+                ApplyUrp(material, snapshot, target, mode, additive, queue);
             report.materialsConverted++;
-            report.Note(path + ": " + (original ?? "missing shader") + " -> " + target);
+            report.Note(path + ": " + (original ?? "missing shader") + " -> " + target + " (" + ParelQuestShaders.ReasonFor(original, problem, avatar) + ")");
             return true;
+        }
+
+        /// <summary>
+        /// A URP project's replacement: URP Simple Lit / Unlit / Particles Unlit with the material's colour, textures,
+        /// normal map, emission, smoothness, culling and blending. Keywords are set here because no material inspector
+        /// runs in a batch build.
+        /// </summary>
+        private static void ApplyUrp(Material material, ParelMaterialSnapshot snapshot, string target, ParelQuestShaders.Mode mode, bool additive, int queue)
+        {
+            ParelMaterialSnapshot.TextureSlot main = snapshot.MainTexture();
+            if (main != null)
+            {
+                material.SetTexture("_BaseMap", main.Texture);
+                material.SetTextureScale("_BaseMap", main.Scale);
+                material.SetTextureOffset("_BaseMap", main.Offset);
+                if (material.HasProperty("_MainTex")) material.SetTexture("_MainTex", main.Texture);
+            }
+            Color color = snapshot.ColorOf("_BaseColor", "_Color", "_MainColor", "_TintColor", "_Tint", "_AlbedoColor") ?? Color.white;
+            material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+
+            float? cull = snapshot.Float("_Cull", "_CullMode", "_Culling");
+            if (cull.HasValue && material.HasProperty("_Cull")) material.SetFloat("_Cull", Mathf.Clamp(Mathf.Round(cull.Value), 0, 2));
+
+            if (target == ParelQuestShaders.UrpSimpleLit)
+            {
+                ParelMaterialSnapshot.TextureSlot normal = snapshot.Slot("_BumpMap", "_NormalMap", "_NormalTexture", "_Normal");
+                if (normal != null)
+                {
+                    material.SetTexture("_BumpMap", normal.Texture);
+                    material.SetFloat("_BumpScale", snapshot.Float("_BumpScale", "_NormalScale", "_NormalStrength") ?? 1f);
+                    material.EnableKeyword("_NORMALMAP");
+                }
+                material.SetFloat("_Smoothness", Mathf.Clamp01(snapshot.Float("_Smoothness", "_Glossiness", "_GlossMapScale") ?? 0.5f));
+                // Simple Lit is Blinn-Phong: metal is approximated by a tinted specular.
+                float metallic = Mathf.Clamp01(snapshot.Float("_Metallic") ?? 0f);
+                material.SetColor("_SpecColor", Color.Lerp(new Color(0.2f, 0.2f, 0.2f, 1f), color, metallic));
+                material.EnableKeyword("_SPECULAR_COLOR");
+            }
+            if (material.HasProperty("_EmissionColor")) ApplyUrpEmission(material, snapshot);
+
+            bool transparent = mode == ParelQuestShaders.Mode.Transparent || target == ParelQuestShaders.UrpParticlesUnlit;
+            if (mode == ParelQuestShaders.Mode.Cutout)
+            {
+                material.SetFloat("_AlphaClip", 1f);
+                material.SetFloat("_Cutoff", Mathf.Clamp01(snapshot.Float("_Cutoff", "_AlphaCutoff", "_Clip", "_AlphaClipThreshold") ?? 0.5f));
+                material.EnableKeyword("_ALPHATEST_ON");
+            }
+            if (transparent)
+            {
+                material.SetFloat("_Surface", 1f);
+                material.SetFloat("_Blend", additive ? 2f : 0f);
+                material.SetFloat("_SrcBlend", (float)(additive ? BlendMode.One : BlendMode.SrcAlpha));
+                material.SetFloat("_DstBlend", (float)(additive ? BlendMode.One : BlendMode.OneMinusSrcAlpha));
+                material.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+                material.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+                material.SetFloat("_ZWrite", 0f);
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                material.SetOverrideTag("RenderType", "Transparent");
+                material.SetShaderPassEnabled("DepthOnly", false);
+                material.SetShaderPassEnabled("ShadowCaster", false);
+                material.renderQueue = queue > 2500 ? queue : (int)RenderQueue.Transparent;
+            }
+            else
+            {
+                material.SetFloat("_Surface", 0f);
+                material.SetFloat("_SrcBlend", (float)BlendMode.One);
+                material.SetFloat("_DstBlend", (float)BlendMode.Zero);
+                material.SetFloat("_ZWrite", 1f);
+                bool cutout = mode == ParelQuestShaders.Mode.Cutout;
+                material.SetOverrideTag("RenderType", cutout ? "TransparentCutout" : "Opaque");
+                material.renderQueue = cutout ? (queue >= 2450 && queue <= 2500 ? queue : (int)RenderQueue.AlphaTest)
+                    : (queue >= 1000 && queue < 2450 ? queue : (int)RenderQueue.Geometry);
+            }
+        }
+
+        private static void ApplyUrpEmission(Material material, ParelMaterialSnapshot snapshot)
+        {
+            ParelMaterialSnapshot.TextureSlot map = snapshot.Slot("_EmissionMap", "_EmissiveMap", "_EmissionTex", "_EmissiveTex", "_EmissiveColorMap");
+            Color color = snapshot.ColorOf("_EmissionColor", "_EmissiveColor", "_Emission") ?? Color.black;
+            float strength = snapshot.Float("_EmissionStrength", "_EmissiveIntensity") ?? 1f;
+            if (snapshot.HasAnyFloat("_EmissionStrength")) color *= Mathf.Max(0f, strength);
+            string[] switches = { "_EnableEmission", "_UseEmission", "_EmissionEnabled", "_EmissionToggle" };
+            bool switchedOn = !snapshot.HasAnyFloat(switches) || (snapshot.Float(switches) ?? 0f) > 0.5f;
+            if (color.maxColorComponent <= 0.001f || !switchedOn) return;
+            if (map != null) material.SetTexture("_EmissionMap", map.Texture);
+            material.SetColor("_EmissionColor", color);
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
         }
 
         private static void ApplyMobile(Material material, ParelMaterialSnapshot snapshot, string target, ParelQuestShaders.Mode mode, bool additive, int queue)
@@ -454,7 +545,8 @@ namespace ParelVR.SDK.Build.Quest
                     Mesh mesh = filter.sharedMesh;
                     if (mesh == null || Triangles(mesh) < QuestBudgets.MeshLodMinTriangles) continue;
                     string path = AssetDatabase.GetAssetPath(mesh);
-                    if (!string.IsNullOrEmpty(path) && AssetImporter.GetAtPath(path) is ModelImporter) models.Add(path);
+                    // Only the build copy's own files: models in packages are shared with other projects.
+                    if (!string.IsNullOrEmpty(path) && path.StartsWith("Assets/", StringComparison.Ordinal) && AssetImporter.GetAtPath(path) is ModelImporter) models.Add(path);
                 }
             foreach (string path in models)
             {
@@ -527,6 +619,8 @@ namespace ParelVR.SDK.Build.Quest
             terrain.treeBillboardDistance = Mathf.Min(terrain.treeBillboardDistance, 50f);
             terrain.shadowCastingMode = ShadowCastingMode.Off;
 
+            // URP draws a terrain without its own material with the pipeline's Terrain Lit material, which runs on a headset.
+            if (ParelQuestShaders.UrpProject) return;
             // A terrain without its own material draws with Unity's built-in Standard terrain material, the heavy one.
             Material template = terrain.materialTemplate;
             bool builtIn = template == null || !AssetDatabase.GetAssetPath(template).StartsWith("Assets/", StringComparison.Ordinal);

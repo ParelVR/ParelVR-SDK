@@ -601,6 +601,7 @@ namespace ParelVR.Volt.EditorTools
             WorldBuilder.PrepareScenes = VoltWorldBuild.Prepare;
             WorldBuilder.Finished = VoltWorldBuild.Finished;
             WorldBuilder.AfterBundleUploaded = VoltWorldBuild.Upload;
+            WorldBuilder.PackageScripts = VoltWorldBuild.PackageFor;
             WorldScenes.FindSwitchCalls = VoltSceneCalls.Find;
             PushScenes();
         }
@@ -786,6 +787,18 @@ namespace ParelVR.Volt.EditorTools
             File.WriteAllBytes(LastPackagePath, Package(File.ReadAllBytes(bundlePath), WorldBuilder.BuiltPlatform));
         }
 
+        /// <summary>
+        /// The same scripts for another platform's bundle of this build (the Meta / Standalone VR one): ParelVR checks a
+        /// package against the bundle it came with. Returns the package's path, or null when the world has no scripts.
+        /// </summary>
+        public static string PackageFor(string bundlePath, string platform)
+        {
+            if (_module == null || string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath)) return null;
+            string path = WorldBuilder.VoltPackagePathFor(bundlePath);
+            File.WriteAllBytes(path, Package(File.ReadAllBytes(bundlePath), platform));
+            return path;
+        }
+
         private static string Sha(byte[] data)
         {
             using (SHA256 sha = SHA256.Create()) return string.Concat(sha.ComputeHash(data).Select(b => b.ToString("x2")));
@@ -846,8 +859,10 @@ namespace ParelVR.Volt.EditorTools
 
         public static async Task Upload(string worldId, string platform, string bundlePath, CancellationToken ct)
         {
-            if (_module == null || LastPackagePath == null || !File.Exists(LastPackagePath)) return;
-            byte[] package = File.ReadAllBytes(LastPackagePath);
+            // Each platform's bundle has its own package next to it (Finished / PackageFor).
+            string path = WorldBuilder.VoltPackagePathFor(bundlePath ?? string.Empty);
+            if (_module == null || string.IsNullOrEmpty(bundlePath) || !File.Exists(path)) return;
+            byte[] package = File.ReadAllBytes(path);
             var response = await ParelVR.SDK.Core.Http.ParelApiClient.PutBytesAsync<UploadResponse>(
                 "/api/parelvr/worlds/" + worldId + "/volt?platform=" + platform, package, "application/octet-stream", null, ct);
             if (response == null || !response.ok)
