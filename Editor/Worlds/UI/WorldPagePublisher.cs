@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ParelVR.SDK.Backend;
@@ -36,6 +37,35 @@ namespace ParelVR.SDK.Worlds.UI
             public List<ProductDto> products = new List<ProductDto>();
         }
 
+        private static readonly Regex UnknownAccount = new Regex("no ParelVR account named \"([^\"]+)\"", RegexOptions.IgnoreCase);
+
+        private static string Username(ParelWorldCreditPerson person) => (person.username ?? string.Empty).Trim().TrimStart('@');
+
+        /// <summary>
+        /// The server turned the whole page down (credits, shop theme and store) over one credited username that is no
+        /// ParelVR account (a creator, 11-21: There is no ParelVR account named "twix_official"). That name is now left
+        /// out and the page sent again, so the rest of it is saved, with a warning naming who was left out.
+        /// </summary>
+        private static async Task SavePageAsync(ParelWorldDescriptor descriptor, string worldId, CancellationToken ct)
+        {
+            var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    await WorldApiClient.SaveWorldPageAsync(worldId, BuildJson(descriptor, missing), ct);
+                    break;
+                }
+                catch (Exception e) when (attempt < 5 && !(e is OperationCanceledException) && UnknownAccount.Match(e.Message ?? string.Empty) is Match m && m.Success && missing.Add(m.Groups[1].Value.Trim().TrimStart('@')))
+                {
+                }
+            }
+
+            foreach (string name in missing)
+                Debug.LogWarning("[ParelVR SDK] Credits: \"" + name + "\" is not a ParelVR account, so it was left out of the world page (the rest of the page was saved). " +
+                                 "In the world's Credits, search for the person and pick them from the list: their username can differ from the name they show.");
+        }
+
         [Serializable]
         private class PageDto
         {
@@ -45,7 +75,10 @@ namespace ParelVR.SDK.Worlds.UI
         }
 
         /// <summary>Throws with a readable reason when something in the page cannot be published.</summary>
-        public static string BuildJson(ParelWorldDescriptor descriptor)
+        public static string BuildJson(ParelWorldDescriptor descriptor) => BuildJson(descriptor, null);
+
+        /// <summary><paramref name="leaveOut"/>: credited usernames the server said are not ParelVR accounts.</summary>
+        private static string BuildJson(ParelWorldDescriptor descriptor, ICollection<string> leaveOut)
         {
             var page = new PageDto();
 
@@ -56,8 +89,9 @@ namespace ParelVR.SDK.Worlds.UI
                 {
                     if (person.kind == ParelCreditKind.ParelVRAccount)
                     {
-                        string username = (person.username ?? string.Empty).Trim().TrimStart('@');
-                        if (username.Length > 0) dto.people.Add(new PersonDto { username = username });
+                        string username = Username(person);
+                        if (username.Length == 0 || (leaveOut != null && leaveOut.Contains(username))) continue;
+                        dto.people.Add(new PersonDto { username = username });
                         continue;
                     }
 
@@ -121,7 +155,7 @@ namespace ParelVR.SDK.Worlds.UI
 
         public static async Task PublishAsync(ParelWorldDescriptor descriptor, string worldId, CancellationToken ct)
         {
-            await WorldApiClient.SaveWorldPageAsync(worldId, BuildJson(descriptor), ct);
+            await SavePageAsync(descriptor, worldId, ct);
 
             await UploadImage(worldId, "shop-background", descriptor.shopTheme.backgroundImage, ct);
             if (descriptor.monetization.storeEnabled)

@@ -74,11 +74,13 @@ namespace ParelVR.SDK.Build.Quest
                 Step("Setting the project up like ParelVR's Quest build");
                 ApplyAndroidSettings();
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                UseHeadsetPipeline();
                 if (string.IsNullOrEmpty(hints.mainAsset) || AssetDatabase.LoadMainAssetAtPath(hints.mainAsset) == null)
                     throw new Exception("The copy for Android doesn't contain " + (avatar ? "the avatar" : "the scene") + " (" + hints.mainAsset + ").");
                 List<string> scenes = avatar ? new List<string>() : (hints.scenes != null && hints.scenes.Count > 0 ? hints.scenes : new List<string> { hints.mainAsset });
 
                 var report = new ParelQuestReport();
+                var use = new ContentUse();
                 string[] assets = AssetDatabase.FindAssets(string.Empty, new[] { "Assets" }).Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
                 Step("Moving materials to headset shaders");
                 ParelQuestConverter.ConvertMaterials(assets.Where(p => p.EndsWith(".mat", StringComparison.OrdinalIgnoreCase)), avatar, hints, report);
@@ -106,11 +108,13 @@ namespace ParelVR.SDK.Build.Quest
                     {
                         Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
                         ParelQuestConverter.ConvertWorldScene(scene, GeneratedFolder, report);
+                        use.Note(scene);
                         EditorSceneManager.SaveScene(scene);
                     }
                     EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 }
                 AssetDatabase.SaveAssets();
+                KeepOnlyUsedVariants(avatar, use, report);
                 ParelMipStreamingOff.TurnOffFor(avatar ? new[] { hints.mainAsset } : scenes.ToArray());
 
                 string[] textures = AssetDatabase.FindAssets("t:Texture", new[] { "Assets" }).Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
@@ -294,6 +298,12 @@ namespace ParelVR.SDK.Build.Quest
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.Vulkan });
             PlayerSettings.SetNormalMapEncoding(NamedBuildTarget.Android, NormalMapEncoding.DXT5nm);
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
+            // Normally set on the command line already (ParelQuestLocalBuild.RunAsync); kept here so they hold whatever
+            // started this Unity. They live in this background project's Library only.
+            if (EditorUserBuildSettings.overrideMaxTextureSize != ParelQuestConverter.ImportSizeCap)
+                EditorUserBuildSettings.overrideMaxTextureSize = ParelQuestConverter.ImportSizeCap;
+            if (EditorUserBuildSettings.overrideTextureCompression != OverrideTextureCompression.ForceFastCompressor)
+                EditorUserBuildSettings.overrideTextureCompression = OverrideTextureCompression.ForceFastCompressor;
 
             var player = new SerializedObject(Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings"));
             SetGroupValue(player.FindProperty("m_BuildTargetGroupLightmapEncodingQuality"), "Android", "m_EncodingQuality", 1);
@@ -309,6 +319,109 @@ namespace ParelVR.SDK.Build.Quest
                 SetInt(graphics, name, 1);
             graphics.ApplyModifiedPropertiesWithoutUndo();
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// The game's own headset URP asset, copied in by ParelQuestLocalBuild for URP projects, becomes the only pipeline
+        /// asset here (default and every quality level): a headset always draws with it, so its features are the only URP
+        /// variants the bundle needs.
+        /// </summary>
+        private static void UseHeadsetPipeline()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<RenderPipelineAsset>(ParelQuestLocalBuild.HeadsetPipelineAsset);
+            if (asset == null) return;
+            GraphicsSettings.defaultRenderPipeline = asset;
+            UnityEngine.Object[] quality = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/QualitySettings.asset");
+            if (quality != null && quality.Length > 0 && quality[0] != null)
+            {
+                var settings = new SerializedObject(quality[0]);
+                SerializedProperty levels = settings.FindProperty("m_QualitySettings");
+                if (levels != null && levels.isArray)
+                    for (int i = 0; i < levels.arraySize; i++)
+                    {
+                        SerializedProperty pipeline = levels.GetArrayElementAtIndex(i).FindPropertyRelative("customRenderPipeline");
+                        if (pipeline != null) pipeline.objectReferenceValue = asset;
+                    }
+                settings.ApplyModifiedPropertiesWithoutUndo();
+            }
+            AssetDatabase.SaveAssets();
+            Debug.Log("[ParelVR SDK] Shaders compile for the game's headset URP asset only.");
+        }
+
+        /// <summary>What the bundle's scenes use of baked light, fog and GPU instancing.</summary>
+        private sealed class ContentUse
+        {
+            public bool plainLightmaps, directionalLightmaps, realtimeGI, shadowmask, subtractive, instancing;
+            public readonly HashSet<FogMode> fog = new HashSet<FogMode>();
+
+            public void Note(Scene scene)
+            {
+                LightmapData[] maps = LightmapSettings.lightmaps;
+                if (maps != null && maps.Length > 0)
+                {
+                    if (LightmapSettings.lightmapsMode == LightmapsMode.CombinedDirectional) directionalLightmaps = true;
+                    else plainLightmaps = true;
+                }
+                else if (Lightmapping.lightingDataAsset != null)
+                {
+                    // Baked lighting data but no lightmaps read back: keep both kinds rather than draw it unlit.
+                    directionalLightmaps = plainLightmaps = true;
+                }
+                if (Lightmapping.TryGetLightingSettings(out LightingSettings lighting) && lighting != null)
+                {
+                    if (lighting.realtimeGI) realtimeGI = true;
+                    if (lighting.bakedGI && lighting.mixedBakeMode == MixedLightingMode.Shadowmask) shadowmask = true;
+                    if (lighting.bakedGI && lighting.mixedBakeMode == MixedLightingMode.Subtractive) subtractive = true;
+                }
+                else
+                {
+                    shadowmask = subtractive = true; // can't tell: keep both
+                }
+                if (RenderSettings.fog) fog.Add(RenderSettings.fogMode);
+                foreach (GameObject root in scene.GetRootGameObjects())
+                {
+                    foreach (Terrain terrain in root.GetComponentsInChildren<Terrain>(true))
+                        if (terrain.drawInstanced) instancing = true;
+                    foreach (ParticleSystemRenderer particles in root.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                        if (particles.renderMode == ParticleSystemRenderMode.Mesh && particles.enableGPUInstancing) instancing = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shader variants for what the content uses, as Unity's own automatic stripping does for a game's scenes (it can't
+        /// see a bundle's): every lightmap, fog and instancing variant was kept, multiplying what URP compiled (11-21).
+        /// Worlds keep the lightmap modes their scenes were baked with, their fog mode and exponential-squared fog (the
+        /// SDK's Weather and Skybox Cycle turn that on), and instancing variants only for instanced materials, or for
+        /// everything when a terrain or mesh particles draw instanced. Avatars are never lightmapped: they keep the
+        /// shadowmask / subtractive variants (lit in any world), every fog mode, and instanced materials.
+        /// </summary>
+        private static void KeepOnlyUsedVariants(bool avatar, ContentUse use, ParelQuestReport report)
+        {
+            int On(bool keep) => keep ? 1 : 0;
+            bool realtime = !avatar && use.realtimeGI;
+            var graphics = new SerializedObject(GraphicsSettings.GetGraphicsSettings());
+            SetInt(graphics, "m_LightmapStripping", 1);
+            SetInt(graphics, "m_FogStripping", 1);
+            SetInt(graphics, "m_LightmapKeepPlain", On(!avatar && use.plainLightmaps));
+            SetInt(graphics, "m_LightmapKeepDirCombined", On(!avatar && use.directionalLightmaps));
+            SetInt(graphics, "m_LightmapKeepDynamicPlain", On(realtime));
+            SetInt(graphics, "m_LightmapKeepDynamicDirCombined", On(realtime));
+            SetInt(graphics, "m_LightmapKeepShadowMask", On(avatar || use.shadowmask));
+            SetInt(graphics, "m_LightmapKeepSubtractive", On(avatar || use.subtractive));
+            SetInt(graphics, "m_FogKeepLinear", On(avatar || use.fog.Contains(FogMode.Linear)));
+            SetInt(graphics, "m_FogKeepExp", On(avatar || use.fog.Contains(FogMode.Exponential)));
+            SetInt(graphics, "m_FogKeepExp2", 1);
+            // 0 = only for materials with GPU instancing on, 2 = all.
+            SetInt(graphics, "m_InstancingStripping", !avatar && use.instancing ? 2 : 0);
+            graphics.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
+            if (!avatar)
+                Debug.Log("[ParelVR SDK] Shader variants kept: lightmaps " +
+                          (use.directionalLightmaps ? "directional " : "") + (use.plainLightmaps ? "plain " : "") + (use.realtimeGI ? "realtime " : "") +
+                          (use.shadowmask ? "shadowmask " : "") + (use.subtractive ? "subtractive " : "") +
+                          "| fog " + string.Join(" ", use.fog.Select(f => f.ToString()).Concat(new[] { "ExponentialSquared" }).Distinct()) +
+                          "| instancing " + (use.instancing ? "all" : "instanced materials only") + ".");
         }
 
         private static void SetInt(SerializedObject target, string name, int value)

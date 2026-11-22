@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.26.2 (2026-11-21)
+
+### Meta / Standalone VR
+
+- **The background Android build is much lighter and quicker.** It compiled shader variants for every feature of
+  your own URP settings and every lightmap, fog and instancing combination. In a headset the game always draws
+  with its own URP settings, so the build now uses those, and keeps only the lightmap and fog modes your scenes use
+  (plus the fog the SDK's Weather and Skybox Cycle turn on) and instancing only where it is used. Far fewer shaders
+  to compile.
+- **Textures are compressed once instead of twice.** They were imported at full size first and compressed again at
+  the headset size; now they are imported straight at the headset size with the fast ASTC compressor.
+- **It stays on half your processors.** Unity starts one shader compiler per processor, so the half-the-cores
+  setting of 1.26.1 still let it reach about 70%. The background build and every compiler it starts now run on
+  the last half of your processors (the efficiency cores on hybrid Intel CPUs), leaving the rest for you.
+- The first headset build of a project is still the longest: the background project sets up its packages once,
+  and later builds only redo what changed.
+
+### Worlds
+
+- **One credit name that is not a ParelVR account no longer stops the whole world page from saving.** It is left
+  out with a warning that names it, and the rest of the credits, the shop theme and the store are saved. Pick the
+  person again from the search in Credits: their username can differ from the name they show.
+
 ## 1.26.1 (2026-11-21)
 
 ### Meta / Standalone VR

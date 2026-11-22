@@ -152,7 +152,8 @@ namespace ParelVR.SDK.Build.Quest
             Directory.CreateDirectory(dir);
             SyncSettings(dir);
             SyncPackages(dir);
-            int copied = SyncAssets(dir, files);
+            List<string> headsetPipeline = SyncHeadsetPipeline(dir);
+            int copied = SyncAssets(dir, files, headsetPipeline);
 
             string output = Path.Combine(dir, "Output");
             Directory.CreateDirectory(output);
@@ -270,9 +271,10 @@ namespace ParelVR.SDK.Build.Quest
         /// project's Assets. Unchanged files are left alone, so Unity re-imports only what changed; files the bundle no longer
         /// uses are removed. Files the last Quest build converted there differ from yours, so they are copied again.
         /// </summary>
-        private static int SyncAssets(string dir, List<string> files)
+        private static int SyncAssets(string dir, List<string> files, IEnumerable<string> keep = null)
         {
             var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (keep != null) foreach (string k in keep) wanted.Add(k);
             int copied = 0;
             void Want(string relative)
             {
@@ -303,6 +305,50 @@ namespace ParelVR.SDK.Build.Quest
             foreach (string folder in Directory.GetDirectories(assets, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
                 if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);
             return copied;
+        }
+
+        /// <summary>Where the background build finds the game's headset URP asset (see <see cref="SyncHeadsetPipeline"/>).</summary>
+        public const string HeadsetPipelineFolder = "Assets/ParelVR_HeadsetPipeline";
+        public const string HeadsetPipelineAsset = HeadsetPipelineFolder + "/ParelHeadsetURP.asset";
+
+        /// <summary>
+        /// In a headset the game always draws with its own URP asset, never the world's (ParelPipelineSwitch.AdoptWorld),
+        /// so the Android bundle only needs the shader variants of that asset. The background build was set up with the
+        /// creator's own URP assets (every quality level), and URP compiled a variant for each feature any of them had:
+        /// SSAO, soft-shadow qualities, Forward+, decals... (a creator, 11-21: 20 minutes stuck compiling shaders at 70% CPU).
+        /// For a URP project the game's asset is copied in from the SDK (Editor/Build/Quest/HeadsetPipeline~) and the
+        /// background build uses it alone. Built-in and HDRP projects keep their own setup.
+        /// </summary>
+        private static List<string> SyncHeadsetPipeline(string dir)
+        {
+            var kept = new List<string>();
+            if (!UsesUrp()) return kept;
+            string package = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(ParelQuestLocalBuild).Assembly)?.resolvedPath;
+            string templates = package != null ? Path.Combine(package, "Editor", "Build", "Quest", "HeadsetPipeline~") : null;
+            if (templates == null || !Directory.Exists(templates)) return kept;
+            void Copy(string file, string relative)
+            {
+                string source = Path.Combine(templates, file);
+                if (!File.Exists(source)) return;
+                CopyIfChanged(source, Path.Combine(dir, relative));
+                kept.Add(relative);
+            }
+            Copy("ParelVR_HeadsetPipeline.meta", HeadsetPipelineFolder + ".meta");
+            foreach (string name in new[] { "ParelHeadsetURP.asset", "ParelHeadsetURP_Renderer.asset" })
+            {
+                Copy(name, HeadsetPipelineFolder + "/" + name);
+                Copy(name + ".meta", HeadsetPipelineFolder + "/" + name + ".meta");
+            }
+            return kept;
+        }
+
+        private static bool UsesUrp()
+        {
+            bool Urp(UnityEngine.Object o) => o != null && o.GetType().FullName == "UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset";
+            if (Urp(UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline)) return true;
+            for (int i = 0; i < QualitySettings.names.Length; i++)
+                if (Urp(QualitySettings.GetRenderPipelineAssetAt(i))) return true;
+            return false;
         }
 
         private static string ParentOf(string path)
@@ -362,7 +408,13 @@ namespace ParelVR.SDK.Build.Quest
                           " -executeMethod ParelVR.SDK.Build.Quest.ParelQuestLocalWorker.Run -parelJob " + Arg(JobPath) +
                           " -logFile " + Arg(job.logPath) +
                           // Half the cores for its jobs: it ran every core at 100% beside the creator's own editor (11-21).
-                          " -job-worker-count " + Math.Max(1, Environment.ProcessorCount / 2);
+                          " -job-worker-count " + Math.Max(1, Environment.ProcessorCount / 2) +
+                          // Textures are imported straight at the headset's largest size with the fast ASTC compressor.
+                          // They were imported at full size first (up to 8K) and compressed again after the Quest settings
+                          // were applied: every texture twice, the slow way (11-21). Both stay in the background project.
+                          " -overrideMaxTextureSize " + ParelQuestConverter.ImportSizeCap +
+                          // (Unity takes 64-2048 for the size and the camelCase names: noOverride, forceFastCompressor...)
+                          " -overrideTextureCompression forceFastCompressor";
             var start = new ProcessStartInfo(unity, args) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = BackgroundProject };
 
             status?.Invoke("Starting Unity for Android in the background...");
@@ -374,6 +426,7 @@ namespace ParelVR.SDK.Build.Quest
                 // same priority on Windows.
                 try { process.PriorityClass = ProcessPriorityClass.BelowNormal; }
                 catch (Exception) { }
+                LimitToHalfTheProcessors(process);
             }
             catch (Exception ex)
             {
@@ -429,6 +482,23 @@ namespace ParelVR.SDK.Build.Quest
             result.logs = Merge(importLogs, result.logs);
             result.seconds = timer.Elapsed.TotalSeconds;
             return result;
+        }
+
+        /// <summary>
+        /// Unity starts one shader compiler per processor whatever -job-worker-count says, so 1.26.1 still held a 6-core
+        /// PC at 70% for the whole shader step (a creator, 11-21). On Windows the processes it starts inherit its processor
+        /// set: the background Unity and every compiler and import worker it starts stay on the last half of the
+        /// processors (the efficiency cores on hybrid Intel CPUs), and the first half stays free for the creator.
+        /// </summary>
+        private static void LimitToHalfTheProcessors(Process process)
+        {
+            if (Application.platform != RuntimePlatform.WindowsEditor) return;
+            int count = Environment.ProcessorCount;
+            if (count < 2 || count > 64) return;
+            int take = Math.Max(1, count / 2);
+            ulong mask = (take >= 64 ? ulong.MaxValue : ((1UL << take) - 1)) << (count - take);
+            try { process.ProcessorAffinity = new IntPtr(unchecked((long)mask)); }
+            catch (Exception) { }
         }
 
         private static ParelQuestLocalResult Failed(string error, Stopwatch timer) =>

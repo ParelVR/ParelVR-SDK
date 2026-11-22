@@ -72,6 +72,8 @@ namespace ParelVR.SDK.Build.Quest
     {
         public const int AvatarTextureCap = 1024;
         public const int WorldTextureCap = 2048;
+        /// <summary>The background build imports every texture at most this size (-overrideMaxTextureSize, 64-2048).</summary>
+        public const int ImportSizeCap = WorldTextureCap;
         public const int AvatarParticleCap = 200;
         public const int WorldParticleCap = 1000;
         public const int RenderTextureCap = 1024;
@@ -391,14 +393,28 @@ namespace ParelVR.SDK.Build.Quest
                     int limit = importer.textureShape == TextureImporterShape.TextureCube ? Math.Min(cap, 1024) : cap;
                     int size = Math.Min(before, limit);
 
-                    android.overridden = true;
-                    android.maxTextureSize = size;
-                    android.format = TextureImporterFormat.Automatic;
-                    android.textureCompression = TextureImporterCompression.Compressed;
-                    android.compressionQuality = (int)TextureCompressionQuality.Normal;
-                    android.crunchedCompression = false;
-                    importer.SetPlatformTextureSettings(android);
-                    importer.SaveAndReimport();
+                    // Already imported just like this: no Android setting of its own, plain compression, and no bigger
+                    // than the size Unity imports it at here (EditorUserBuildSettings.overrideMaxTextureSize). Writing
+                    // the same settings again only compressed the texture a second time (11-21).
+                    int importCap = EditorUserBuildSettings.overrideMaxTextureSize;
+                    int importedAt = importCap > 0 ? Math.Min(importer.maxTextureSize, importCap) : importer.maxTextureSize;
+                    bool asImported = !android.overridden && importer.textureCompression == TextureImporterCompression.Compressed
+                                      && !importer.crunchedCompression && limit >= importedAt;
+                    if (asImported)
+                    {
+                        size = importedAt;
+                    }
+                    else
+                    {
+                        android.overridden = true;
+                        android.maxTextureSize = size;
+                        android.format = TextureImporterFormat.Automatic;
+                        android.textureCompression = TextureImporterCompression.Compressed;
+                        android.compressionQuality = (int)TextureCompressionQuality.Normal;
+                        android.crunchedCompression = false;
+                        importer.SetPlatformTextureSettings(android);
+                        importer.SaveAndReimport();
+                    }
 
                     report.texturesCompressed++;
                     if (size < before) report.texturesDownsized++;
