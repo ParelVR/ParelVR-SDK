@@ -72,20 +72,28 @@ namespace ParelVR.SDK.Build
         /// <summary>True when the editor is set to build for PC, which is what worlds are built on.</summary>
         public static bool EditorOnPc => PlatformName(EditorUserBuildSettings.activeBuildTarget) == "windows";
 
+        /// <summary>
+        /// Manual Meta / Standalone VR builds (<see cref="ParelQuestBuildMode"/>) with the project on Android: the next
+        /// build is this editor's own Android build, exactly as the project has it. Reset after each build.
+        /// </summary>
+        public static bool BuildOnAndroid;
+
         public static string BuildWorldBundle()
         {
             string built = null;
-            BuiltPlatform = PlatformName(Target);
+            BuildTarget target = BuildOnAndroid ? BuildTarget.Android : Target;
+            BuiltPlatform = PlatformName(target);
             QuestJob = null;
             QuestJobError = null;
             try
             {
-                built = Build(Target);
+                built = Build(target);
                 return built;
             }
             finally
             {
                 BuildQuestVersion = false;
+                BuildOnAndroid = false;
                 ParelUploadRendering.FinishWorld();
                 Finished?.Invoke(built);
             }

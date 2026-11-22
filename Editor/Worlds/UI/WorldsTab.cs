@@ -128,6 +128,9 @@ namespace ParelVR.SDK.Worlds.UI
             _platformStatus = tree.Q<Label>("platform-status");
             _platformPc?.RegisterValueChangedCallback(_ => RenderPlatformStatus());
             _platformStandalone?.RegisterValueChangedCallback(_ => RenderPlatformStatus());
+            // Automatic (background build) or Manual (switch to Android and publish), and the background build's CPU limit.
+            if (_platformStandalone?.parent != null)
+                _platformStandalone.parent.Insert(_platformStandalone.parent.IndexOf(_platformStandalone) + 1, ParelQuestBuildMode.CreateOptions(RenderPlatformStatus));
             // While the standalone version builds in the background, its line follows what it's doing.
             _platformStatus?.schedule.Execute(() => { if (ParelQuestLocalBuild.IsRunning) RenderPlatformStatus(); }).Every(1000);
 
@@ -235,9 +238,10 @@ namespace ParelVR.SDK.Worlds.UI
             string text;
             bool questBad = false;
             if (!pc && !standalone) text = "Pick at least one platform.";
+            else if (ParelQuestBuildMode.ManualStatus("world", pc, standalone) is string manual) text = manual;
             else if (!standalone) text = "Meta / Standalone VR players won't be able to join this world.";
             else text = ParelQuestLocalBuild.StatusLine(ParelQuestSource.WorldKind, SceneManager.GetActiveScene().path, out questBad);
-            if (!WorldBuilder.EditorOnPc) text += "\nThis project is set to " + EditorUserBuildSettings.activeBuildTarget + "; publishing switches it back to Windows.";
+            if (!WorldBuilder.EditorOnPc && !ParelQuestBuildMode.BuildsHere) text += "\nThis project is set to " + EditorUserBuildSettings.activeBuildTarget + "; publishing switches it back to Windows.";
             _platformStatus.text = text;
             _platformStatus.EnableInClassList("bk-text-bad", (!pc && !standalone) || (questBad && standalone));
         }
@@ -743,7 +747,24 @@ namespace ParelVR.SDK.Worlds.UI
                 EditorUtility.DisplayDialog("Platforms", "Pick at least one platform under Platforms.", "OK");
                 return;
             }
-            if (!EnsureEditorOnPc()) return;
+            // Manual with the project on Android: this editor builds the Meta / Standalone VR version itself and only that
+            // goes up (the PC version keeps its last upload). Upload for someone else is built on PC.
+            bool forOther = _forOther != null && _forOther.Enabled;
+            bool androidHere = ParelQuestBuildMode.BuildsHere && !forOther;
+            if (androidHere && !forStandalone)
+            {
+                EditorUtility.DisplayDialog("Platforms", $"This project is on Android. Turn on {ParelPlatformTargets.StandaloneLabel} to publish its version, or switch the project to PC to publish the PC / PCVR version.", "OK");
+                return;
+            }
+            if (!androidHere && !EnsureEditorOnPc()) return;
+            // Manual on PC: only the PC version goes up now; the headset version is published from Android.
+            bool manualLater = !androidHere && !forOther && forStandalone && ParelQuestBuildMode.Manual;
+            if (manualLater) forStandalone = false;
+            if (androidHere)
+            {
+                forPc = false;
+                forStandalone = false; // no background build: the bundle built here is the headset version
+            }
             if (forStandalone && !ParelQuestLocalBuild.AndroidSupportInstalled)
             {
                 if (!forPc)
@@ -878,6 +899,7 @@ namespace ParelVR.SDK.Worlds.UI
                 // One PC build. With Meta / Standalone VR on, what it was built from goes to the background Android project,
                 // whose build runs while the PC version uploads.
                 WorldBuilder.BuildQuestVersion = forStandalone;
+                WorldBuilder.BuildOnAndroid = androidHere;
                 string bundlePath = await OutsidePlayerLoop.Run(WorldBuilder.BuildWorldBundle);
                 if (string.IsNullOrEmpty(bundlePath) || !File.Exists(bundlePath))
                     throw new Exception("AssetBundle build failed. Check the Unity Console.");
@@ -913,17 +935,19 @@ namespace ParelVR.SDK.Worlds.UI
                 }
 
                 // ── 6. Upload the PC bundle ──
+                // (Manual on Android: the bundle built here is the Meta / Standalone VR version and goes up the same way.)
                 float pcEnd = forStandalone ? 65f : 95f;
-                if (forPc)
+                if (forPc || androidHere)
                 {
                     byte[] bundleBytes = File.ReadAllBytes(bundlePath);
                     Debug.Log($"[PublishDiag] upload start bytes={bundleBytes.Length} " +
                               $"elapsedMs={publishTimer.ElapsedMilliseconds}");
-                    _progressStatus.text = "Uploading PC / PCVR bundle...";
+                    string builtFor = androidHere ? "Meta / Standalone VR" : "PC / PCVR";
+                    _progressStatus.text = $"Uploading {builtFor} bundle...";
                     var progress = new Progress<float>(p =>
                     {
                         _progressBar.value = 55f + p * (pcEnd - 55f);
-                        _progressStatus.text = $"Uploading PC / PCVR bundle... {(int)(p * 100)}%";
+                        _progressStatus.text = $"Uploading {builtFor} bundle... {(int)(p * 100)}%";
                     });
                     var response = await WorldApiClient.UploadBundleAsync(blueprintId, platform, bundleBytes, progress, _uploadCts.Token);
                     if (response == null || !response.success)
@@ -939,7 +963,8 @@ namespace ParelVR.SDK.Worlds.UI
                 }
 
                 // ── 7. The Meta / Standalone VR version, built on this PC in the background: wait for it, then upload it ──
-                string questNote = forStandalone ? await FinishQuestAsync(questBuild, questJobError, blueprintId, pcEnd, 95f, _uploadCts.Token) : null;
+                string questNote = forStandalone ? await FinishQuestAsync(questBuild, questJobError, blueprintId, pcEnd, 95f, _uploadCts.Token)
+                    : manualLater ? ParelQuestBuildMode.ManualPcNote("world") : null;
 
                 // The bundle cannot be turned back into a project, so the project itself is saved for Import World.
                 _progressStatus.text = "Saving the project for Import World...";
@@ -963,7 +988,7 @@ namespace ParelVR.SDK.Worlds.UI
                 _progressBar.value = 100;
                 _progressStatus.text = "Done!";
 
-                bool questUp = forStandalone && (questNote == null || questNote.StartsWith(QuestUpPrefix, StringComparison.Ordinal));
+                bool questUp = androidHere || (forStandalone && (questNote == null || questNote.StartsWith(QuestUpPrefix, StringComparison.Ordinal)));
                 string message = forPc && questUp ? $"World '{worldRecord.name}' published for PC / PCVR and Meta / Standalone VR."
                     : forPc ? $"World '{worldRecord.name}' published for PC / PCVR."
                     : questUp ? $"World '{worldRecord.name}' published for Meta / Standalone VR."

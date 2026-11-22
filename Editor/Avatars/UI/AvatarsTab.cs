@@ -377,13 +377,16 @@ namespace ParelVR.SDK.Avatars.UI
 
             // ---- Platforms --------------------------------------------------------------------------
             VisualElement platforms = Section(_builderBody, "Platforms");
-            platforms.Add(Hint("You build on PC. The Meta / Standalone VR version is built on this PC too, in the background (shaders, textures and performance settings made headset-ready); this project stays on Windows."));
+            platforms.Add(Hint("Automatic: you build on PC and the Meta / Standalone VR version is built on this PC too, in the background (shaders, textures and performance settings made headset-ready); this project stays on Windows. " +
+                               "Manual: switch the project to Android yourself and publish from there."));
             _platformPc = new Toggle(ParelPlatformTargets.PcLabel) { value = true };
             _platformStandalone = new Toggle(ParelPlatformTargets.StandaloneLabel) { value = true };
             _platformPc.RegisterValueChangedCallback(_ => RenderPlatformStatus());
             _platformStandalone.RegisterValueChangedCallback(_ => RenderPlatformStatus());
             platforms.Add(_platformPc);
             platforms.Add(_platformStandalone);
+            // Automatic (background build) or Manual (switch to Android and publish), and the background build's CPU limit.
+            platforms.Add(ParelVR.SDK.Build.Quest.ParelQuestBuildMode.CreateOptions(RenderPlatformStatus));
             _platformStatus = Hint(string.Empty);
             platforms.Add(_platformStatus);
             // While the standalone version builds in the background, its line follows what it's doing; a protected avatar's
@@ -1009,6 +1012,7 @@ namespace ParelVR.SDK.Avatars.UI
             string text;
             bool questBad = false;
             if (!pc && !standalone) text = "Pick at least one platform.";
+            else if (ParelVR.SDK.Build.Quest.ParelQuestBuildMode.ManualStatus("avatar", pc, standalone) is string manual) text = manual;
             else if (!standalone) text = "Meta / Standalone VR players won't be able to wear or see this avatar.";
             else text = ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.StatusLine(ParelVR.SDK.Build.Quest.ParelQuestSource.AvatarKind, _current != null ? _current.gameObject.name : null, out questBad);
             _platformStatus.text = text;
@@ -1269,6 +1273,24 @@ namespace ParelVR.SDK.Avatars.UI
             List<ParelLockedMap> locked = ParelLocked.MapsUsedBy(descriptor.gameObject);
             bool serverBuild = locked.Count > 0;
 
+            // Manual Meta / Standalone VR builds: on Android this editor builds the headset version itself and only that
+            // goes up (the PC version keeps its last upload); on PC only the PC version goes up.
+            bool forOther = _forOther != null && _forOther.Enabled;
+            bool manualMode = ParelVR.SDK.Build.Quest.ParelQuestBuildMode.Manual && !serverBuild && !forOther;
+            bool androidHere = manualMode && ParelVR.SDK.Build.Quest.ParelQuestBuildMode.EditorOnAndroid;
+            if (androidHere && !forStandalone)
+            {
+                EditorUtility.DisplayDialog("Build & Publish", $"This project is on Android. Turn on {ParelPlatformTargets.StandaloneLabel} to publish its version, or switch the project to PC to publish the PC / PCVR version.", "OK");
+                return;
+            }
+            bool manualLater = manualMode && !androidHere && forStandalone;
+            if (androidHere)
+            {
+                forPc = false;
+                forStandalone = false; // no background build: the bundle built here is the headset version
+            }
+            else if (manualLater) forStandalone = false;
+
             // Everything else gets its Meta / Standalone VR version built on this PC, in the background.
             if (forStandalone && !serverBuild && !ParelVR.SDK.Build.Quest.ParelQuestLocalBuild.AndroidSupportInstalled)
             {
@@ -1331,8 +1353,9 @@ namespace ParelVR.SDK.Avatars.UI
                     }
                 }
                 bool questLocal = forStandalone && !serverBuild;
+                BuildTarget buildTarget = androidHere ? BuildTarget.Android : BuildTarget.StandaloneWindows64;
                 ParelAvatarBuildResult windows = await ParelVR.SDK.Build.OutsidePlayerLoop.Run(
-                    () => ParelAvatarBuilder.Build(descriptor, BuildTarget.StandaloneWindows64, Path.Combine(workDir, "windows.bundle"), questLocal));
+                    () => ParelAvatarBuilder.Build(descriptor, buildTarget, Path.Combine(workDir, androidHere ? "android.bundle" : "windows.bundle"), questLocal));
                 if (forPc && windows.BundleBytes > MaxWindowsBundleBytes)
                 {
                     throw new Exception($"The PC build is {EditorUtility.FormatBytes(windows.BundleBytes)}; the limit is {EditorUtility.FormatBytes(MaxWindowsBundleBytes)}. Lower texture sizes or remove unused meshes.");
@@ -1372,13 +1395,15 @@ namespace ParelVR.SDK.Avatars.UI
                     notes.Add($"This avatar uses content protected by {owners}. ParelVR's build server is putting the real models and textures in and building it now; it shows on the Avatars page when it's ready (usually a few minutes).");
                     if (queued?.protectedBuild != null && queued.protectedBuild.Failed) notes.Add(queued.protectedBuild.message);
                 }
-                else if (forPc)
+                else if (forPc || androidHere)
                 {
-                    SetProgress(35, "Uploading PC / PCVR build...");
+                    // (Manual on Android: the bundle built here is the Meta / Standalone VR version.)
+                    string builtFor = androidHere ? "Meta / Standalone VR" : "PC / PCVR";
+                    SetProgress(35, $"Uploading {builtFor} build...");
                     byte[] windowsBytes = File.ReadAllBytes(windows.BundlePath);
                     AvatarResponse uploaded = await AvatarApiClient.UploadBundleAsync(
-                        record.id, "windows", windowsBytes,
-                        new Progress<float>(p => SetProgress(35 + p * (pcEnd - 35), $"Uploading PC / PCVR build... {(int)(p * 100)}%")),
+                        record.id, androidHere ? "android" : "windows", windowsBytes,
+                        new Progress<float>(p => SetProgress(35 + p * (pcEnd - 35), $"Uploading {builtFor} build... {(int)(p * 100)}%")),
                         ct);
                     if (uploaded?.avatar != null && !string.IsNullOrEmpty(uploaded.avatar.id)) record = uploaded.avatar;
                 }
@@ -1390,6 +1415,7 @@ namespace ParelVR.SDK.Avatars.UI
                     if (questRecord != null) record = questRecord;
                     if (questNote != null) notes.Add(questNote);
                 }
+                if (manualLater) notes.Add(ParelVR.SDK.Build.Quest.ParelQuestBuildMode.ManualPcNote("avatar"));
 
                 // 5. Thumbnail -- the one you picked, or an automatic portrait for brand-new avatars.
                 byte[] thumbnail = _pendingThumbnail;
@@ -1430,6 +1456,8 @@ namespace ParelVR.SDK.Avatars.UI
 
                 string message = serverBuild
                     ? $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}). It goes live once ParelVR's build server has built it with the protected parts."
+                    : androidHere
+                    ? $"'{record.name}' is published for Meta / Standalone VR from this Android project ({VisibilityLabel(record.releaseStatus)}). Its PC / PCVR version keeps its last upload."
                     : forPc
                     ? $"'{record.name}' is live on ParelVR ({VisibilityLabel(record.releaseStatus)}).\n\nYou'll find it on the Avatars page in game."
                     : $"'{record.name}' is saved ({VisibilityLabel(record.releaseStatus)}) for Meta / Standalone VR only. It shows on the Avatars page on headsets once its Meta / Standalone VR version is up (see below).";

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.27.0 (2026-11-21)
+
+### Meta / Standalone VR
+
+- **The background build now has a real CPU limit that follows your PC.** It runs inside one Windows CPU cap
+  shared with every shader compiler and tool it starts, so together they stay under the limit. Before, lower
+  priority and half the processors still let it hold a 6-core PC at 70%. Every 2 seconds the SDK checks how
+  busy the rest of your PC is and gives the build less when your editor, a game or anything else needs the CPU.
+  On a laptop running on battery it is held at the Light limit. Pick the limit under Platforms >
+  Background build CPU: Light (20%), Balanced (35%, the default) or Fast (70%). The status line shows the
+  build's CPU use, its limit and the rest of the PC's. The Console says what the SDK found about your PC
+  (processor, cores, memory, battery) when a build starts.
+- **Choose how the headset version is made.** Under Platforms > Meta / Standalone VR build:
+  - **Automatic** (as before): built on this PC in the background and made headset-ready. The project stays
+    on Windows.
+  - **Manual**: you switch the project to Android yourself (there's a Switch Project to Android / to PC
+    button) and publish from there. What your Android project has is built and uploaded as it is, with no
+    changes made. Publishing from Windows then uploads only the PC / PCVR version, and each platform keeps
+    its last upload until you publish it again.
+  - Works for worlds and avatars. Upload for someone else and avatars with protected content still use the
+    automatic build.
+
 ## 1.26.3 (2026-11-21)
 
 ### Meta / Standalone VR

@@ -407,8 +407,9 @@ namespace ParelVR.SDK.Build.Quest
             string args = "-batchmode -nographics -buildTarget Android -projectPath " + Arg(BackgroundProject) +
                           " -executeMethod ParelVR.SDK.Build.Quest.ParelQuestLocalWorker.Run -parelJob " + Arg(JobPath) +
                           " -logFile " + Arg(job.logPath) +
-                          // Half the cores for its jobs: it ran every core at 100% beside the creator's own editor (11-21).
-                          " -job-worker-count " + Math.Max(1, Environment.ProcessorCount / 2) +
+                          // Unity's worker threads follow this PC's CPU limit (ParelQuestMachine): it ran every core at 100%
+                          // beside the creator's own editor (11-21).
+                          " -job-worker-count " + ParelQuestMachine.WorkerThreads +
                           // Textures are imported straight at the headset's largest size with the fast ASTC compressor.
                           // They were imported at full size first (up to 8K) and compressed again after the Quest settings
                           // were applied: every texture twice, the slow way (11-21). Both stay in the background project.
@@ -418,15 +419,19 @@ namespace ParelVR.SDK.Build.Quest
             var start = new ProcessStartInfo(unity, args) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = BackgroundProject };
 
             status?.Invoke("Starting Unity for Android in the background...");
+            Debug.Log(ConsolePrefix + ParelQuestMachine.Describe());
             Process process;
+            bool capped;
             try
             {
                 process = Process.Start(start);
-                // Below normal: the PC stays usable while it builds. Its shader compilers start from it and keep the
-                // same priority on Windows.
-                try { process.PriorityClass = ProcessPriorityClass.BelowNormal; }
+                // Below normal (Light: idle): the PC stays usable while it builds. Its shader compilers start from it and
+                // keep the same priority on Windows.
+                try { process.PriorityClass = ParelQuestMachine.Speed == ParelQuestBuildSpeed.Light ? ProcessPriorityClass.Idle : ProcessPriorityClass.BelowNormal; }
                 catch (Exception) { }
-                LimitToHalfTheProcessors(process);
+                if (ParelQuestMachine.Speed != ParelQuestBuildSpeed.Fast) LimitToHalfTheProcessors(process);
+                // The real limit: one CPU cap shared by it and every process it starts, following how busy the PC is.
+                capped = ParelQuestMachine.Limit(process);
             }
             catch (Exception ex)
             {
@@ -434,6 +439,9 @@ namespace ParelVR.SDK.Build.Quest
             }
             _running = process;
             EditorApplication.quitting += KillRunning;
+            if (!capped && Application.platform == RuntimePlatform.WindowsEditor)
+                Debug.LogWarning(ConsolePrefix + "Windows didn't take the CPU limit for the background build; it runs at below-normal priority on half the processors instead.");
+            int ticks = 0;
 
             var importLogs = new List<ParelQuestLogEntry>();
             long position = 0;
@@ -453,6 +461,8 @@ namespace ParelVR.SDK.Build.Quest
                         ct.ThrowIfCancellationRequested();
                     }
                     await Task.Delay(500);
+                    if (++ticks % 4 == 0) ParelQuestMachine.Update();
+                    string cpu = ParelQuestMachine.Usage == null ? string.Empty : " | " + ParelQuestMachine.Usage;
                     foreach (string line in ReadNewLines(job.logPath, ref position))
                     {
                         if (line.StartsWith(StepPrefix, StringComparison.Ordinal)) { lastStep = line.Substring(StepPrefix.Length).Trim(); shaderNow = null; }
@@ -473,12 +483,12 @@ namespace ParelVR.SDK.Build.Quest
                     }
                     if (shaderNow != null && lastStep != null)
                     {
-                        status?.Invoke($"{lastStep}: shader {shadersSeen}, {shaderNow}" + (variantsNow > 0 ? $" ({variantsNow} variants)" : string.Empty));
+                        status?.Invoke($"{lastStep}: shader {shadersSeen}, {shaderNow}" + (variantsNow > 0 ? $" ({variantsNow} variants)" : string.Empty) + cpu);
                         continue;
                     }
-                    status?.Invoke(lastStep ?? (imported > 0
+                    status?.Invoke((lastStep ?? (imported > 0
                         ? $"Getting the files ready for Android... {imported} imported (the first build takes longest; later ones only redo what changed)"
-                        : "Opening the background Android project..."));
+                        : "Opening the background Android project...")) + cpu);
                 }
                 foreach (string line in ReadNewLines(job.logPath, ref position))
                 {
@@ -490,6 +500,7 @@ namespace ParelVR.SDK.Build.Quest
             {
                 EditorApplication.quitting -= KillRunning;
                 if (_running == process) _running = null;
+                ParelQuestMachine.Release();
             }
 
             ParelQuestLocalResult result = null;
