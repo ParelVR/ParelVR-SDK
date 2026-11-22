@@ -439,6 +439,10 @@ namespace ParelVR.SDK.Build.Quest
             long position = 0;
             int imported = 0;
             string lastStep = null;
+            // Which shader is compiling and how many variants it has: one unchanging line for 20 minutes read as stuck (11-21).
+            string shaderNow = null;
+            int shadersSeen = 0;
+            long variantsNow = 0;
             try
             {
                 while (!process.HasExited)
@@ -451,10 +455,26 @@ namespace ParelVR.SDK.Build.Quest
                     await Task.Delay(500);
                     foreach (string line in ReadNewLines(job.logPath, ref position))
                     {
-                        if (line.StartsWith(StepPrefix, StringComparison.Ordinal)) lastStep = line.Substring(StepPrefix.Length).Trim();
+                        if (line.StartsWith(StepPrefix, StringComparison.Ordinal)) { lastStep = line.Substring(StepPrefix.Length).Trim(); shaderNow = null; }
                         else if (line.StartsWith("Start importing ", StringComparison.Ordinal)) imported++;
+                        else if (line.StartsWith("Compiling shader \"", StringComparison.Ordinal))
+                        {
+                            shaderNow = line.Substring("Compiling shader \"".Length).TrimEnd('"', ' ');
+                            shadersSeen++;
+                            variantsNow = 0;
+                        }
+                        else if (shaderNow != null && line.Contains(" variants, starting compilation"))
+                        {
+                            Match count = Regex.Match(line, @"(\d+) variants, starting compilation");
+                            if (count.Success) variantsNow = long.Parse(count.Groups[1].Value);
+                        }
                         ParelQuestLogEntry entry = ParseLogLine(line);
                         if (entry != null && importLogs.Count < MaxLogs) importLogs.Add(entry);
+                    }
+                    if (shaderNow != null && lastStep != null)
+                    {
+                        status?.Invoke($"{lastStep}: shader {shadersSeen}, {shaderNow}" + (variantsNow > 0 ? $" ({variantsNow} variants)" : string.Empty));
+                        continue;
                     }
                     status?.Invoke(lastStep ?? (imported > 0
                         ? $"Getting the files ready for Android... {imported} imported (the first build takes longest; later ones only redo what changed)"

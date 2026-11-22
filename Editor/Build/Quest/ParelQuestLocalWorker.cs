@@ -52,7 +52,24 @@ namespace ParelVR.SDK.Build.Quest
         private static readonly List<ParelQuestLogEntry> Logs = new List<ParelQuestLogEntry>();
         private static readonly HashSet<string> Seen = new HashSet<string>(StringComparer.Ordinal);
 
-        private static void Step(string text) => Debug.Log(ParelQuestLocalBuild.StepPrefix + text);
+        private static readonly System.Diagnostics.Stopwatch StepTimer = new System.Diagnostics.Stopwatch();
+        private static string _step;
+        private static readonly List<string> StepTimes = new List<string>();
+
+        // Each step's time goes into the result, so a slow build says which part was slow.
+        private static void Step(string text)
+        {
+            EndStep();
+            _step = text;
+            StepTimer.Restart();
+            Debug.Log(ParelQuestLocalBuild.StepPrefix + text);
+        }
+
+        private static void EndStep()
+        {
+            if (_step != null) StepTimes.Add($"{_step}: {StepTimer.Elapsed.TotalSeconds:0}s");
+            _step = null;
+        }
 
         public static void Run()
         {
@@ -115,6 +132,8 @@ namespace ParelVR.SDK.Build.Quest
                 }
                 AssetDatabase.SaveAssets();
                 KeepOnlyUsedVariants(avatar, use, report);
+                ParelQuestVariantStripper.Reset();
+                ParelQuestVariantStripper.Active = true;
                 ParelMipStreamingOff.TurnOffFor(avatar ? new[] { hints.mainAsset } : scenes.ToArray());
 
                 string[] textures = AssetDatabase.FindAssets("t:Texture", new[] { "Assets" }).Select(AssetDatabase.GUIDToAssetPath).Distinct().ToArray();
@@ -147,6 +166,10 @@ namespace ParelVR.SDK.Build.Quest
                                             $"compressed meshes); the limit is {job.bundleLimitBytes / (1024 * 1024)} MB. Use fewer or smaller meshes and sounds. The PC version is not affected.");
                 }
 
+                EndStep();
+                report.Note($"shader variants compiled: {ParelQuestVariantStripper.Kept}, left out: {ParelQuestVariantStripper.Removed} " +
+                            $"(features a headset build doesn't use, and {ParelQuestVariantStripper.RemovedBuiltInPasses} in Built-in lighting passes URP never draws)");
+                report.Note("time per step: " + string.Join(", ", StepTimes));
                 result.triangleCount = (int)Math.Min(int.MaxValue, report.triangles);
                 result.materialCount = report.materialSlots;
                 result.skinnedMeshCount = report.skinnedMeshes;
@@ -162,6 +185,7 @@ namespace ParelVR.SDK.Build.Quest
             }
             finally
             {
+                ParelQuestVariantStripper.Active = false;
                 Application.logMessageReceivedThreaded -= Capture;
             }
 

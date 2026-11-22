@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.26.3 (2026-11-21)
+
+### Meta / Standalone VR
+
+- **Far fewer shaders to compile for the headset.** Each URP lit pass (Lit, Shader Graph, SpeedTree) was compiled
+  for every URP feature, and each feature doubled the count. The headset version now leaves out the variants of
+  features a standalone headset doesn't use: soft shadows (hard shadows instead), shadows from point and spot
+  lights, light cookies, light layers, reflection-probe blending and box projection, LOD cross-fade, SSAO, decals
+  and Forward+. Built-in lighting passes (ForwardBase, ForwardAdd, Deferred), which URP never draws, are left out
+  too. Your PC version is not affected.
+- **You can see what it is compiling.** While it builds, the status shows which shader it is on and how many
+  variants it has, instead of one line for the whole step. When it finishes, the Console lists how many variants
+  were compiled and left out, and how long each step took.
+
 ## 1.26.2 (2026-11-21)
 
 ### Meta / Standalone VR
