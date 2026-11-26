@@ -115,10 +115,13 @@ namespace ParelVR.Volt.Simulator
             _player.Setup(scene, options, localId, name, network);
             var worldMenu = go.AddComponent<SimulatedWorldMenu>();
             worldMenu.Setup(scene);
+            var portals = go.AddComponent<SimulatedPortals>();
+            portals.Setup(_player);
 
             var services = new VoltPlatformServices
             {
                 WorldMenu = worldMenu,
+                Portals = portals,
                 Players = _player,
                 Info = _player,
                 Input = _player,
@@ -390,6 +393,7 @@ namespace ParelVR.Volt.Simulator
         private SimulatedStandIn _look;
 
         internal Camera View => _camera;
+        internal CharacterController Capsule => _body;
         internal bool KeyHeld(KeyCode key) => _keys.Contains(key);
         internal bool Seated => _seat != null;
         internal Vector3 Velocity => _body != null ? _body.velocity : Vector3.zero;

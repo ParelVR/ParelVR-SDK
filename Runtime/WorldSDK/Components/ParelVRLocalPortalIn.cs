@@ -32,6 +32,11 @@ namespace ParelVR.WorldSDK
         /// Null, or no doorway drawn: the Size rectangle.
         /// </summary>
         public static Func<GameObject, Vector3, bool> InsideDoorway;
+        /// <summary>
+        /// Brings a <see cref="ParelVRPortal"/> to life: its live view, players and props passing through, and what is
+        /// half-way through seen at the other end. Returns what it added, or null.
+        /// </summary>
+        public static Func<ParelVRPortal, Component> CreatePortal;
 
         internal static Vector3? Head()
         {

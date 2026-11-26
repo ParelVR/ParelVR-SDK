@@ -651,6 +651,18 @@
         <member name="M:ParelVR.Volt.VoltBehaviour.OnWorldMenuOption(System.String,System.Int32)">
             <summary>The local player picked a choice of an option switcher of the world's menu.</summary>
         </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPortalPassed(ParelVR.Volt.Portals.VoltPortalPass)">
+            <summary>A player or a prop went through one of the world's portals (every script hears it; pass.Entrance says which).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPassedThroughPortal(ParelVR.Volt.Portals.VoltPortalPass)">
+            <summary>The object this behaviour is on went through a portal.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPortalEntering(ParelVR.Volt.Portals.VoltPortalPass)">
+            <summary>Something started going into a portal: part of it is through (a prop pushed or held in, a hand reaching in).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.VoltBehaviour.OnPortalPulledBack(ParelVR.Volt.Portals.VoltPortalPass)">
+            <summary>What had started going into a portal came back out the way it went in.</summary>
+        </member>
         <member name="M:ParelVR.Volt.VoltBehaviour.OnPurchaseCompleted(System.String,System.Boolean)">
             <summary>A purchase the local player started in this world went through or failed.</summary>
         </member>
@@ -1471,6 +1483,223 @@
         </member>
         <member name="M:ParelVR.Volt.Interaction.VoltStation.ExitStation">
             <summary>Makes the local player leave the station.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Portals.VoltPortal">
+            <summary>
+            A portal of the world (a ParelVR Portal component): any shape, on a wall, floor or ceiling or standing in the
+            air, showing its linked portal's side live. Players and props go through it keeping their speed. A script
+            finds one with <see cref="M:ParelVR.Volt.Portals.VoltPortal.Get(ParelVR.Volt.Objects.VoltGameObject)"/> (the portal's object, e.g. a VoltGameObject field), <see cref="M:ParelVR.Volt.Portals.VoltPortal.Find(System.String)"/> or
+            <see cref="M:ParelVR.Volt.Portals.VoltPortal.GetAll"/>, and hears trips through any portal with OnPortalPassed, OnPortalEntering,
+            OnPortalPulledBack, and on the object that went through, OnPassedThroughPortal.
+            Everything here is what this client sees; a change made here is this client's own unless the script shares it.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.IsAvailable">
+            <summary>True when portals work here (always in ParelVR; false in tools that don't run them).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.GetAll">
+            <summary>Every portal of the world that is switched on.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.Get(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>The portal on an object (or on one of its parents), or null.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.Find(System.String)">
+            <summary>The first portal whose object has this name, or null.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.GameObject">
+            <summary>The portal's object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Transform">
+            <summary>The portal's transform: its blue line points out of the front.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Name">
+            <summary>The name of the portal's object.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.IsValid">
+            <summary>False once the portal is gone (its object destroyed).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.LinkedPortal">
+            <summary>The other end: this portal shows it and leads there. Null when it has none.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.IsOpen">
+            <summary>Switched on and linked to a portal that is switched on: it shows the far side and things go through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Enabled">
+            <summary>Whether the portal is switched on. Off, it draws its surface as it was made and nothing goes through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Position">
+            <summary>The portal's position (on its plane).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Rotation">
+            <summary>The portal's turn.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Forward">
+            <summary>The way the front faces (out of the wall, up out of the floor).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Up">
+            <summary>The portal's up, along its plane.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.Right">
+            <summary>The portal's right, along its plane.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.OpeningCenter">
+            <summary>The middle of the opening, in world space.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.OpeningSize">
+            <summary>The opening's width and height in metres (its bounds when it isn't a rectangle).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.TwoSided">
+            <summary>Seen and entered from both sides (off: the front only).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.PlayersPass">
+            <summary>Players go through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.ObjectsPass">
+            <summary>Props with a rigidbody go through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.KeepMomentum">
+            <summary>Players and props keep their speed through it, turned the way the linked portal faces.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.EdgeGlow">
+            <summary>The glow along a masked opening's edge (alpha 0 = none).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.NestedColor">
+            <summary>What the portal shows inside another portal's view.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.DrawDistance">
+            <summary>The live view is drawn within this many metres.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.CarryPoint(UnityEngine.Vector3)">
+            <summary>Where a point in front of this portal comes out at the linked one (what stands just behind this one's front stands just in front of the other).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.CarryDirection(UnityEngine.Vector3)">
+            <summary>A direction (a speed, a look) carried through to the linked portal.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.CarryRotation(UnityEngine.Quaternion)">
+            <summary>A turn carried through to the linked portal.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.IsInOpening(UnityEngine.Vector3)">
+            <summary>Whether a point, seen straight along the portal's line, is inside the opening's shape (its mask too).</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.IsInFront(UnityEngine.Vector3)">
+            <summary>Whether a point is on the front's side of the portal's plane.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.DistanceToPlane(UnityEngine.Vector3)">
+            <summary>How far a point is from the portal's plane: positive in front, negative behind.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.PassCount">
+            <summary>Trips in through this portal this client has seen since the world loaded.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.LastPass">
+            <summary>The last trip in through this portal, or null.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.GetObjectsInside">
+            <summary>The props part-way through this portal right now (held in a hand, or pushed in).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortal.IsLocalPlayerReachingIn">
+            <summary>True while part of the local player (a hand, the head) is through this portal.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.SendLocalPlayer">
+            <summary>Takes the local player through now, as if they had walked in at the middle of the opening. False when it can't.</summary>
+        </member>
+        <member name="M:ParelVR.Volt.Portals.VoltPortal.Send(ParelVR.Volt.Objects.VoltGameObject)">
+            <summary>Sends a prop through now, keeping its speed. Other players see it move when the object is synced. False when it can't.</summary>
+        </member>
+        <member name="T:ParelVR.Volt.Portals.VoltPortalPass">
+            <summary>
+            One trip through a portal, or the start of one (part of it is through), or one pulled back out: what went, where
+            it went in and came out, how it was turned and how fast it was going, and when.
+            </summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.IsPlayer">
+            <summary>A player went (or is going) through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.IsLocalPlayer">
+            <summary>It was the player on this client.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Player">
+            <summary>The player, or null for a prop.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.IsObject">
+            <summary>A prop went (or is going) through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.GameObject">
+            <summary>The prop's object, or null for a player.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Rigidbody">
+            <summary>The prop's rigidbody, or null.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Name">
+            <summary>The prop's object name, or the player's display name.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Part">
+            <summary>Which part of a player went in first: "Head", "LeftHand", "RightHand", "LeftLowerArm", "LeftFoot", "Hips"... or "Body" for a whole trip or a prop.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Mass">
+            <summary>The prop's mass in kilograms (0 for a player).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Size">
+            <summary>About how big it is, in metres.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Entrance">
+            <summary>The portal it went in through.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Exit">
+            <summary>The portal it came out of.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.FromFront">
+            <summary>True when it went in through the front (false: the back of a two-sided portal).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.OpeningPoint">
+            <summary>Where on the entrance's plane it crossed, in the portal's own space (metres from its position: x right, y up).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.EnterPosition">
+            <summary>Where it was as it went in (a player: their feet).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.ExitPosition">
+            <summary>Where it came out.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.EnterRotation">
+            <summary>Its turn as it went in.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.ExitRotation">
+            <summary>Its turn as it came out.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Turn">
+            <summary>How the pair of portals turned it.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Distance">
+            <summary>How far apart the two ends of the trip are, in metres.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.EnterVelocity">
+            <summary>Its speed as it went in.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.ExitVelocity">
+            <summary>Its speed as it came out (turned by the pair; zero when the portal doesn't keep momentum).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Speed">
+            <summary>How fast it was going, in metres per second.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.AngularVelocity">
+            <summary>A prop's spin as it came out.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.WasHeld">
+            <summary>It was held in a hand while it went in (it went through as it was let go).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.IsRemote">
+            <summary>Another player's client moved it (their own trip, or a synced prop seen arriving), not this one.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Time">
+            <summary>VoltTime.Time when it happened.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Frame">
+            <summary>The frame it happened in.</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.Trips">
+            <summary>Trips this one thing has made through any portal since the world loaded, this one included (a ball bouncing between two floor portals counts up).</summary>
+        </member>
+        <member name="P:ParelVR.Volt.Portals.VoltPortalPass.TimeSinceLastTrip">
+            <summary>Seconds since its last trip through any portal; -1 on its first.</summary>
         </member>
         <member name="T:ParelVR.Volt.Players.VoltTrackingPoint">
             <summary>A point on a player's body that ParelVR tracks or estimates.</summary>

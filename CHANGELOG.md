@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.28.0 (2026-11-26)
+
+### Portals of any shape
+
+- **New component: ParelVR > World SDK > Portal.** Use it to build your own portals with the live view players walk
+  through, not just the pedestal ring. Give it a surface: any mesh in any shape (a door, a crack in the floor, a hole
+  in a wall). Link it to another Portal and it shows that portal's side live, in VR too. Put it on a wall, a floor, a
+  ceiling, or let it stand in the air, at any angle. `GameObject > ParelVR > Portal Pair` makes two linked ones to
+  start from.
+- The opening takes the surface mesh's shape, worked out in the editor. An optional **Shape Mask** texture cuts it
+  further (cracks, jagged holes) and gives it a glowing **Edge Glow** along the cut.
+- **Players** go through keeping their speed, turned the way the far portal faces: fall into a floor portal and fly
+  out of a wall one. **Props** with a rigidbody go through too, keeping their speed and spin. Two floor portals
+  linked to each other bounce a dropped ball between them for ever. List the wall or floor colliders a portal sits
+  in under **Pass Through** and they let things through the opening.
+- Things part-way through are seen coming out of the other end. That includes a prop held half-way in, a hand
+  reaching through, and other players.
+- Settings: Two Sided, Players Pass, Objects Pass, Keep Momentum, Draw Within, Sharpness, Nested Color. UnityEvents:
+  On Player Passed and On Object Passed.
+
+- Portals come alive in ParelVR from its next update. Until then a world's portals show their surface as you made
+  it, and nothing goes through.
+
+### Volt API 1.7: portals
+
+- **VoltPortal**:
+  - Find portals with `VoltPortal.GetAll()`, `Get(gameObject)` or `Find(name)`.
+  - Read and change the link, Enabled, Two Sided, Players / Objects Pass, Keep Momentum, Edge Glow, Nested Color and
+    Draw Distance.
+  - Read where it is and the opening's centre and size.
+  - The portal's maths: `CarryPoint`, `CarryDirection`, `CarryRotation`, `IsInOpening`, `IsInFront`,
+    `DistanceToPlane`.
+  - What has gone through: `PassCount`, `LastPass`, `GetObjectsInside()`, `IsLocalPlayerReachingIn`.
+  - Send things through: `Send(gameObject)` and `SendLocalPlayer()`.
+- **VoltPortalPass**: everything about one trip.
+  - Who: the player (`Player`, `IsLocalPlayer`) or the prop (`GameObject`, `Rigidbody`, `Name`, `Mass`, `Size`), and
+    which body part went in first (`Part`: Head, LeftHand...).
+  - Where: `Entrance` and `Exit` portals, enter and exit position and rotation, `Turn`, `Distance`, the crossing
+    point on the opening, and whether it went in from the front.
+  - How fast: enter and exit velocity, `Speed`, spin.
+  - How: `WasHeld` and `IsRemote`.
+  - When: `Time`, `Frame`, how many `Trips` this thing has made and the `TimeSinceLastTrip`, for clocks, counters and
+    timers.
+- New events on VoltBehaviour:
+  - `OnPortalPassed(pass)`: every script hears it.
+  - `OnPassedThroughPortal(pass)`: on the object that went through.
+  - `OnPortalEntering(pass)`: part of something is through.
+  - `OnPortalPulledBack(pass)`: it came back out.
+- In the play-mode simulator, props and the player go through portals and the same script events fire. The live
+  view through a portal is drawn in ParelVR only.
+
 ## 1.27.0 (2026-11-21)
 
 ### Meta / Standalone VR
