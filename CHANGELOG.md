@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.29.2 (2026-11-27)
+
+### Local Portal In / Out
+
+- **Lay them in the floor like a hole.** Turn a Local Portal In or Out so its blue line points up and it lies in
+  the floor: stepping onto it drops the player in, and they come out of the other end standing (on a floor Out,
+  at the foot of a wall Out facing out of it, or dropping out of a ceiling Out). Before, a doorway laid flat was
+  still checked as if it stood upright, so the player walked or fell straight through it. Walls and ceilings work
+  too. The opening is where its gizmo shows it: its foot at the object, its height along the object's up.
+- **Props go through.** Props with a Rigidbody now go through Local Portals (Objects Pass, on by default),
+  keeping their speed turned the way the Out faces, instead of hitting the floor or wall behind them. A box set
+  down on a floor doorway drops in, a ball thrown at a wall doorway flies out of a floor one, and a ball dropped
+  between two floor doorways bounces between them at the same height trip after trip. Held props go through once
+  let go.
+- **Two Way works both ways.** With Two Way on, walking (or stepping) into the Out brings the player and props
+  back out of the In, and either side of each doorway can be walked into. Before, Two Way only let the In be
+  entered from behind, and the Out was never a way in. A player who comes out onto a floor doorway is not sent
+  back until they step off it.
+
+### Volt simulator
+
+- **Local Portals work in play mode.** The simulator never connected Local Portal In / Out, so the editor player
+  walked through them with a warning. It now moves the player through them as ParelVR does.
+
 ## 1.29.1 (2026-11-26)
 
 ### Motion Bones

@@ -48,7 +48,24 @@ namespace ParelVR.Volt.Simulator
             _player = player;
             if (ParelVRPortal.All.Count > 0)
                 Debug.Log("[Volt Simulator] " + ParelVRPortal.All.Count + " portal(s): props and the player go through them here; the live view through them shows in ParelVR.");
+
+            // Local Portal In / Out: the editor player walks (or steps) through them as in ParelVR.
+            if (ParelVRPortalHooks.LocalPlayer != null) return;
+            ParelVRPortalHooks.LocalHead = () => _player != null && _player.View != null ? _player.View.transform.position : Vector3.zero;
+            ParelVRPortalHooks.LocalPlayer = () => _player != null ? new Pose(_player.transform.position, _player.transform.rotation) : new Pose(Vector3.zero, Quaternion.identity);
+            ParelVRPortalHooks.TeleportLocalPlayer = (position, rotation) =>
+            {
+                if (_player == null) return;
+                _player.Teleport(position, rotation);
+                _player.SetVelocity(Vector3.zero);
+                _guardUntil = Time.time + 0.3f;
+                _hasEye = false;
+            };
+            _localHooks = ParelVRPortalHooks.TeleportLocalPlayer;
         }
+
+        // Ours, so they are only taken off again while still ours (the game puts its own in).
+        private Action<Vector3, Quaternion> _localHooks;
 
         // ── props ──
 
@@ -368,6 +385,12 @@ namespace ParelVR.Volt.Simulator
             foreach (Prop p in _props.Values) Ignore(p, false);
             _props.Clear();
             if (_playerIgnoring != null && _player != null && _player.Capsule != null) IgnoreWalls(_playerIgnoring, _player.Capsule, false);
+            if (_localHooks != null && ParelVRPortalHooks.TeleportLocalPlayer == _localHooks)
+            {
+                ParelVRPortalHooks.LocalHead = null;
+                ParelVRPortalHooks.LocalPlayer = null;
+                ParelVRPortalHooks.TeleportLocalPlayer = null;
+            }
         }
 
         // ── IVoltPortalService ──
