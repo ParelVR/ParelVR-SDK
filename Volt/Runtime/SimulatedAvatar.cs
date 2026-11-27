@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.Animations;
 using UnityEngine.Experimental.Animations;
 using UnityEngine.Playables;
+using UnityEngine.Rendering;
 
 namespace ParelVR.Volt.Simulator
 {
@@ -75,10 +76,14 @@ namespace ParelVR.Volt.Simulator
         private string _buttonParameter;
         private float _buttonRelease;
 
-        // First person: the head is shrunk for the player's own view and shown again for mirrors.
+        // First person: the head is shrunk only while the player's own view draws (as in ParelVR), so everything else in
+        // the frame, Motion Bones on the head included, sees it at its real size. Shrinking it for the whole frame ran
+        // ears and hair at a ten-thousandth of their size, where any head movement threw them about in mirrors.
         private Transform _headBone;
         private Vector3 _headScale;
         private bool _headHidden;
+        private bool _headShrunk;
+        private bool _shownForMirror;
         // The neck and head before and after the desktop look, so a bone nothing animates is not turned again every frame.
         private Quaternion _neckRest, _neckLooked, _headRest, _headLooked;
         private bool _looked;
@@ -173,8 +178,12 @@ namespace ParelVR.Volt.Simulator
             GetComponentsInChildren(true, _skins);
             // Each camera skins the meshes again, so the shrunk head shows in mirrors and not in your own view.
             foreach (SkinnedMeshRenderer skin in _skins) skin.forceMatrixRecalculationPerRender = true;
-            ParelVRMirror.BeforeMirrorRender += ShowHead;
-            ParelVRMirror.AfterMirrorRender += HideHead;
+            ParelVRMirror.BeforeMirrorRender += ShowForMirror;
+            ParelVRMirror.AfterMirrorRender += HideAfterMirror;
+            RenderPipelineManager.beginCameraRendering += BeginView;
+            RenderPipelineManager.endCameraRendering += EndView;
+            Camera.onPreCull += BeginView;
+            Camera.onPostRender += EndView;
 
             _menu = SimulatedRadialMenu.Create(this, descriptor.ExpressionsMenu);
             Debug.Log("[Avatar Simulator] Wearing " + descriptor.gameObject.name + ": " + _slots.Count + " expression parameters, " + _layers.Count + " playable layers" +
@@ -664,6 +673,8 @@ namespace ParelVR.Volt.Simulator
             if (_proceduralBody) PoseProceduralBody(Time.deltaTime);
             if (!_player.InVRNow) LookWithHead(_player.Pitch);
             if (!_headHidden && !ThirdPerson) HideHead();
+            // Never left shrunk between frames, whatever happened during the last draw.
+            if (_headShrunk) Unshrink();
             _testHand?.Follow();
         }
 
@@ -696,18 +707,59 @@ namespace ParelVR.Volt.Simulator
             _looked = true;
         }
 
+        /// <summary>First person: hide the head from the player's own view from now on.</summary>
         private void HideHead()
         {
             if (_headBone == null || _player == null || ThirdPerson) return;
-            _headBone.localScale = _headScale * 0.0001f;
             _headHidden = true;
         }
 
         private void ShowHead()
         {
-            if (_headBone == null) return;
-            _headBone.localScale = _headScale;
             _headHidden = false;
+            if (_headShrunk) Unshrink();
+        }
+
+        private bool IsOwnView(Camera camera) => camera != null && _player != null && camera == _player.View;
+
+        private void BeginView(ScriptableRenderContext context, Camera camera) => BeginView(camera);
+        private void EndView(ScriptableRenderContext context, Camera camera) => EndView(camera);
+
+        private void BeginView(Camera camera)
+        {
+            if (!_headHidden || _headShrunk || _headBone == null || ThirdPerson || !IsOwnView(camera)) return;
+            _headBone.localScale = _headScale * 0.0001f;
+            _headShrunk = true;
+        }
+
+        private void EndView(Camera camera)
+        {
+            if (_headShrunk && IsOwnView(camera)) Unshrink();
+        }
+
+        private void Unshrink()
+        {
+            if (_headBone != null) _headBone.localScale = _headScale;
+            _headShrunk = false;
+        }
+
+        // A mirror drawn while the own view is drawing still shows the head.
+        private void ShowForMirror()
+        {
+            if (!_headShrunk) return;
+            Unshrink();
+            _shownForMirror = true;
+        }
+
+        private void HideAfterMirror()
+        {
+            if (!_shownForMirror) return;
+            _shownForMirror = false;
+            if (_headBone != null && _headHidden && !ThirdPerson)
+            {
+                _headBone.localScale = _headScale * 0.0001f;
+                _headShrunk = true;
+            }
         }
 
         // ── a body for humanoids without a Base layer ────────────────────────
@@ -861,8 +913,12 @@ namespace ParelVR.Volt.Simulator
 
         private void OnDestroy()
         {
-            ParelVRMirror.BeforeMirrorRender -= ShowHead;
-            ParelVRMirror.AfterMirrorRender -= HideHead;
+            ParelVRMirror.BeforeMirrorRender -= ShowForMirror;
+            ParelVRMirror.AfterMirrorRender -= HideAfterMirror;
+            RenderPipelineManager.beginCameraRendering -= BeginView;
+            RenderPipelineManager.endCameraRendering -= EndView;
+            Camera.onPreCull -= BeginView;
+            Camera.onPostRender -= EndView;
             ShowHead();
             PutAwayTestHand();
             foreach (GameObject go in _standardContacts) if (go != null) Destroy(go);

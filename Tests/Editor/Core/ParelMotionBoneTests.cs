@@ -199,22 +199,30 @@ namespace ParelVR.SDK.Tests
             Assert.That(Vector3.Distance(Tip(bone), expected), Is.LessThan(0.01f));
         }
 
-        [Test]
-        public void SteadyMovement_CarriesLooseBonesAlong()
+        /// <summary>How far the tip trails behind while the chain walks forward at 1.4 m/s for a second.</summary>
+        private float WalkTrail(float immobile)
         {
             ParelMotionBone bone = MakeChain(out Transform holder);
             bone.gravity = 0f;
-            bone.pull = 0.05f;
-            bone.spring = 0.3f;
+            bone.pull = 0.2f;
+            bone.spring = 0.5f;
+            bone.immobile = immobile;
             Run(bone, 0.5f, 90f);
-
+            float trail = 0f;
             for (int i = 0; i < 90; i++)
             {
-                holder.position += Vector3.forward * (1f / 90f);
+                holder.position += Vector3.forward * (1.4f / 90f);
                 Frame(bone, 1f / 90f);
+                trail = Mathf.Max(trail, holder.position.z - Tip(bone).z);
             }
+            return trail;
+        }
 
-            Assert.That(Mathf.Abs(Tip(bone).z - holder.position.z), Is.LessThan(0.01f), "the chain was left behind");
+        [Test]
+        public void Walking_SwingsTheBones_ImmobileTakesItOff()
+        {
+            Assert.That(WalkTrail(0f), Is.GreaterThan(0.02f), "walking didn't move the bones");
+            Assert.That(WalkTrail(1f), Is.LessThan(0.002f), "Immobile 1 still let walking move them");
         }
 
         [Test]
@@ -243,7 +251,7 @@ namespace ParelVR.SDK.Tests
             ParelMotionBone bone = MakeChain(out Transform holder);
             bone.gravity = 0f;
             bone.pull = 0.15f;
-            bone.spring = 0.5f;
+            bone.spring = 0.7f;
             Run(bone, 0.5f, 90f);
             for (int i = 0; i < 90; i++)
             {

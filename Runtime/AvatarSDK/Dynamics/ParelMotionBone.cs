@@ -68,9 +68,6 @@ namespace ParelVR.AvatarSDK
         private const float TeleportDistance = 3f;
         /// <summary>A turn sharper than this in one frame (a snap turn) carries the chain round instead of whipping it.</summary>
         private const float SnapTurnDegrees = 20f;
-        // How much of the avatar's own walking, flying and turning the bones are carried through:
-        // starting, stopping and sharp moves still swing them, steady movement no longer leaves them trailing.
-        private const float LocomotionCarry = 0.8f;
         private const float GravityStrength = 0.12f;
         /// <summary>Even with Limit None a bone never swings further than this from its rest direction (no folding over).</summary>
         private const float MaxSwingDegrees = 120f;
@@ -193,7 +190,6 @@ namespace ParelVR.AvatarSDK
             public Quaternion InitLocalRotation;
             public Vector3 Position;
             public Vector3 PrevPosition;
-            public Vector3 LastRest;
             public Vector3 AnimPosition;
             public Quaternion AnimRotation;
             public float RestLength;
@@ -214,12 +210,9 @@ namespace ParelVR.AvatarSDK
         private bool _built;
         private bool _needsReset = true;
         private float _lastStep = StepSeconds;
-        private bool _restPosed;
         private Vector3 _lastMovePosition;
         private Quaternion _lastAnchorRotation = Quaternion.identity;
         private bool _hasLastMove;
-        private Vector3 _lastOwnerPosition;
-        private bool _hasLastOwner;
         private Transform _ownerRoot;
         private bool _ownerResolved;
         private IParelAvatarParameterSink _sink;
@@ -555,9 +548,6 @@ namespace ParelVR.AvatarSDK
             _lastMovePosition = moveAnchor;
             _lastAnchorRotation = anchorRotation;
             _hasLastMove = true;
-            Vector3 ownerMove = owner != null && _hasLastOwner ? owner.position - _lastOwnerPosition : Vector3.zero;
-            _lastOwnerPosition = owner != null ? owner.position : Vector3.zero;
-            _hasLastOwner = owner != null;
 
             // Scaled-up avatars cover more ground per frame; bone scale says nothing about that (some rigs use 100).
             float teleport = TeleportDistance * Mathf.Max(1f, owner != null ? MaxAbs(owner.lossyScale) : 1f);
@@ -575,14 +565,12 @@ namespace ParelVR.AvatarSDK
                     ref Particle p = ref _particles[i];
                     p.Position = target + turnDelta * (p.Position - pivot);
                     p.PrevPosition = target + turnDelta * (p.PrevPosition - pivot);
-                    p.LastRest = target + turnDelta * (p.LastRest - pivot);
                 }
             }
             else
             {
-                // Immobile: carry the particles along with the avatar so its own movement isn't felt.
-                Quaternion carryTurn = owner != null && turn > 0.01f ? Quaternion.SlerpUnclamped(Quaternion.identity, turnDelta, LocomotionCarry) : Quaternion.identity;
-                Vector3 pivot = owner != null ? owner.position : Vector3.zero;
+                // Immobile: carry that share of the movement along, so it doesn't swing the bones. Everything else the
+                // avatar does (walking, turning, the head and body moving) drags on the bones and swings them.
                 // The root is carried too: Step eases it from here to its animated position across the frame's
                 // substeps. Carrying only the children threw them ahead of their rest by a share of each frame's
                 // movement whenever a frame took more than one step (under 90 fps), which folded them at speed.
@@ -595,25 +583,6 @@ namespace ParelVR.AvatarSDK
                         Vector3 shift = move * amount;
                         p.Position += shift;
                         p.PrevPosition += shift;
-                        p.LastRest += shift;
-                    }
-
-                    // The avatar moving as a whole (locomotion, smooth turning) is mostly carried too, on top of
-                    // what Immobile already took, so bones don't stick out behind while the player moves.
-                    if (owner == null) continue;
-                    float extra = Mathf.Max(0f, LocomotionCarry - amount);
-                    if (extra > 0f && ownerMove != Vector3.zero)
-                    {
-                        Vector3 carry = ownerMove * extra;
-                        p.Position += carry;
-                        p.PrevPosition += carry;
-                        p.LastRest += carry;
-                    }
-                    if (carryTurn != Quaternion.identity)
-                    {
-                        p.Position = pivot + carryTurn * (p.Position - pivot);
-                        p.PrevPosition = pivot + carryTurn * (p.PrevPosition - pivot);
-                        p.LastRest = pivot + carryTurn * (p.LastRest - pivot);
                     }
                 }
             }
@@ -657,34 +626,20 @@ namespace ParelVR.AvatarSDK
             {
                 _particles[i].Position = _particles[i].AnimPosition;
                 _particles[i].PrevPosition = _particles[i].AnimPosition;
-                _particles[i].LastRest = _particles[i].AnimPosition;
             }
         }
 
         private float WorldScale() => MaxAbs(Root.lossyScale);
 
         /// <summary>
-        /// Spring / Momentum as how long a bone keeps wobbling: the swing fades to a third in this many seconds
-        /// (0 = no overshoot, 0.2 = about 0.1 s, 0.5 = 0.4 s, 0.7 = 0.7 s, 1 = 1.2 s), the same at every frame rate.
-        /// Pull sets how fast it swings back. The old per-step momentum lost most of the swing to Pull as well, so even
-        /// Spring 0.5 settled in under a tenth of a second and nothing ever looked like jelly.
+        /// Spring / Momentum: the share of a bone's swing kept from one 60 Hz step to the next (the rest is lost to
+        /// drag), matched for any step length so every frame rate swings alike. Pull then blends it back toward rest,
+        /// which damps it too, so a bone bounces a couple of times and settles instead of wobbling on and on.
         /// </summary>
-        private static float WobbleSeconds(float spring)
+        private static float Momentum(float spring, float h)
         {
             float s = Mathf.Clamp01(spring);
-            return 1.2f * s * Mathf.Sqrt(s);
-        }
-
-        /// <summary>
-        /// The share of a bone's swing (relative to its moving rest) carried into the next step of length
-        /// <paramref name="h"/>, given the Pull share <paramref name="pullStep"/> taken off the same step.
-        /// </summary>
-        private static float Momentum(float spring, float pullStep, float h)
-        {
-            float wobble = WobbleSeconds(spring);
-            if (wobble <= 1e-4f || pullStep >= 0.999f) return 0f;
-            float keep = Mathf.Exp(-2f * h / wobble);
-            return Mathf.Min(keep / (1f - pullStep), 0.999f);
+            return s <= 0f ? 0f : Mathf.Pow(s, h * 60f);
         }
 
         /// <summary>
@@ -749,10 +704,7 @@ namespace ParelVR.AvatarSDK
             bool springCurved = springCurve != null && springCurve.length > 0;
             bool pullCurved = pullCurve != null && pullCurve.length > 0;
             float basePullStep = 1f - Mathf.Pow(1f - Mathf.Clamp01(pull), frameScale);
-            float baseMomentum = Momentum(spring, basePullStep, h);
-            // Switching between posed and free rest moves the rest in one jump; that isn't movement to follow.
-            bool restJump = _restPosed != _posed;
-            _restPosed = _posed;
+            float baseMomentum = Momentum(spring, h);
             bool pushed = ExternalForce != Vector3.zero;
             Transform poseSpace = PoseSpace;
             _turn[0] = Quaternion.identity;
@@ -785,14 +737,11 @@ namespace ParelVR.AvatarSDK
                 Vector3 restPosition = _posed ? poseSpace.TransformPoint(p.PosedLocal) : parent.Position + animOffset;
                 float pullAmount = _posed ? 1f : Mathf.Clamp01(pull * Curve(pullCurve, depth));
                 float pullStep = pullCurved || _posed ? 1f - Mathf.Pow(1f - pullAmount, frameScale) : basePullStep;
-                float momentum = springCurved || pullCurved || _posed ? Momentum(spring * Curve(springCurve, depth), pullStep, h) : baseMomentum;
+                float momentum = springCurved || _posed ? Momentum(spring * Curve(springCurve, depth), h) : baseMomentum;
 
-                // Momentum (verlet), damped against the rest pose's own movement rather than the world: the
-                // body moving steadily carries the bone along, and only speeding up, stopping and turning make
-                // it swing. Damping world speed instead left loose bones dragging behind and folding over.
-                Vector3 restMove = restJump ? Vector3.zero : restPosition - p.LastRest;
-                p.LastRest = restPosition;
-                Vector3 velocity = restMove + ((p.Position - p.PrevPosition) * carry - restMove) * momentum;
+                // Momentum (verlet) with drag: the bone keeps that share of its own world movement, so when the body
+                // moves the bone trails, swings past rest when it stops and settles (Immobile takes movement off first).
+                Vector3 velocity = (p.Position - p.PrevPosition) * (carry * momentum);
                 p.PrevPosition = p.Position;
                 p.Position += velocity;
 
@@ -853,7 +802,6 @@ namespace ParelVR.AvatarSDK
         {
             p.Position = position;
             p.PrevPosition = position;
-            p.LastRest = position;
         }
 
         /// <summary>

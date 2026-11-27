@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.29.1 (2026-11-26)
+
+### Motion Bones
+
+- **Bones trail and settle instead of wobbling on.** 1.29.0 made Spring keep a bone's swing for up to a second, so
+  tails and ears wobbled in place like jello, and most of the avatar's walking was still taken off the bones, so
+  they looked stiff. Spring / Momentum is now the share of a bone's swing kept from one 60 Hz step to the next, the
+  same at any frame rate, and movement drags on the bones: they trail while the avatar walks, turns or moves its
+  head, swing past rest when it stops, bounce once or twice and settle (0.2 to 0.6 s on a tested avatar's ears,
+  tail and chest, at 90, 72 and 45 fps). Immobile takes movement off exactly as set, so Immobile 0 bones feel
+  walking fully and Immobile 1 bones not at all. Angle limits still hold on every frame.
+
+### Volt simulator
+
+- **Head Motion Bones behave in first person.** To hide the head from your own view the simulator shrank it for
+  the whole frame, so Motion Bones on the head (ears, hair) ran at a ten-thousandth of their size and flew about
+  in mirrors. The head is now hidden only while your own view draws, as in ParelVR, and mirrors show it as before.
+
 ## 1.29.0 (2026-11-26)
 
 ### Motion Bones
