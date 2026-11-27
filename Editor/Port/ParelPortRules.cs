@@ -95,8 +95,9 @@ namespace ParelVR.SDK.Port
                     .Values("lipSync", "VisemeBlendShape", "JawFlapBlendShape", "JawFlapBone")
                     .Rename("Visemes", "VisemeBlendShape").Rename("SingleBlendshape", "JawFlapBlendShape").Rename("JawBone", "JawFlapBone")
                     .Then(CvrAvatarDone),
-                R("PhysBone collider", 1).Live("VRCPhysBoneCollider").Print("shapeType", "insideBounds", "bonesAsSpheres").To<ParelMotionBoneCollider>(),
-                R("PhysBone", 2).Live("VRCPhysBone").Print("integrationType", "pull", "immobile").To<ParelMotionBone>()
+                R("Bone physics collider", 1).Live("VRCPhysBoneCollider").Print("shapeType", "insideBounds", "bonesAsSpheres").To<ParelMotionBoneCollider>(),
+                R("Bone physics", 2).Live("VRCPhysBone").Print("integrationType", "pull", "immobile").To<ParelMotionBone>()
+                    .Alias("ignoreOtherMotionBones", "ignoreOtherPhysBones")
                     .Values("allowCollision", "Nobody", "Everyone", "Everyone").Values("allowGrabbing", "Nobody", "Everyone", "Everyone")
                     .Values("allowPosing", "Nobody", "Everyone", "Everyone")
                     .Rename("False", "Nobody").Rename("True", "Everyone").Rename("Other", "Everyone")

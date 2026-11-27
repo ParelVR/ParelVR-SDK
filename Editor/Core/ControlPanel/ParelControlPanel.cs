@@ -658,7 +658,7 @@ namespace ParelVR.SDK.Core.ControlPanel
             toggle.RegisterValueChangedCallback(evt => ParelPreferences.SetAutoPortContentEnabled(evt.newValue));
             VisualElement portValue = Setting(card, "Auto Port Content", toggle,
                 "Takes components made for other platforms out of your scene and puts ParelVR's in their place, with the same " +
-                "settings: avatar descriptors, PhysBones, contacts, Expressions menus, animator behaviours, pickups, object sync, " +
+                "settings: avatar descriptors, bone physics, contacts, Expressions menus, animator behaviours, pickups, object sync, " +
                 "stations, mirrors, video players, spawn points and constraints. Anything ParelVR has nothing like is removed, not " +
                 "switched off. Works with or without the other platform's SDK installed. While on, it runs before every build; " +
                 "Scan Now shows what it would change and its Auto Fix does it now (Edit > Undo takes it back). Also under " +

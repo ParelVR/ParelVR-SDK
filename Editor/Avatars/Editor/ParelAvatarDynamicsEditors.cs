@@ -102,6 +102,7 @@ namespace ParelVR.SDK.Avatars.Inspectors
             DynamicsGUI.Section("Transforms");
             DynamicsGUI.Prop(serializedObject, "rootTransform", "Root Transform");
             DynamicsGUI.Prop(serializedObject, "ignoreTransforms", "Ignore Transforms");
+            DynamicsGUI.Prop(serializedObject, "ignoreOtherMotionBones", "Ignore Other Motion Bones");
             DynamicsGUI.Prop(serializedObject, "endpointPosition", "Endpoint Position");
             DynamicsGUI.Prop(serializedObject, "multiChildType", "Multi Child Type");
 

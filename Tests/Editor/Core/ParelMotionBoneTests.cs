@@ -274,8 +274,9 @@ namespace ParelVR.SDK.Tests
         public void AngleLimit_HoldsUnderGravity()
         {
             ParelMotionBone bone = MakeChain(out _);
+            // 1.1: Gravity 1 turns the rest straight down; Pull takes the bones there, the limit stops them.
             bone.gravity = 1f;
-            bone.pull = 0f;
+            bone.pull = 0.5f;
             bone.spring = 0f;
             bone.limitType = ParelMotionBone.LimitType.Angle;
             bone.maxAngleX = 15f;
@@ -335,6 +336,81 @@ namespace ParelVR.SDK.Tests
                 Assert.That(bone.stretchMotion, Is.InRange(0f, 1f), name);
                 Assert.AreEqual(0, bone.pullCurve.length, name);
             }
+        }
+
+        /// <summary>The shown tip's side-to-side offset over time while the holder shakes for a second, then stands still.</summary>
+        private List<Vector2> ShakePath(float fps)
+        {
+            ParelMotionBone bone = MakeChain(out Transform holder);
+            bone.pull = 0.15f;
+            bone.spring = 0.8f;
+            Transform tip = bone.rootTransform.GetChild(0).GetChild(0).GetChild(0);
+            var path = new List<Vector2>();
+            float dt = 1f / fps, t = 0f;
+            Frame(bone, dt);
+            while (t < 2.5f)
+            {
+                t += dt;
+                holder.position = Vector3.forward * (t < 1f ? Mathf.Sin(t * Mathf.PI * 3f) * 0.1f : 0f);
+                Frame(bone, dt);
+                path.Add(new Vector2(t, tip.position.z - holder.position.z));
+            }
+            return path;
+        }
+
+        private static float PathAt(List<Vector2> path, float t)
+        {
+            for (int i = 1; i < path.Count; i++)
+            {
+                if (path[i].x < t) continue;
+                return Mathf.Lerp(path[i - 1].y, path[i].y, Mathf.InverseLerp(path[i - 1].x, path[i].x, t));
+            }
+            return path[path.Count - 1].y;
+        }
+
+        [Test]
+        public void SameMotion_AtEveryFrameRate()
+        {
+            List<Vector2> reference = ShakePath(300f);
+            foreach (float fps in new[] { 45f, 60f, 72f, 90f, 144f })
+            {
+                List<Vector2> path = ShakePath(fps);
+                float worst = 0f;
+                for (float t = 0.1f; t < 2.4f; t += 0.01f) worst = Mathf.Max(worst, Mathf.Abs(PathAt(path, t) - PathAt(reference, t)));
+                Assert.That(worst, Is.LessThan(0.006f), $"{fps} fps strays {worst * 1000f:0.0} mm from 300 fps");
+            }
+        }
+
+        [Test]
+        public void Gravity11_TurnsTheRestByItsRatio_FalloffKeepsTheModelledPose()
+        {
+            float Hang(float falloff, float roll)
+            {
+                ParelMotionBone bone = MakeChain(out Transform holder);
+                bone.gravity = 0.5f;
+                bone.pull = 0.3f;
+                bone.gravityFalloff = falloff;
+                Run(bone, 0.05f, 90f);
+                holder.rotation = Quaternion.Euler(0f, 0f, roll);
+                Run(bone, 5f, 90f);
+                return Vector3.Angle(Vector3.up, bone.ParticlePosition(1) - bone.ParticlePosition(0));
+            }
+
+            Assert.That(Hang(0f, 0f), Is.EqualTo(135f).Within(1f), "half way from sideways to straight down");
+            Assert.That(Hang(1f, 0f), Is.EqualTo(90f).Within(1f), "Falloff 1 leaves the modelled pose alone");
+            Assert.That(Hang(1f, 90f), Is.EqualTo(90f).Within(1f), "pointing up, Falloff 1 lets gravity back in");
+        }
+
+        [Test]
+        public void IgnoreOtherMotionBones_LeavesTheirBonesAlone()
+        {
+            ParelMotionBone upper = MakeChain(out _);
+            Transform lower = upper.rootTransform.GetChild(0).GetChild(0);
+            var other = lower.gameObject.AddComponent<ParelMotionBone>();
+            Frame(upper, 1f / 90f);
+            Frame(other, 1f / 90f);
+            Assert.AreEqual(2, upper.ParticleCount);
+            Assert.AreEqual(2, other.ParticleCount);
         }
     }
 }

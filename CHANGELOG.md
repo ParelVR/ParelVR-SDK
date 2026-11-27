@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.30.0 (2026-11-27)
+
+### Motion Bones
+
+- **Same motion at every frame rate.** Motion Bones now simulate at a fixed 60 Hz, the rate Pull, Spring / Momentum,
+  Stiffness and Gravity are defined at, and frames between steps show the pose between the last two steps (in each
+  parent's space, so the chain still follows this frame's pose exactly). Before, the step followed the frame
+  length and Pull acted as a spring that got stiffer the shorter the step: about 1.5x at 90 fps, 2x in a 60 fps
+  editor and several times in an uncapped one, so the editor and the headset never matched. Measured on a shaken
+  chain: 45 / 60 / 72 / 90 / 120 / 144 fps now stay within 0.7-3.7 mm of 300 fps (before: 6-27 mm on a 120 mm swing).
+- **Ignore Other Motion Bones** (new, on by default, carried over when porting). A Motion Bone leaves any other
+  Motion Bone starting below it, and the bones that one moves, alone. Before, both simulated those bones and fought
+  over them every frame.
+- **Gravity Falloff** takes that share of Gravity off while a bone's rest is turned the way it was when the chain
+  was built (standing normally), and lets it back in as the rest turns away (head tilted, lying down). Falloff 1
+  leaves a modelled pose alone when standing, whichever way it points. Before, it only faded gravity on bones that
+  already hung down.
+- **1.1 Gravity** is how far the rest turns toward the ground (Gravity 0.5 = half way from the modelled direction to
+  straight down; negative = up), and Pull takes the bones there, so Gravity needs Pull. 1.0 Gravity still pushes.
+- **1.1 Stiffness** keeps that share of a bone in the direction it had the step before (turning with its parent).
+  1.0 Stiffness still keeps bones within a distance of their rest.
+- **Stretch & Squish:** 1.0 bones only change length when grabbed. In 1.1, Stretch Motion is the share of the
+  stretch / squish that motion asks for, and colliders may stretch / squish up to Max Stretch / Max Squish.
+- **Is Animated** off now ignores animation on the root bone too, except a humanoid root (Head, Chest...), which
+  keeps following animation and IK.
+- **Grab Movement** 0 brings a grabbed bone to the hand at Pull's pace, 1 puts it there at once.
+- Limit None no longer stops bones at 120°; only a bone turning straight back through its parent (170°) is held.
+- The limit cone is taken from the parent at each step's moment, so bones are not shown past their limit while the
+  parent turns.
+
 ## 1.29.3 (2026-11-27)
 
 ### World post-processing
@@ -350,7 +380,7 @@
 ### Auto Port
 
 - **Auto Port replaces other platforms' components instead of switching them off.** Avatar descriptors (view
-  position, lip sync, eye look, playable layers, colliders, Expressions), PhysBones and their colliders, contacts,
+  position, lip sync, eye look, playable layers, colliders, Expressions), bone physics and their colliders, contacts,
   head chop, spatial audio, stations, constraints (as Unity's own), animator state behaviours (parameter drivers,
   tracking / layer / locomotion control, pose space, play audio), Expressions menus and parameters (new ParelVR assets
   next to the originals), world descriptors and spawn points, pickups, object sync, mirrors, portals and video players
@@ -360,7 +390,7 @@
   scene, prefab or asset file. Project prefabs are ported in the prefab itself, so every copy is fixed. Missing scripts
   that belong to your own project are never touched, and nothing runs while the project has compile errors.
   Use **ParelVR SDK > Auto Port**, the scene scan's Auto Fix, or switch on Auto Port Content to run it before every
-  build. Undo takes it back. Convert PhysBones to Motion Bones now goes through it and removes the originals.
+  build. Undo takes it back. Convert to Motion Bones now goes through it and removes the originals.
 
 ### Volt: late joiners and global events
 
@@ -680,8 +710,8 @@ post-processing) is listed per material and per scene in the reports, so nothing
 
 ### Avatars
 
-- **Convert PhysBones to Motion Bones** (Avatar Tools): turns another platform's PhysBones and PhysBone colliders
-  into Motion Bones. That platform's SDK must still be in the project while you convert.
+- **Convert to Motion Bones** (Avatar Tools): turns another platform's bone physics and their colliders into
+  Motion Bones. That platform's SDK must still be in the project while you convert.
 - Eye rotation fields keep the angles you type (no more -10 turning into 350 while editing), and with Linked eyes
   the other eye shows the same rotation while one is turned.
 - The validator no longer flags hair chains as the jaw when Unity's rig maps the Jaw to a child of the head.

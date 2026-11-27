@@ -65,7 +65,7 @@ namespace ParelVR.AvatarSDK
             [Tooltip("Puppets: Two Axis = [Horizontal, Vertical], Four Axis = [Up, Right, Down, Left], Radial = [Rotation].")]
             public ControlParameter[] subParameters = Array.Empty<ControlParameter>();
 
-            [Tooltip("Puppet direction labels in VRChat order: Up, Right, Down, Left.")]
+            [Tooltip("Puppet direction labels, in order: Up, Right, Down, Left.")]
             public Label[] labels = Array.Empty<Label>();
 
             public string GetSubParameter(int index)

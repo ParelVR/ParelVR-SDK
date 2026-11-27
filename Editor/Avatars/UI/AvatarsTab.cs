@@ -396,8 +396,8 @@ namespace ParelVR.SDK.Avatars.UI
 
             // ---- Avatar Tools -----------------------------------------------------------------------
             VisualElement tools = Section(_builderBody, "Avatar Tools");
-            tools.Add(Hint("Coming from VRChat? Convert its PhysBones and PhysBone colliders to Motion Bones. The VRChat SDK must be in the project while you convert."));
-            tools.Add(SmallButton("Convert PhysBones to Motion Bones", ConvertPhysBones));
+            tools.Add(Hint("Coming from another platform? Convert its bone physics and colliders to Motion Bones. That platform's SDK must be in the project while you convert."));
+            tools.Add(SmallButton("Convert to Motion Bones", ConvertPhysBones));
 
             // ---- Validations ------------------------------------------------------------------------
             VisualElement validation = Section(_builderBody, "Validations");
@@ -785,22 +785,22 @@ namespace ParelVR.SDK.Avatars.UI
             if (_current == null) return;
 
             GameObject root = _current.gameObject;
-            if (!EditorUtility.DisplayDialog("Convert PhysBones",
-                $"Replace every PhysBone and PhysBone collider under '{root.name}' with Motion Bones (same settings) and remove the originals?",
+            if (!EditorUtility.DisplayDialog("Convert to Motion Bones",
+                $"Replace the other platform's bone physics and colliders under '{root.name}' with Motion Bones (same settings) and remove the originals?",
                 "Convert", "Cancel")) return;
 
             ParelPhysBoneConverter.Convert(root, true,
                 out int bones, out int colliders, out int found);
             if (found == 0)
             {
-                EditorUtility.DisplayDialog("Convert PhysBones", "No PhysBones were found on this avatar.", "OK");
+                EditorUtility.DisplayDialog("Convert to Motion Bones", "No bone physics from another platform were found on this avatar.", "OK");
                 return;
             }
 
             if (root.scene.IsValid()) EditorSceneManager.MarkSceneDirty(root.scene);
             Revalidate();
             QueueRefresh();
-            EditorUtility.DisplayDialog("Convert PhysBones",
+            EditorUtility.DisplayDialog("Convert to Motion Bones",
                 $"Converted {bones} bone chain(s) and {colliders} collider(s).", "OK");
         }
 
