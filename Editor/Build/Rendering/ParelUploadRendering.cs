@@ -178,10 +178,14 @@ namespace ParelVR.SDK.Build
                 if (volumeType != null && manager != null)
                 {
                     var seen = new HashSet<UnityEngine.Object>();
-                    string[] props = { "globalDefaultProfile", "qualityDefaultProfile" };
-                    for (int i = 0; i < props.Length; i++)
+                    // Read from the settings themselves first: VolumeManager only knows the profiles once the pipeline
+                    // has drawn, so an upload right after a pipeline switch found none and the world lost its post.
+                    var found = new List<ScriptableObject> { ProjectDefaultProfile(), managerType.GetProperty("globalDefaultProfile")?.GetValue(manager) as ScriptableObject,
+                        info.Asset != null ? info.Asset.GetType().GetProperty("volumeProfile")?.GetValue(info.Asset) as ScriptableObject : null,
+                        managerType.GetProperty("qualityDefaultProfile")?.GetValue(manager) as ScriptableObject };
+                    for (int i = 0; i < found.Count; i++)
                     {
-                        var profile = managerType.GetProperty(props[i])?.GetValue(manager) as ScriptableObject;
+                        var profile = found[i];
                         if (profile == null || !seen.Add(profile) || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(profile))) continue;
                         var v = new GameObject("Project Default Volume (" + profile.name + ")");
                         v.transform.SetParent(go.transform, false);
@@ -194,6 +198,7 @@ namespace ParelVR.SDK.Build
                         added++;
                     }
                 }
+                if (added == 0) Debug.LogWarning("[ParelVR SDK] Rendering: no default volume profile found; the world uploads without project-wide post-processing.");
                 // Ground fog and god rays drawn by the creator's own scripts / renderer features: a bundle carries no
                 // code, so the game draws them itself from these settings (URP; HDRP has its own fog and volumetrics).
                 if (pipeline == RenderPipelineKind.Universal)
@@ -309,6 +314,26 @@ namespace ParelVR.SDK.Build
                           "Your project's files were not changed. Report: " + Path.GetFullPath(file);
             if (report.HasErrors) Debug.LogWarning(line);
             else Debug.Log(line);
+        }
+
+        // Project Settings > Graphics > (URP / HDRP) > Default Volume Profile, read straight from the settings.
+        private static ScriptableObject ProjectDefaultProfile()
+        {
+            string[] names = { "UnityEngine.Rendering.Universal.URPDefaultVolumeProfileSettings, Unity.RenderPipelines.Universal.Runtime",
+                               "UnityEngine.Rendering.HighDefinition.HDRPDefaultVolumeProfileSettings, Unity.RenderPipelines.HighDefinition.Runtime" };
+            var get = typeof(GraphicsSettings).GetMethod("GetRenderPipelineSettings", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static, null, Type.EmptyTypes, null);
+            foreach (string n in names)
+            {
+                Type t = Type.GetType(n);
+                if (t == null || get == null) continue;
+                try
+                {
+                    object s = get.MakeGenericMethod(t).Invoke(null, null);
+                    if (s?.GetType().GetProperty("volumeProfile")?.GetValue(s) is ScriptableObject p) return p;
+                }
+                catch (Exception) { }
+            }
+            return null;
         }
     }
 }

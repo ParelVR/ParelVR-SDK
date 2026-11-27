@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.29.3 (2026-11-27)
+
+### World post-processing
+
+- **Worlds keep their project's post-processing on upload.** The project's Default Volume Profile (Project
+  Settings > Graphics > URP / HDRP) is now read straight from the graphics settings when a world uploads. Before,
+  the SDK asked the volume system for it, which only knows the profile once the pipeline has drawn a frame, so a
+  world uploaded right after opening the project or switching pipeline went up without its project-wide post.
+  The upload log now warns when no default profile can be found.
+
 ## 1.29.2 (2026-11-27)
 
 ### Local Portal In / Out
