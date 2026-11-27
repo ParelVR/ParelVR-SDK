@@ -115,13 +115,13 @@ namespace ParelVR.AvatarSDK
         // ---- Limits -------------------------------------------------------------------------
         [Tooltip("Angle: a cone around the rest direction. Hinge: swing in one plane only. Polar: a cone with separate X and Z widths.")]
         public LimitType limitType = LimitType.None;
-        [Range(0f, 180f), Tooltip("How far (degrees) a bone may swing away from its rest direction.")]
+        [Range(0f, 180f), Tooltip("How far (degrees) each bone may swing away from where it points at rest (Polar: the pitch, forward / back).")]
         public float maxAngleX = 45f;
         public AnimationCurve maxAngleXCurve;
-        [Range(0f, 90f), Tooltip("Polar only: how far (degrees) a bone may swing sideways.")]
+        [Range(0f, 90f), Tooltip("Polar only: how far (degrees) a bone may swing sideways (the yaw). 0 = not at all.")]
         public float maxAngleZ = 45f;
         public AnimationCurve maxAngleZCurve;
-        [Tooltip("Rotates the limit's axis / hinge plane.")]
+        [Tooltip("Turns the limit's cone / hinge plane away from the rest direction: X pitch, Y roll, Z yaw (Y runs along the bone).")]
         public Vector3 limitRotation;
 
         // ---- Collision ----------------------------------------------------------------------
@@ -174,11 +174,20 @@ namespace ParelVR.AvatarSDK
         /// </summary>
         [System.NonSerialized] public Vector3 ExternalForce;
 
+        /// <summary>A free bone swings; a pinned one sits on a parent that never turns (Multi-Child Ignore); a rigid one
+        /// turns with its parent (the other children under First / Average). Only free bones are simulated.</summary>
+        private const byte Free = 0, Pinned = 1, Rigid = 2;
+
         private struct Particle
         {
             public Transform Transform;
             public int Parent;
             public bool IsVirtual;
+            public byte Mode;
+            /// <summary>Last child of a Multi-Child Average bone: once it has moved, the whole group is lined up.</summary>
+            public bool EndsAverage;
+            /// <summary>This frame's limit frame for the bone ending here: Y = the cone's axis, Limit Rotation applied.</summary>
+            public Quaternion LimitFrame;
             public Vector3 EndOffset;
             public Vector3 InitLocalPosition;
             public Quaternion InitLocalRotation;
@@ -195,6 +204,12 @@ namespace ParelVR.AvatarSDK
 
         private Particle[] _particles = new Particle[0];
         private List<int>[] _children = new List<int>[0];
+        /// <summary>Every bone but the root, parents first and each bone's children next to each other.</summary>
+        private int[] _order = new int[0];
+        /// <summary>How far each bone's transform turns this step (what ApplyToTransforms will do to it).</summary>
+        private Quaternion[] _turn = new Quaternion[0];
+        /// <summary>The first simulated bone, read for the _Angle / _Stretch / _Squish parameters.</summary>
+        private int _paramIndex = 1;
         private int _count;
         private bool _built;
         private bool _needsReset = true;
@@ -264,7 +279,8 @@ namespace ParelVR.AvatarSDK
         {
             ParelMotionBoneSystem.Unregister(this);
             ReleaseGrab(false);
-            if (resetWhenDisabled) RestoreInitialPose();
+            // Nothing turns the root back once this stops running, so it is put back too.
+            if (resetWhenDisabled) RestoreInitialPose(true);
         }
 
         private void OnTransformParentChanged()
@@ -386,6 +402,51 @@ namespace ParelVR.AvatarSDK
                 _children[i] = new List<int>();
             }
             for (int i = 1; i < _count; i++) _children[_particles[i].Parent].Add(i);
+
+            // What the transforms can show decides what is simulated: a bone with several children that doesn't turn
+            // (Ignore) can't move its children, so they are pinned where they sit; under First the other children turn
+            // with the first one, under Average all of them turn together. Simulating them as free points let them
+            // swing away from bones that never followed, so the ears hanging off them passed every limit.
+            for (int i = 0; i < _count; i++)
+            {
+                List<int> kids = _children[i];
+                if (kids.Count < 2) continue;
+                switch (multiChildType)
+                {
+                    case MultiChildType.Ignore:
+                        foreach (int k in kids) _particles[k].Mode = Pinned;
+                        break;
+                    case MultiChildType.First:
+                        for (int k = 1; k < kids.Count; k++) _particles[kids[k]].Mode = Rigid;
+                        break;
+                    case MultiChildType.Average:
+                        _particles[kids[kids.Count - 1]].EndsAverage = true;
+                        break;
+                }
+            }
+
+            _order = new int[Mathf.Max(0, _count - 1)];
+            _turn = new Quaternion[_count];
+            int head = 0, tail = 0;
+            var queue = new int[_count];
+            queue[tail++] = 0;
+            while (head < tail)
+            {
+                int node = queue[head++];
+                foreach (int k in _children[node])
+                {
+                    queue[tail++] = k;
+                    _order[tail - 2] = k;
+                }
+            }
+
+            _paramIndex = 1;
+            for (int n = 0; n < _order.Length; n++)
+            {
+                if (_particles[_order[n]].Mode != Free) continue;
+                _paramIndex = _order[n];
+                break;
+            }
         }
 
         private void AddParticle(Transform t, int parent, int depth, List<Particle> particles, List<int> depths, HashSet<Transform> ignored)
@@ -418,9 +479,11 @@ namespace ParelVR.AvatarSDK
             }
         }
 
-        private void RestoreInitialPose()
+        /// <summary>Puts the bones back in their original local pose. The root is the anchor animation / IK place, so it
+        /// is only put back before animation runs, never after.</summary>
+        private void RestoreInitialPose(bool includeRoot = false)
         {
-            for (int i = 0; i < _count; i++)
+            for (int i = includeRoot ? 0 : 1; i < _count; i++)
             {
                 if (_particles[i].IsVirtual || _particles[i].Transform == null) continue;
                 _particles[i].Transform.localPosition = _particles[i].InitLocalPosition;
@@ -432,6 +495,16 @@ namespace ParelVR.AvatarSDK
         // Simulation (driven by ParelMotionBoneSystem once per frame, after animation and IK)
         // =========================================================================================
 
+        /// <summary>
+        /// Before animation runs: takes last frame's simulated pose off the bones, so animation (if any) lands on the
+        /// original pose and Is Animated reads a real rest pose. Without this, Is Animated bones nothing animates read
+        /// back their own swing as the rest pose every frame, so they drifted, never came back and ignored the limit.
+        /// </summary>
+        internal void BeforeAnimation()
+        {
+            if (_built && !_faulted && _count >= 2) RestoreInitialPose(true);
+        }
+
         /// <summary>Reads this frame's animated pose. False when there is nothing to simulate this frame.</summary>
         internal bool PrepareFrame()
         {
@@ -440,6 +513,7 @@ namespace ParelVR.AvatarSDK
             if (!_built) Build();
             if (_count < 2) return false;
 
+            // Not animated: the chain ignores animation (the root stays wherever animation / IK put it).
             if (!isAnimated) RestoreInitialPose();
 
             float scale = WorldScale();
@@ -465,6 +539,11 @@ namespace ParelVR.AvatarSDK
                 }
                 p.RestLength = p.Parent >= 0 ? Vector3.Distance(p.AnimPosition, _particles[p.Parent].AnimPosition) : 0f;
                 p.Radius = radius * Curve(radiusCurve, p.Depth01) * scale;
+                if (p.Parent >= 0 && p.RestLength > 1e-6f)
+                {
+                    ref Particle parent = ref _particles[p.Parent];
+                    p.LimitFrame = LimitFrameFor(parent.AnimRotation, (p.AnimPosition - parent.AnimPosition) / p.RestLength, limitRotation);
+                }
             }
 
             Transform owner = OwnerRoot;
@@ -585,10 +664,38 @@ namespace ParelVR.AvatarSDK
         private float WorldScale() => MaxAbs(Root.lossyScale);
 
         /// <summary>
-        /// Spring / Momentum as the share of the bone's own swing kept each 90 Hz step. The quarter power
-        /// spreads the slider out: 0 settles without overshoot, 0.3-0.5 bounces once or twice, 1 keeps going.
+        /// Spring / Momentum as how long a bone keeps wobbling: the swing fades to a third in this many seconds
+        /// (0 = no overshoot, 0.2 = about 0.1 s, 0.5 = 0.4 s, 0.7 = 0.7 s, 1 = 1.2 s), the same at every frame rate.
+        /// Pull sets how fast it swings back. The old per-step momentum lost most of the swing to Pull as well, so even
+        /// Spring 0.5 settled in under a tenth of a second and nothing ever looked like jelly.
         /// </summary>
-        private static float Momentum(float spring) => Mathf.Pow(Mathf.Clamp01(spring), 0.25f);
+        private static float WobbleSeconds(float spring)
+        {
+            float s = Mathf.Clamp01(spring);
+            return 1.2f * s * Mathf.Sqrt(s);
+        }
+
+        /// <summary>
+        /// The share of a bone's swing (relative to its moving rest) carried into the next step of length
+        /// <paramref name="h"/>, given the Pull share <paramref name="pullStep"/> taken off the same step.
+        /// </summary>
+        private static float Momentum(float spring, float pullStep, float h)
+        {
+            float wobble = WobbleSeconds(spring);
+            if (wobble <= 1e-4f || pullStep >= 0.999f) return 0f;
+            float keep = Mathf.Exp(-2f * h / wobble);
+            return Mathf.Min(keep / (1f - pullStep), 0.999f);
+        }
+
+        /// <summary>
+        /// The limit frame of a bone ending at a child: Y along the bone's rest direction (keeping the bone's own
+        /// roll), then turned by Limit Rotation (X pitch, Y roll, Z yaw) so the cone / hinge / polar points there.
+        /// </summary>
+        internal static Quaternion LimitFrameFor(Quaternion boneRotation, Vector3 restDirection, Vector3 limitRotation)
+        {
+            Quaternion aligned = Quaternion.FromToRotation(boneRotation * Vector3.up, restDirection) * boneRotation;
+            return limitRotation == Vector3.zero ? aligned : aligned * Quaternion.Euler(limitRotation);
+        }
 
         private static float MaxAbs(Vector3 s) => Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
 
@@ -636,35 +743,55 @@ namespace ParelVR.AvatarSDK
             root.Position = Vector3.LerpUnclamped(rootFrom, root.AnimPosition, t);
 
             float frameScale = h * 60f;
-            // Momentum is tuned per 90 Hz step; raising it to the step ratio keeps the same decay per second,
-            // and scaling by the step change keeps the velocity when the step length changes.
-            float stepRatio = h / StepSeconds;
+            // Scaling by the step change keeps the velocity when the step length changes.
             float carry = h / _lastStep;
             _lastStep = h;
-            float simplified = integrationType == IntegrationType.Simplified ? 0.95f : 1f;
-            bool momentumCurve = springCurve != null && springCurve.length > 0;
-            float baseMomentum = Mathf.Pow(Momentum(spring) * simplified, stepRatio);
+            bool springCurved = springCurve != null && springCurve.length > 0;
+            bool pullCurved = pullCurve != null && pullCurve.length > 0;
+            float basePullStep = 1f - Mathf.Pow(1f - Mathf.Clamp01(pull), frameScale);
+            float baseMomentum = Momentum(spring, basePullStep, h);
             // Switching between posed and free rest moves the rest in one jump; that isn't movement to follow.
             bool restJump = _restPosed != _posed;
             _restPosed = _posed;
             bool pushed = ExternalForce != Vector3.zero;
             Transform poseSpace = PoseSpace;
+            _turn[0] = Quaternion.identity;
 
-            for (int i = 1; i < _count; i++)
+            for (int n = 0; n < _order.Length; n++)
             {
+                int i = _order[n];
                 ref Particle p = ref _particles[i];
                 ref Particle parent = ref _particles[p.Parent];
                 float depth = p.Depth01;
 
                 Vector3 animOffset = p.AnimPosition - parent.AnimPosition;
+                // How the parent's own parent turned: a parent that doesn't turn itself still carries that turn.
+                Quaternion inherited = parent.Parent >= 0 ? _turn[parent.Parent] : Quaternion.identity;
+
+                if (p.Mode == Pinned)
+                {
+                    // On a bone with several children that doesn't turn (Ignore): stays where that bone holds it.
+                    _turn[p.Parent] = inherited;
+                    Hold(ref p, parent.Position + inherited * animOffset);
+                    continue;
+                }
+                if (p.Mode == Rigid)
+                {
+                    // Under First: turns with the parent, which turned toward its first child (moved just before).
+                    Hold(ref p, parent.Position + _turn[p.Parent] * animOffset);
+                    continue;
+                }
+
                 Vector3 restPosition = _posed ? poseSpace.TransformPoint(p.PosedLocal) : parent.Position + animOffset;
+                float pullAmount = _posed ? 1f : Mathf.Clamp01(pull * Curve(pullCurve, depth));
+                float pullStep = pullCurved || _posed ? 1f - Mathf.Pow(1f - pullAmount, frameScale) : basePullStep;
+                float momentum = springCurved || pullCurved || _posed ? Momentum(spring * Curve(springCurve, depth), pullStep, h) : baseMomentum;
 
                 // Momentum (verlet), damped against the rest pose's own movement rather than the world: the
                 // body moving steadily carries the bone along, and only speeding up, stopping and turning make
                 // it swing. Damping world speed instead left loose bones dragging behind and folding over.
                 Vector3 restMove = restJump ? Vector3.zero : restPosition - p.LastRest;
                 p.LastRest = restPosition;
-                float momentum = momentumCurve ? Mathf.Pow(Momentum(spring * Curve(springCurve, depth)) * simplified, stepRatio) : baseMomentum;
                 Vector3 velocity = restMove + ((p.Position - p.PrevPosition) * carry - restMove) * momentum;
                 p.PrevPosition = p.Position;
                 p.Position += velocity;
@@ -681,8 +808,6 @@ namespace ParelVR.AvatarSDK
                 if (pushed) p.Position += ExternalForce * (p.RestLength * GravityStrength * frameScale);
 
                 // Pull back toward the rest (or posed) position.
-                float pullAmount = _posed ? 1f : Mathf.Clamp01(pull * Curve(pullCurve, depth));
-                float pullStep = 1f - Mathf.Pow(1f - pullAmount, frameScale);
                 p.Position += (restPosition - p.Position) * pullStep;
 
                 // Stiffness (Advanced): don't stray far from the rest angle.
@@ -707,9 +832,52 @@ namespace ParelVR.AvatarSDK
                     ApplyLimit(ref p, ref parent, animOffset);
                     ApplyLength(ref p, ref parent, animOffset);
                 }
+
+                // How the parent bone turns to follow (ApplyToTransforms aims it the same way).
+                List<int> siblings = _children[p.Parent];
+                if (siblings[0] == i && (siblings.Count == 1 || multiChildType == MultiChildType.First))
+                {
+                    _turn[p.Parent] = Quaternion.FromToRotation(inherited * animOffset, p.Position - parent.Position) * inherited;
+                }
+                else if (p.EndsAverage)
+                {
+                    LineUpAverage(p.Parent, inherited);
+                }
             }
 
             if (_grabIndex > 0 && _grabIndex < _count) ApplyGrab();
+        }
+
+        /// <summary>Puts a bone that isn't simulated exactly where its parent's turn holds it.</summary>
+        private static void Hold(ref Particle p, Vector3 position)
+        {
+            p.Position = position;
+            p.PrevPosition = position;
+            p.LastRest = position;
+        }
+
+        /// <summary>
+        /// Multi-Child Average: the parent turns toward the average of its children, so they all turn with it as one
+        /// piece (each child keeping its place on the parent) instead of drifting apart from bones that can't follow.
+        /// </summary>
+        private void LineUpAverage(int parentIndex, Quaternion inherited)
+        {
+            ref Particle parent = ref _particles[parentIndex];
+            List<int> kids = _children[parentIndex];
+            Vector3 from = Vector3.zero;
+            Vector3 to = Vector3.zero;
+            foreach (int k in kids)
+            {
+                from += inherited * (_particles[k].AnimPosition - parent.AnimPosition);
+                to += _particles[k].Position - parent.Position;
+            }
+            Quaternion turn = from.sqrMagnitude > 1e-12f && to.sqrMagnitude > 1e-12f ? Quaternion.FromToRotation(from, to) * inherited : inherited;
+            _turn[parentIndex] = turn;
+            foreach (int k in kids)
+            {
+                ref Particle child = ref _particles[k];
+                child.Position = parent.Position + turn * (child.AnimPosition - parent.AnimPosition);
+            }
         }
 
         private void ApplyLimit(ref Particle p, ref Particle parent, Vector3 animOffset)
@@ -721,14 +889,17 @@ namespace ParelVR.AvatarSDK
             if (length <= 1e-6f) return;
             dir /= length;
 
-            Quaternion frame = parent.AnimRotation * Quaternion.Euler(limitRotation);
-            Vector3 axis = animOffset / p.RestLength;
             float maxX = maxAngleX * Curve(maxAngleXCurve, p.Depth01);
+            // The limit frame (from PrepareFrame): Y = the cone's axis, i.e. the rest direction turned by Limit
+            // Rotation. Angle and Polar used to ignore Limit Rotation and sat on the bare rest direction.
+            Quaternion frame = p.LimitFrame;
+            Vector3 cone = frame * Vector3.up;
 
             switch (limitType)
             {
                 case LimitType.None:
                 {
+                    Vector3 axis = animOffset / p.RestLength;
                     float swing = Vector3.Angle(axis, dir);
                     if (swing <= MaxSwingDegrees) return;
                     dir = Vector3.Slerp(axis, dir, MaxSwingDegrees / swing);
@@ -736,40 +907,48 @@ namespace ParelVR.AvatarSDK
                 }
                 case LimitType.Angle:
                 {
-                    float angle = Vector3.Angle(axis, dir);
-                    if (angle > maxX) dir = Vector3.Slerp(axis, dir, maxX / angle);
+                    float angle = Vector3.Angle(cone, dir);
+                    if (angle <= maxX) return;
+                    dir = Vector3.Slerp(cone, dir, maxX / angle);
                     break;
                 }
                 case LimitType.Hinge:
                 {
-                    Vector3 hingeNormal = frame * Vector3.right;
-                    Vector3 planar = Vector3.ProjectOnPlane(dir, hingeNormal);
-                    if (planar.sqrMagnitude < 1e-8f) planar = axis;
+                    // Swings in one plane (pitch): the frame's X is the hinge.
+                    Vector3 planar = Vector3.ProjectOnPlane(dir, frame * Vector3.right);
+                    if (planar.sqrMagnitude < 1e-8f) planar = cone;
                     planar.Normalize();
-                    float angle = Vector3.Angle(axis, planar);
-                    dir = angle > maxX ? Vector3.Slerp(axis, planar, maxX / angle) : planar;
+                    float angle = Vector3.Angle(cone, planar);
+                    dir = angle > maxX ? Vector3.Slerp(cone, planar, maxX / angle) : planar;
                     break;
                 }
                 case LimitType.Polar:
                 {
+                    // An ellipse: Max Angle X is the pitch (toward the frame's Z, the same plane Hinge swings in),
+                    // Max Angle Z the yaw (toward its X). 0 on either locks that way.
                     float maxZ = maxAngleZ * Curve(maxAngleZCurve, p.Depth01);
-                    Vector3 xAxis = Vector3.ProjectOnPlane(frame * Vector3.right, axis).normalized;
-                    if (xAxis.sqrMagnitude < 1e-8f) break;
-                    Vector3 zAxis = Vector3.Cross(xAxis, axis);
-                    float ly = Vector3.Dot(dir, axis);
-                    float ax = Mathf.Atan2(Vector3.Dot(dir, xAxis), ly) * Mathf.Rad2Deg;
-                    float az = Mathf.Atan2(Vector3.Dot(dir, zAxis), ly) * Mathf.Rad2Deg;
-                    float rx = maxX > 0.01f ? ax / maxX : 0f;
-                    float rz = maxZ > 0.01f ? az / maxZ : 0f;
-                    float e = rx * rx + rz * rz;
+                    Vector3 pitchAxis = frame * Vector3.forward;
+                    Vector3 yawAxis = frame * Vector3.right;
+                    float ly = Vector3.Dot(dir, cone);
+                    float pitch = Mathf.Atan2(Vector3.Dot(dir, pitchAxis), ly) * Mathf.Rad2Deg;
+                    float yaw = Mathf.Atan2(Vector3.Dot(dir, yawAxis), ly) * Mathf.Rad2Deg;
+                    bool changed = false;
+                    if (maxX < 0.01f && pitch != 0f) { pitch = 0f; changed = true; }
+                    if (maxZ < 0.01f && yaw != 0f) { yaw = 0f; changed = true; }
+                    float rp = maxX >= 0.01f ? pitch / maxX : 0f;
+                    float ry = maxZ >= 0.01f ? yaw / maxZ : 0f;
+                    float e = rp * rp + ry * ry;
                     if (e > 1f)
                     {
                         float k = 1f / Mathf.Sqrt(e);
-                        ax *= k;
-                        az *= k;
-                        Vector3 rebuilt = axis + xAxis * Mathf.Tan(ax * Mathf.Deg2Rad) + zAxis * Mathf.Tan(az * Mathf.Deg2Rad);
-                        dir = rebuilt.normalized;
+                        pitch *= k;
+                        yaw *= k;
+                        changed = true;
                     }
+                    if (!changed) return;
+                    pitch = Mathf.Clamp(pitch, -89f, 89f);
+                    yaw = Mathf.Clamp(yaw, -89f, 89f);
+                    dir = (cone + pitchAxis * Mathf.Tan(pitch * Mathf.Deg2Rad) + yawAxis * Mathf.Tan(yaw * Mathf.Deg2Rad)).normalized;
                     break;
                 }
             }
@@ -837,6 +1016,7 @@ namespace ParelVR.AvatarSDK
             int best = -1;
             for (int i = 1; i < _count; i++)
             {
+                if (_particles[i].Mode != Free) continue;
                 float d = Vector3.Distance(_particles[i].Position, point) - _particles[i].Radius;
                 if (d <= reach && d < distance)
                 {
@@ -889,10 +1069,12 @@ namespace ParelVR.AvatarSDK
             grabbed.Position = Vector3.Lerp(grabbed.Position, _grabTarget, follow);
             grabbed.PrevPosition = grabbed.Position;
 
-            // FABRIK along the path root -> grabbed bone so the whole chain bends toward the hand.
+            // FABRIK along the path anchor -> grabbed bone so the whole chain bends toward the hand. The anchor is the
+            // root, or the nearest bone above that isn't simulated (pinned / rigid), which a hand can't move either.
             var path = ParelMotionBoneSystem.PathBuffer;
             path.Clear();
-            for (int k = _grabIndex; k > 0; k = _particles[k].Parent) path.Add(k);
+            for (int k = _grabIndex; k > 0 && _particles[k].Mode == Free; k = _particles[k].Parent) path.Add(k);
+            if (path.Count == 0) return;
 
             for (int n = 0; n < path.Count - 1; n++)
             {
@@ -980,8 +1162,8 @@ namespace ParelVR.AvatarSDK
                 _sink.SetParameter(parameter + "_IsPosed", _posed ? 1f : 0f, ParelParameterSource.MotionBone);
             }
 
-            ref Particle first = ref _particles[1];
-            ref Particle root = ref _particles[0];
+            ref Particle first = ref _particles[Mathf.Clamp(_paramIndex, 1, _count - 1)];
+            ref Particle root = ref _particles[first.Parent];
             Vector3 now = first.Position - root.Position;
             Vector3 rest = first.AnimPosition - root.AnimPosition;
             float angle = now.sqrMagnitude > 1e-12f && rest.sqrMagnitude > 1e-12f ? Vector3.Angle(rest, now) / 180f : 0f;
@@ -1026,26 +1208,55 @@ namespace ParelVR.AvatarSDK
                 return;
             }
 
-            DrawEditorChain(Root, 0);
+            DrawEditorChain(Root, 0, Mathf.Max(1, ChainDepth(Root, 0)));
         }
 
-        private void DrawEditorChain(Transform t, int depth)
+        private bool Ignored(Transform t) => ignoreTransforms != null && ignoreTransforms.Contains(t);
+
+        private int SimulatedChildCount(Transform t)
         {
-            if (t == null || depth > 64) return;
+            int n = 0;
+            for (int c = 0; c < t.childCount; c++) if (!Ignored(t.GetChild(c))) n++;
+            return n;
+        }
+
+        private int ChainDepth(Transform t, int depth)
+        {
+            if (t == null || depth > 64) return depth;
+            int deepest = depth;
+            int kids = 0;
             for (int c = 0; c < t.childCount; c++)
             {
                 Transform child = t.GetChild(c);
-                if (ignoreTransforms != null && ignoreTransforms.Contains(child)) continue;
+                if (Ignored(child)) continue;
+                kids++;
+                deepest = Mathf.Max(deepest, ChainDepth(child, depth + 1));
+            }
+            if (kids == 0 && endpointPosition != Vector3.zero) deepest = depth + 1;
+            return deepest;
+        }
+
+        /// <summary>Edit-mode chain: bones, radii, and each moving bone's limit at its own depth (curves applied).
+        /// Children of a bone with several children under Ignore don't move, so they get no cone.</summary>
+        private void DrawEditorChain(Transform t, int depth, int maxDepth)
+        {
+            if (t == null || depth > 64) return;
+            bool fixedKids = multiChildType == MultiChildType.Ignore && SimulatedChildCount(t) > 1;
+            for (int c = 0; c < t.childCount; c++)
+            {
+                Transform child = t.GetChild(c);
+                if (Ignored(child)) continue;
+                float depth01 = (float)(depth + 1) / maxDepth;
                 Gizmos.DrawLine(t.position, child.position);
-                if (radius > 0f) Gizmos.DrawWireSphere(child.position, radius * Curve(radiusCurve, Mathf.Clamp01(depth / 8f)) * Mathf.Max(0.0001f, child.lossyScale.x));
-                if (limitType != LimitType.None && limitOpacity > 0f) DrawLimit(t, child);
-                DrawEditorChain(child, depth + 1);
+                if (radius > 0f) Gizmos.DrawWireSphere(child.position, radius * Curve(radiusCurve, depth01) * Mathf.Max(0.0001f, MaxAbs(Root.lossyScale)));
+                if (!fixedKids && limitType != LimitType.None && limitOpacity > 0f) DrawLimit(t, child, depth01);
+                DrawEditorChain(child, depth + 1, maxDepth);
             }
             if (t.childCount == 0 && endpointPosition != Vector3.zero) Gizmos.DrawLine(t.position, t.TransformPoint(endpointPosition));
         }
 
         /// <summary>Draws the limit cone (Angle / Polar) or fan (Hinge) for one bone in the Scene view.</summary>
-        private void DrawLimit(Transform parent, Transform child)
+        private void DrawLimit(Transform parent, Transform child, float depth01)
         {
             Vector3 axis = child.position - parent.position;
             float length = axis.magnitude;
@@ -1053,28 +1264,36 @@ namespace ParelVR.AvatarSDK
             axis /= length;
             Color previous = Gizmos.color;
             Gizmos.color = new Color(0.4f, 0.75f, 1f, Mathf.Clamp01(limitOpacity));
-            Quaternion frame = parent.rotation * Quaternion.Euler(limitRotation);
-            Vector3 side = Vector3.ProjectOnPlane(frame * Vector3.right, axis).normalized;
-            if (side.sqrMagnitude < 1e-6f) side = Vector3.Cross(axis, Vector3.up).normalized;
-            Vector3 other = Vector3.Cross(axis, side);
+            // The same frame the simulation limits against: the rest direction turned by Limit Rotation.
+            Quaternion frame = LimitFrameFor(parent.rotation, axis, limitRotation);
+            Vector3 cone = frame * Vector3.up;
+            Vector3 yawAxis = frame * Vector3.right;
+            Vector3 pitchAxis = frame * Vector3.forward;
             const int segments = 16;
             Vector3 last = Vector3.zero;
             for (int i = 0; i <= segments; i++)
             {
                 float t = (float)i / segments * Mathf.PI * 2f;
-                float angleX = maxAngleX;
-                float angleZ = limitType == LimitType.Polar ? maxAngleZ : maxAngleX;
+                float pitch = maxAngleX * Curve(maxAngleXCurve, depth01);
+                float yaw = limitType == LimitType.Polar ? maxAngleZ * Curve(maxAngleZCurve, depth01) : pitch;
                 Vector3 dir;
                 if (limitType == LimitType.Hinge)
                 {
-                    float a = Mathf.Lerp(-angleX, angleX, (float)i / segments) * Mathf.Deg2Rad;
-                    dir = axis * Mathf.Cos(a) + other * Mathf.Sin(a);
+                    float a = Mathf.Lerp(-pitch, pitch, (float)i / segments) * Mathf.Deg2Rad;
+                    dir = cone * Mathf.Cos(a) + pitchAxis * Mathf.Sin(a);
+                }
+                else if (limitType == LimitType.Angle)
+                {
+                    // A round cone: every direction exactly Max Angle from the axis.
+                    Vector3 rim = yawAxis * Mathf.Cos(t) + pitchAxis * Mathf.Sin(t);
+                    float a = Mathf.Min(pitch, 179f) * Mathf.Deg2Rad;
+                    dir = cone * Mathf.Cos(a) + rim * Mathf.Sin(a);
                 }
                 else
                 {
-                    float ax = Mathf.Cos(t) * angleX * Mathf.Deg2Rad;
-                    float az = Mathf.Sin(t) * angleZ * Mathf.Deg2Rad;
-                    dir = (axis + side * Mathf.Tan(Mathf.Clamp(ax, -1.4f, 1.4f)) + other * Mathf.Tan(Mathf.Clamp(az, -1.4f, 1.4f))).normalized;
+                    float ap = Mathf.Sin(t) * pitch * Mathf.Deg2Rad;
+                    float ay = Mathf.Cos(t) * yaw * Mathf.Deg2Rad;
+                    dir = (cone + pitchAxis * Mathf.Tan(Mathf.Clamp(ap, -1.55f, 1.55f)) + yawAxis * Mathf.Tan(Mathf.Clamp(ay, -1.55f, 1.55f))).normalized;
                 }
                 Vector3 point = parent.position + dir * length * 0.6f;
                 if (i > 0) Gizmos.DrawLine(last, point);

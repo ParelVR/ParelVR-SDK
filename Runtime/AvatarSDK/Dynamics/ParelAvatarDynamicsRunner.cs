@@ -24,6 +24,19 @@ namespace ParelVR.AvatarSDK
             _instance = go.AddComponent<ParelAvatarDynamicsRunner>();
         }
 
+        // Last of the Updates, before the Animator: Motion Bones drop last frame's simulated pose.
+        private void Update()
+        {
+            try
+            {
+                ParelMotionBoneSystem.BeforeAnimation();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
         private void LateUpdate()
         {
             float dt = Time.deltaTime;

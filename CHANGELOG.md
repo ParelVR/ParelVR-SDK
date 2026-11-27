@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.29.0 (2026-11-26)
+
+### Motion Bones
+
+- **Angle limits hold.** A hard head shake used to throw bones far past their limit (ears limited to 25° swung
+  past 100°) and leave them there. Checked against an avatar's real ear setup: no frame passes the limit now, at
+  90, 72 and 45 fps.
+- **Is Animated works when nothing animates the bones.** Every frame, before animation runs, Motion Bones now put
+  their bones back in their original pose, so animation lands on a clean pose and the rest pose is real. Before,
+  Is Animated bones that no clip moves read their own last swing back as the rest pose. They drifted, ignored the
+  limit and never came back after walking or shaking.
+- **Multi-Child Type follows what the bones can show.** Ignore: the children of a bone with several children stay
+  where that bone holds them. They used to be simulated as free points that bones could not follow, which threw
+  the chains under them (ears under a Head or Ears root) past every limit. First: the other children turn with
+  the parent. Average: all children turn with the parent together.
+- **Spring / Momentum is how long a bone keeps wobbling:** 0 settles with no overshoot, 0.2 in about 0.1 s,
+  0.5 in about 0.4 s, 0.7 in about 0.7 s, 1 in about 1.2 s, at any frame rate. Pull sets how fast it swings back.
+  Before, Pull also ate most of the swing, so even Spring 0.5 stopped in under a tenth of a second. Chains tuned
+  with a high Spring now bounce longer. Lower Spring if they're too bouncy.
+- **Limit Rotation turns Angle and Polar limits** (X pitch, Y roll, Z yaw, with Y along the bone). It used to do
+  nothing for them. The Scene view cone now shows the exact limit used, with the Max Angle curves applied bone
+  by bone, and bones that can't move get no cone.
+- **Polar:** Max Angle X is the pitch (forward / back, the plane Hinge swings in), Max Angle Z is the yaw
+  (sideways). They were swapped. 0 on either now locks that direction instead of leaving it free.
+- The root bone is no longer reset to its original pose after animation, so a Motion Bone rooted on an animated
+  bone (Head, Chest, Hips) with Is Animated off no longer freezes that bone.
+- `_Angle`, `_Stretch` and `_Squish` read the first bone that moves. Under an Ignore root that was a pinned bone,
+  so they never changed.
+- Grabbing bends the chain only up to the nearest bone that can't move.
+
 ## 1.28.0 (2026-11-26)
 
 ### Portals of any shape

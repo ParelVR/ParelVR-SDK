@@ -137,6 +137,32 @@ namespace ParelVR.AvatarSDK
             return false;
         }
 
+        /// <summary>
+        /// Runs before animation each frame (the runner's Update): takes last frame's simulated pose off every
+        /// Motion Bone so animation lands on the original pose and the simulation reads a true rest pose.
+        /// </summary>
+        internal static void BeforeAnimation()
+        {
+            for (int i = Bones.Count - 1; i >= 0; i--)
+            {
+                ParelMotionBone bone = Bones[i];
+                if (bone == null)
+                {
+                    Bones.RemoveAt(i);
+                    continue;
+                }
+                if (!bone.isActiveAndEnabled) continue;
+                try
+                {
+                    bone.BeforeAnimation();
+                }
+                catch (Exception e)
+                {
+                    Report(bone, e);
+                }
+            }
+        }
+
         internal static void Simulate(float deltaTime)
         {
             if (deltaTime <= 0f) return;

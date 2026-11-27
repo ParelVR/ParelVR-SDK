@@ -54,7 +54,79 @@ namespace ParelVR.SDK.Tests
 
         private static void Frame(ParelMotionBone bone, float deltaTime)
         {
+            bone.BeforeAnimation();
             if (bone.PrepareFrame()) bone.Simulate(deltaTime, bone.colliders);
+        }
+
+        private static float BoneAngle(Transform bone, Vector3 restDirection) =>
+            Vector3.Angle(bone.GetChild(0).position - bone.position, restDirection);
+
+        [Test]
+        public void IsAnimated_UnanimatedBonesComeBack()
+        {
+            ParelMotionBone bone = MakeChain(out _);
+            bone.isAnimated = true;
+            bone.limitType = ParelMotionBone.LimitType.Angle;
+            bone.maxAngleX = 30f;
+            bone.ExternalForce = Vector3.up * 2f;
+            Run(bone, 1f, 90f);
+            Assert.That(BoneAngle(bone.Root, Vector3.right), Is.LessThan(31f), "Is Animated pushed past its limit");
+
+            bone.ExternalForce = Vector3.zero;
+            Run(bone, 2f, 90f);
+            Assert.That(BoneAngle(bone.Root, Vector3.right), Is.LessThan(1f), "Is Animated bone stayed where it was pushed");
+        }
+
+        [Test]
+        public void IgnoreRoot_ChildBonesStayOnTheRoot()
+        {
+            ParelMotionBone bone = MakeChain(out Transform holder);
+            Transform second = new GameObject("Branch").transform;
+            second.SetParent(bone.Root, false);
+            second.localPosition = Vector3.forward * BoneLength;
+            new GameObject("BranchTip").transform.SetParent(second, false);
+            second.GetChild(0).localPosition = Vector3.forward * BoneLength;
+            bone.multiChildType = ParelMotionBone.MultiChildType.Ignore;
+            bone.limitType = ParelMotionBone.LimitType.Angle;
+            bone.maxAngleX = 20f;
+            Run(bone, 0.2f, 90f);
+
+            Transform first = bone.Root.GetChild(0);
+            for (int i = 0; i < 90; i++)
+            {
+                holder.position = Vector3.up * (0.1f * Mathf.Sin(i * 0.6f));
+                Frame(bone, 1f / 90f);
+                Assert.That(Vector3.Distance(first.position, holder.position + Vector3.right * BoneLength), Is.LessThan(1e-4f), "child of an unturned root moved");
+                Assert.That(BoneAngle(first, Vector3.right), Is.LessThan(21f), $"frame {i} bent past the limit");
+            }
+        }
+
+        [Test]
+        public void LimitRotation_TurnsTheCone()
+        {
+            ParelMotionBone bone = MakeChain(out _);
+            bone.limitType = ParelMotionBone.LimitType.Angle;
+            bone.maxAngleX = 10f;
+            bone.limitRotation = new Vector3(0f, 0f, 40f);
+            Run(bone, 1f, 90f);
+            // The rest direction sits outside the turned cone, so the bone rests on its edge, 30° from rest.
+            Assert.That(BoneAngle(bone.Root, Vector3.right), Is.InRange(29f, 31f));
+        }
+
+        [Test]
+        public void Polar_PitchAndYawHaveTheirOwnLimits()
+        {
+            foreach ((Vector3 push, float limit) in new[] { (Vector3.up * 3f, 40f), (Vector3.forward * 3f, 10f) })
+            {
+                ParelMotionBone bone = MakeChain(out _);
+                bone.limitType = ParelMotionBone.LimitType.Polar;
+                bone.maxAngleX = 10f;
+                bone.maxAngleZ = 40f;
+                bone.pull = 0.05f;
+                bone.ExternalForce = push;
+                Run(bone, 2f, 90f);
+                Assert.That(BoneAngle(bone.Root, Vector3.right), Is.InRange(limit - 2f, limit + 1f), push.ToString());
+            }
         }
 
         private static Vector3 Tip(ParelMotionBone bone) => bone.ParticlePosition(bone.ParticleCount - 1);
